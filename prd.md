@@ -1,0 +1,602 @@
+# Sistem Pelacakan Pengajuan SLA Cabang, Korwil, dan Pusat
+
+**Product Requirements Document**
+
+| Informasi | Nilai |
+|---|---|
+| Versi | 0.9 - Draft validasi bisnis |
+| Tanggal | 4 November 2026 |
+| Pemilik proses | Perlu ditetapkan |
+| Pengguna utama | Pengguna Cabang, Korwil, Divisi Pusat, Supervisor, Admin, dan Manajemen |
+| Status | Draft kebutuhan MVP; stack aplikasi telah dipilih |
+
+Dokumen ini menjelaskan sistem pengajuan dari Cabang ke Korwil dan Divisi Pusat. Sistem memakai satu nomor pengajuan untuk seluruh proses, mencatat setiap perpindahan, dan menghitung waktu berdasarkan unit yang sedang memegang pengajuan.
+
+Daftar awal sembilan Divisi Pusat sudah dicatat. Aturan bisnis yang belum disahkan, seperti daftar pekerjaan tiap divisi, target SLA, dan hak persetujuan, ditandai sebagai keputusan yang perlu ditetapkan. Sistem tidak boleh menganggap nilai tersebut sudah final sebelum admin atau pemilik proses mengisinya.
+
+## Ringkasan keputusan produk
+
+| Area | Keputusan saat ini |
+|---|---|
+| Backend | Node.js + Express + TypeScript sebagai REST API |
+| Frontend | SvelteKit sebagai aplikasi frontend terpisah |
+| UI | shadcn-svelte dan Tailwind CSS, dengan gaya admin yang bersih dan padat |
+| Database | MySQL |
+| Login | SSO perusahaan melalui API yang diberikan; app code `simpeg` dipakai sementara |
+| Hak akses organisasi | Admin menetapkan role/status. Scope Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO, bukan pilihan scope manual |
+| Struktur organisasi | 28 Cabang, 4 Korwil, dan 9 Divisi Pusat |
+| Jalur utama | Cabang mengirim ke Korwil. Korwil menyelesaikan atau meneruskan ke Divisi Pusat |
+| Pemilihan tujuan | Cabang memilih kewenangan. Jika memilih Pusat, Cabang memilih Divisi Pusat dan jenis pekerjaan dari dropdown |
+| Waktu tiket | Umur total dimulai saat Cabang mengirim dan berakhir saat selesai/ditolak; sesi tiap unit mengikuti aturan awal timer per jalur |
+| Jam SLA | Berjalan terus selama 24 jam. Jam kerja dan kalender hari libur belum dipakai pada MVP |
+| Sesi proses | Setiap pengiriman ke unit membuat sesi baru. Sesi lama tidak dihapus atau di-reset |
+| Akumulasi waktu | Waktu unit dijumlahkan dari semua sesi unit tersebut |
+| Revisi berkas | Cabang melengkapi tiket yang sama dan mengirim kembali langsung ke unit yang meminta; timer unit itu dimulai sebagai sesi baru |
+| Revisi substansi | Jika isi pengajuan berubah secara material, pengajuan kembali ke Korwil untuk diperiksa ulang |
+| Kredit | Pengajuan di bawah Rp500 juta ditangani Korwil. Pengajuan di atas Rp500 juta melalui Korwil ke Pemasaran |
+
+## 1. Latar belakang dan masalah
+
+Pengajuan Cabang dapat selesai di Korwil atau membutuhkan tindak lanjut Divisi Pusat. Saat ini proses akan sulit dipantau jika perpindahan unit, permintaan kelengkapan, dan waktu penyelesaian tidak tercatat dalam satu histori.
+
+Sistem harus menjawab pertanyaan berikut pada setiap pengajuan:
+
+- Pengajuan berasal dari Cabang mana dan berada di bawah Korwil mana?
+- Pengajuan sedang berada di antrean unit mana?
+- Siapa yang sudah mengambil atau sedang memprosesnya?
+- Berapa lama pengajuan berada di Korwil, Cabang, dan Divisi Pusat?
+- Mengapa pengajuan dikembalikan dan ke tahap mana pengajuan harus dilanjutkan?
+- Apakah waktu unit sudah melewati target SLA?
+
+## 2. Tujuan
+
+- Menyediakan satu tempat untuk membuat dan melacak pengajuan.
+- Mengarahkan pengajuan ke Korwil berdasarkan kode kantor Cabang.
+- Membantu Cabang memilih Divisi Pusat dan jenis pekerjaan yang sesuai.
+- Menampilkan antrean kerja yang hanya berisi pengajuan untuk unit terkait.
+- Menyimpan histori lengkap setiap pengiriman, pengambilan, pengembalian, revisi, dan penyelesaian.
+- Menghitung waktu total pengajuan dan akumulasi waktu setiap unit.
+- Membantu supervisor menemukan pengajuan yang belum diambil atau sudah melewati SLA.
+
+## 3. Ruang lingkup MVP
+
+### Termasuk
+
+- Login dan hak akses berdasarkan peran serta cakupan organisasi.
+- Master Korwil dan Cabang.
+- Pemetaan 28 kode kantor ke 4 Korwil.
+- Master Divisi Pusat.
+- Katalog jenis pekerjaan untuk setiap Divisi Pusat.
+- Form pengajuan dengan pilihan kewenangan, Divisi Pusat, dan jenis pekerjaan yang saling terkait.
+- Routing otomatis Cabang ke Korwil.
+- Persetujuan atau proses Korwil.
+- Penerusan pengajuan dari Korwil ke Divisi Pusat.
+- Antrean, tombol Ambil, penugasan, komentar, dan lampiran.
+- Pengembalian untuk melengkapi berkas atau pemeriksaan ulang.
+- Timer SLA 24 jam dan akumulasi sesi per unit.
+- Timeline pengajuan dan audit log.
+- Dashboard Cabang, Korwil, Divisi Pusat, Supervisor, dan Admin.
+- Notifikasi dasar di dalam aplikasi.
+
+### Belum termasuk
+
+- Kalender jam kerja dan hari libur.
+- Timer 24/7 yang berbeda berdasarkan prioritas, sebelum aturan prioritas disahkan.
+- Pekerjaan beberapa Divisi Pusat secara paralel dalam satu pengajuan.
+- Portal untuk nasabah atau pihak eksternal.
+- Pengambilan keputusan kredit atau keputusan bisnis otomatis.
+- Integrasi email atau sistem lain sebelum standar IT ditetapkan. Login SSO termasuk dalam MVP dengan app code sementara `simpeg`.
+- Penghapusan atau pembuatan nomor baru saat revisi. Revisi tetap memakai nomor pengajuan yang sama.
+
+## 4. Struktur organisasi dan master data
+
+### Pemetaan Cabang ke Korwil
+
+Kode kantor disimpan sebagai teks agar angka nol di depan tetap dipertahankan. Contoh `001`, bukan angka `1`.
+
+| Korwil | Rentang kode kantor | Jumlah Cabang |
+|---|---:|---:|
+| Semarang Raya | 001 sampai 007 | 7 |
+| Solo Raya | 008 sampai 014 | 7 |
+| Banyumas Raya | 015 sampai 021 | 7 |
+| Pekalongan Raya | 022 sampai 028 | 7 |
+
+Mapping produksi harus menyimpan setiap kode kantor sebagai baris data aktif. Rentang di atas menjadi dasar seed awal dan perlu dikonfirmasi pemilik proses sebelum digunakan di produksi.
+
+Seed lokal awal memakai tabel `master_kantor` dengan kolom `id`, `kode_kantor`, `nama_kantor`, `korwil`, dan `is_active`. `kode_kantor` adalah teks tiga karakter; kode `000` mewakili Pusat dan bukan Cabang. Nama kantor 001–028 mengikuti data yang diberikan pemilik proyek. Kolom `korwil` sementara menyimpan kelompok `semarang`, `solo`, `banyumas`, `pekalongan`, atau `pusat` langsung pada baris kantor; belum ada tabel Korwil terpisah.
+
+### Divisi Pusat dan katalog pekerjaan
+
+Jumlah Divisi Pusat adalah 9 dan nama awal seluruhnya sudah diketahui. Admin dapat menambahkan katalog pekerjaan untuk setiap divisi.
+
+| Divisi Pusat | Pekerjaan awal |
+|---|---|
+| Divisi Penyelesaian Kredit | Persetujuan lelang, AYDA, hapus buku, keringanan bunga, restruck, dan pelunasan sebagian |
+| Pemasaran | Pengajuan kredit di atas Rp500 juta |
+| Sekretaris Perusahaan | Pendampingan hukum, fraud, dan pekerjaan terkait |
+| Operasional | Permintaan EDC dan pekerjaan operasional terkait |
+| Litbang | Katalog pekerjaan ditambahkan Admin |
+| SKK | Katalog pekerjaan ditambahkan Admin |
+| SKMR | Katalog pekerjaan ditambahkan Admin |
+| SKAI | Katalog pekerjaan ditambahkan Admin |
+| SDM | Katalog pekerjaan ditambahkan Admin |
+
+Istilah `restruck` dipertahankan sebagai istilah kerja sementara. Nama resminya perlu dikonfirmasi pemilik proses sebelum katalog produksi dibuat.
+
+Admin dapat membuat, mengubah, mengaktifkan, atau menonaktifkan jenis pekerjaan pada setiap divisi melalui master katalog. Penambahan pekerjaan baru tidak memerlukan perubahan kode aplikasi.
+
+Setiap divisi memiliki katalog pekerjaan dengan struktur berikut:
+
+| Field | Keterangan |
+|---|---|
+| Nama pekerjaan | Nama yang dipilih pengguna pada form |
+| Divisi tujuan | Divisi yang menerima pengajuan |
+| Deskripsi | Penjelasan singkat tentang pekerjaan |
+| Status aktif | Menentukan apakah pekerjaan dapat dipilih |
+| Kolom wajib | Data yang harus diisi untuk pekerjaan tersebut |
+| Lampiran wajib | Dokumen yang harus disertakan jika ada |
+| Target SLA | Target waktu yang disahkan pemilik proses |
+| Perlu persetujuan Korwil | Menentukan apakah pengajuan harus melewati Korwil |
+
+Jenis pekerjaan dan Divisi Pusat harus saling membatasi. Cabang tidak boleh memilih pekerjaan yang tidak tersedia untuk divisi tujuan.
+
+## 5. Peran dan hak akses
+
+| Peran | Hak utama | Cakupan |
+|---|---|---|
+| Pengguna Cabang | Membuat pengajuan, melihat pengajuan Cabang, melengkapi revisi, dan mengirim jawaban | Satu Cabang |
+| Petugas Korwil | Melihat antrean Korwil, mengambil, memproses, mengembalikan, dan meneruskan pengajuan | Korwil dan Cabang di bawahnya |
+| Penyetuju Korwil | Menyetujui penerusan ke Pusat, meminta perbaikan, atau menolak dengan alasan | Korwil dan Cabang di bawahnya |
+| Petugas Divisi Pusat | Melihat antrean divisi, mengambil, memproses, meminta kelengkapan, dan menyelesaikan | Satu Divisi Pusat |
+| Supervisor | Melihat antrean dan kinerja unit, serta mengatur penugasan sesuai kewenangan | Wilayah atau divisi terkait |
+| Admin | Mengelola pengguna, organisasi, katalog pekerjaan, aturan SLA, dan konfigurasi | Seluruh sistem |
+| Manajemen | Melihat ringkasan status, SLA, backlog, dan histori sesuai hak akses | Seluruh organisasi atau cakupan yang ditetapkan |
+
+Hak akses diperiksa di sisi server pada setiap akses dan tindakan. Menyembunyikan menu saja tidak cukup untuk membatasi data. Admin mengaktifkan akun dan menetapkan role, tetapi tidak memilih cakupan untuk role organisasi. Cakupan Pengguna Cabang mengikuti kode kantor SSO yang cocok dengan `master_kantor` aktif. Cakupan Petugas Korwil mengikuti Korwil dari mapping kantor aktif; untuk profil berkantor Pusat atau tanpa mapping kantor, sistem mencocokkan informasi organisasi SSO (`unit_kerja`, `branch_name`, dan `job_position`) dengan Korwil yang dikenal. Cakupan Petugas Divisi Pusat mengikuti `unit_kerja` yang cocok dengan nama atau alias SSO pada `master_divisi` aktif. Admin dapat mengubah nama divisi dan daftar alias `unit_kerja` dari master Divisi Pusat; alias unik lintas divisi dan hanya dipakai untuk pemetaan profil, bukan untuk memberikan role. Cakupan diperbarui ketika profil tersinkron. Jika organisasi tidak dapat dipetakan, role tetap tersimpan tetapi akses workflow ditolak sampai profil SSO cocok. SSO tidak otomatis mengaktifkan akun atau memberikan role.
+
+Untuk MVP, Petugas Korwil atau Penyetuju Korwil yang mengambil tiket dapat menjalankan tindakan yang tersedia pada tahap Korwil. Pemisahan persetujuan formal antar-role belum dimodelkan sebagai tahap antrean tersendiri dan wajib ditinjau sebelum produksi.
+
+Pengajuan dimiliki kantor Cabang, bukan pegawai yang membuatnya. Identitas pembuat tetap disimpan untuk audit. Pegawai baru yang telah diberi role Pengguna Cabang di kantor tersebut dapat melihat dan melanjutkan tiket yang dibuat pegawai sebelumnya. Saat pegawai rotasi dan data SSO terbaru tersinkron, cakupan role-nya mengikuti kantor baru; histori dan pengajuan tetap pada kantor asal.
+
+## 6. Form dan routing pengajuan
+
+### Field utama pengajuan
+
+- Kode kantor Cabang diambil dari profil SSO pegawai dan dipetakan ke `master_kantor`; Admin tidak memilih kode kantor untuk role Pengguna Cabang.
+- Korwil dihitung dari mapping Cabang.
+- Kewenangan pengajuan: Korwil atau Pusat.
+- Divisi Pusat tujuan, wajib dipilih jika kewenangan Pusat.
+- Jenis pekerjaan, difilter berdasarkan Divisi Pusat yang dipilih.
+- Perihal.
+- Uraian kebutuhan.
+- Data tambahan sesuai jenis pekerjaan.
+- Lampiran sesuai aturan katalog.
+
+Sebelum pengajuan dikirim, sistem menampilkan Korwil tujuan, Divisi Pusat jika ada, jenis pekerjaan, dan urutan proses yang akan dilalui.
+
+### Jalur kewenangan Korwil
+
+```text
+Cabang mengirim
+  -> Antrean Korwil
+  -> Korwil mengambil dan memproses
+  -> Selesai, ditolak, dikembalikan ke Cabang, atau diteruskan sebagai pengecualian
+```
+
+### Jalur kewenangan Pusat
+
+```text
+Cabang memilih Divisi Pusat dan jenis pekerjaan
+  -> Antrean Korwil
+  -> Korwil mengambil dan memeriksa
+  -> Korwil menyetujui
+  -> Antrean Divisi Pusat yang dipilih
+  -> Divisi Pusat mengambil dan memproses
+  -> Selesai, ditolak, atau meminta kelengkapan
+```
+
+Semua pengajuan yang ditujukan ke Pusat tetap melewati Korwil terlebih dahulu. Pemilihan Divisi Pusat oleh Cabang membantu routing, tetapi tidak melewati pemeriksaan Korwil.
+
+### Pengajuan kredit
+
+- Nilai di bawah Rp500 juta masuk ke Korwil untuk ditangani.
+- Nilai di atas Rp500 juta masuk ke Korwil untuk diperiksa, lalu diteruskan ke Pemasaran.
+- Perlakuan untuk nilai tepat Rp500 juta belum disebutkan secara eksplisit. Karena jalur Pemasaran ditetapkan untuk nilai di atas Rp500 juta, sistem sementara mengarahkannya ke Korwil sampai pemilik proses mengesahkan batasnya.
+
+### Katalog sebagai sumber aturan
+
+Admin mengatur apakah jenis pekerjaan:
+
+- hanya boleh ditangani Korwil;
+- harus diteruskan ke Pusat;
+- boleh dipilih langsung oleh Cabang;
+- membutuhkan persetujuan Korwil;
+- memerlukan kolom atau lampiran tambahan.
+
+Katalog awal yang sudah disepakati:
+
+| Pilihan pengajuan | Divisi tujuan |
+|---|---|
+| Persetujuan lelang | Divisi Penyelesaian Kredit |
+| AYDA | Divisi Penyelesaian Kredit |
+| Hapus buku | Divisi Penyelesaian Kredit |
+| Keringanan bunga | Divisi Penyelesaian Kredit |
+| Restruck | Divisi Penyelesaian Kredit |
+| Pelunasan sebagian | Divisi Penyelesaian Kredit |
+| Pengajuan kredit di atas Rp500 juta | Pemasaran |
+| Pendampingan hukum | Sekretaris Perusahaan |
+| Fraud | Sekretaris Perusahaan |
+| Permintaan EDC | Operasional |
+
+Daftar ini menjadi data awal, bukan daftar tertutup. Admin dapat menambahkan pekerjaan lain ke divisi yang sesuai setelah aturan dan field wajibnya disahkan.
+
+Jika pilihan Cabang tidak sesuai katalog aktif, sistem menolak pengajuan dan menampilkan alasan yang dapat diperbaiki pengguna.
+
+## 7. Siklus hidup pengajuan
+
+| Status | Makna |
+|---|---|
+| Draft | Pengajuan belum dikirim |
+| Menunggu Korwil | Pengajuan sudah dikirim ke antrean Korwil |
+| Diproses Korwil | Pengajuan sudah diambil Korwil |
+| Menunggu Kelengkapan Cabang | Cabang perlu menambah data atau dokumen |
+| Menunggu Divisi Pusat | Korwil sudah menyetujui dan pengajuan menunggu divisi tujuan |
+| Diproses Divisi Pusat | Pengajuan sudah diambil Divisi Pusat |
+| Ditolak | Pengajuan ditutup dengan alasan |
+| Selesai | Seluruh proses pengajuan selesai |
+| Dibatalkan | Pengajuan dibatalkan sesuai kewenangan |
+
+Status yang tampil pada tiket menunjukkan tahap saat ini. Detail perpindahan tetap tersedia di timeline.
+
+### Aturan tindakan
+
+- Tombol Ambil mengubah pemilik tindakan dari antrean menjadi pengguna yang mengambil.
+- Mengembalikan pengajuan wajib menyertakan alasan dan tujuan pengembalian.
+- Meneruskan ke Pusat wajib menyimpan Divisi Pusat tujuan.
+- Menolak wajib menyertakan alasan.
+- Menyelesaikan pengajuan wajib menyertakan ringkasan hasil.
+- Mengubah Divisi Pusat atau jenis pekerjaan setelah pengajuan berjalan wajib menyimpan alasan dan dapat memicu pemeriksaan Korwil ulang.
+
+## 8. Revisi dan kelengkapan berkas
+
+### Kekurangan dokumen atau data
+
+Jika unit penanganan hanya membutuhkan dokumen atau data tambahan:
+
+1. Unit penanganan memilih status Menunggu Kelengkapan Cabang.
+2. Petugas menuliskan daftar yang harus dilengkapi.
+3. Cabang menerima notifikasi pada tiket yang sama.
+4. Cabang menambah data atau lampiran tanpa membuat pengajuan baru.
+5. Cabang menekan Kirim Kembali.
+6. Sistem mengirim pengajuan langsung ke unit yang meminta kelengkapan pada tiket yang sama dan memulai sesi baru saat Cabang mengirim.
+7. Jika petugas yang meminta masih aktif dan scope-nya masih cocok, sistem mengembalikan tiket otomatis kepada petugas tersebut tanpa tombol Ambil ulang. Status unit menjadi Diproses dan petugas dapat langsung melanjutkan.
+8. Jika petugas sebelumnya tidak aktif, tidak lagi memiliki scope yang cocok, atau assignment lamanya tidak tersedia, tiket masuk antrean unit tanpa pemilik. Timer tetap berjalan sejak Cabang mengirim; petugas unit perlu mengambilnya untuk menjadi pemilik tindakan.
+9. Korwil menerima notifikasi, tetapi tidak perlu melakukan pemeriksaan ulang untuk pelengkapan dokumen biasa.
+
+Pada MVP saat ini, jawaban pelengkapan dicatat sebagai teks pada timeline; unggah dan unduh file menunggu keputusan penyimpanan privat, tipe, dan batas ukuran lampiran.
+
+### Perubahan substansi
+
+Jika Cabang mengubah hal yang dapat memengaruhi kewenangan, Divisi Pusat, nilai, jenis pekerjaan, atau keputusan bisnis, pengajuan kembali ke Korwil. Korwil memutuskan apakah pengajuan dapat diteruskan ke Pusat atau perlu dikembalikan lagi ke Cabang.
+
+### Permintaan revisi ke Korwil
+
+Jika Pusat meminta tindakan atau penjelasan dari Korwil, sistem membuat sesi Korwil baru. Setelah Korwil menyelesaikan permintaan, pengajuan kembali ke Divisi Pusat yang meminta. Sesi Korwil sebelumnya tetap dihitung dalam total waktu Korwil.
+
+## 9. SLA dan perhitungan waktu
+
+### Aturan waktu MVP
+
+- Umur total tiket dimulai saat Cabang mengirim pengajuan pertama kali dan berhenti saat pengajuan selesai atau ditolak. Selama tiket terbuka, umur dihitung sampai waktu sekarang. Umur total mencakup antrean dan revisi.
+- Sesi Korwil pertama dimulai saat petugas mengambil tiket; waktu antre sebelum pengambilan ditampilkan terpisah dan tidak masuk durasi kerja Korwil.
+- Jika Korwil meminta kelengkapan, sesi Korwil ditutup dan sesi Cabang dimulai saat permintaan diterima Cabang. Ketika Cabang mengirim pelengkapan pada tiket yang sama, sesi Cabang ditutup dan sesi unit yang meminta dimulai lagi saat pengiriman tersebut. Jika Korwil yang meminta, akumulasi Korwil berlanjut; jika Divisi Pusat yang meminta, tiket kembali langsung ke Divisi Pusat.
+- Jika petugas yang meminta masih aktif dengan scope yang sama, tiket otomatis kembali menjadi miliknya; tidak ada klaim ulang. Jika petugas tersebut sudah tidak berwenang, tiket masuk antrean unit sebagai fallback, tetapi timer sesi baru tetap dimulai saat Cabang mengirim.
+- Sesi Divisi Pusat awal dibuat saat Korwil meneruskan pengajuan ke divisi yang dipilih, tetapi timer baru dimulai saat petugas Divisi mengambil tiket. Waktu antre sampai diambil dicatat terpisah dan tidak masuk durasi SLA Divisi. Jika Cabang mengirim pelengkapan kembali ke Divisi yang meminta, sesi baru dimulai saat pengiriman karena tiket kembali langsung ke unit tersebut.
+- Semua durasi memakai waktu kalender 24 jam tanpa pengecualian jam kerja, weekend, atau hari libur.
+- `claimed_at` selalu dicatat untuk waktu pengambilan. Pengambilan tidak mengulang timer sesi yang sudah dimulai saat tiket dikirim kembali.
+- Keputusan MVP: untuk sementara seluruh pengajuan dan seluruh sesi memakai target SLA umum 7 hari kalender (10.080 menit). Nilai ini menjadi default katalog dan snapshot sesi sampai target per unit atau per jenis pekerjaan disahkan.
+- Badge status SLA memakai umur total tiket: hijau jika kurang dari 3 hari, kuning jika 3 sampai 7 hari, dan merah jika lebih dari 7 hari. Batas tepat 3 hari masuk kuning; batas tepat 7 hari masih kuning.
+
+### Sesi SLA
+
+Setiap kali pengajuan dikirim ke unit, sistem membuat satu sesi SLA. Saat unit meneruskan, mengembalikan, atau menyelesaikan pekerjaannya, sesi ditutup.
+
+Data minimum sesi:
+
+| Field | Keterangan |
+|---|---|
+| Pengajuan | Nomor pengajuan terkait |
+| Unit | Tipe dan ID unit yang memegang sesi |
+| Waktu masuk unit | Awal waktu tunggu pada unit |
+| Awal timer | Saat diambil Korwil pertama kali, atau saat dikirim kembali/dikirim ke unit sesuai aturan jalur |
+| Pemicu timer | `claim` atau `sent`, agar alasan awal durasi dapat dibaca ulang |
+| Waktu diambil | Waktu petugas menekan Ambil, jika dilakukan; tidak mengulang timer yang sudah berjalan |
+| Waktu selesai sesi | Waktu unit meneruskan, mengembalikan, atau menyelesaikan |
+| Durasi sesi | Selisih waktu dari mulai sampai selesai |
+| Hasil sesi | Diteruskan, dikembalikan, selesai, atau ditolak |
+| Alasan | Wajib untuk pengembalian, penolakan, atau perubahan tujuan |
+| Target SLA | Target yang berlaku saat sesi dibuat |
+
+### Akumulasi waktu unit
+
+Sesi tidak digabung dan tidak ditimpa. Laporan menjumlahkan semua sesi untuk unit yang sama pada satu pengajuan.
+
+Contoh:
+
+```text
+Korwil sesi 1 : 5 menit sebelum meminta kelengkapan
+Cabang        : 1 jam untuk melengkapi berkas
+Korwil sesi 2 : 10 menit setelah Cabang mengirim pelengkapan
+Total Korwil  : 15 menit
+Umur tiket    : minimal 1 jam 15 menit, ditambah waktu antre dan tahap lain
+```
+
+Setelah sesi Korwil kedua, Korwil meneruskan pengajuan ke Pusat. Sesi Korwil ditutup dan sesi Divisi Pusat masuk antrean; timer Divisi Pusat baru dimulai saat petugas mengambil tiket. Akumulasi sesi lama Korwil tidak ditimpa.
+
+### Metrik yang ditampilkan
+
+- Umur total pengajuan sejak pertama dikirim.
+- Durasi setiap sesi.
+- Total durasi Korwil dari seluruh sesi Korwil.
+- Total durasi Cabang dari seluruh sesi Cabang.
+- Total durasi Divisi Pusat dari seluruh sesi Divisi Pusat.
+- Umur total tiket dari pengiriman pertama sampai selesai/ditolak.
+- Waktu menunggu sebelum diambil, berdasarkan `waktu masuk unit` dan `waktu diambil`.
+- Jumlah putaran revisi.
+- Status SLA: belum ada target, dalam target, mendekati target, atau melewati target.
+
+Contoh pengajuan yang dikirim malam hari:
+
+```text
+Dikirim : Senin 21:00
+Target  : 24 jam
+Jatuh tempo: Selasa 21:00
+```
+
+## 10. Kebutuhan fungsional
+
+| ID | Kebutuhan | Kriteria penerimaan |
+|---|---|---|
+| FR-01 | Hak akses | Pengguna hanya dapat melihat dan mengubah data sesuai peran dan cakupan organisasi |
+| FR-02 | Mapping Cabang | Sistem menentukan Korwil dari kode kantor aktif |
+| FR-03 | Form dinamis | Jenis pekerjaan menentukan kolom dan lampiran yang wajib |
+| FR-04 | Dropdown tujuan | Divisi Pusat hanya muncul jika kewenangan Pusat dipilih |
+| FR-05 | Dropdown pekerjaan | Jenis pekerjaan hanya menampilkan pekerjaan aktif milik divisi yang dipilih |
+| FR-06 | Routing awal | Pengajuan selalu masuk ke Korwil yang membawahi Cabang |
+| FR-07 | Routing Pusat | Setelah persetujuan Korwil, pengajuan masuk ke antrean Divisi Pusat yang dipilih |
+| FR-08 | Tombol Ambil | Pengambilan awal Korwil memulai sesi; pada unit/sesi yang sudah berjalan, sistem mencatat waktu ambil tanpa mereset awal timer |
+| FR-09 | Revisi dokumen | Cabang dapat melengkapi tiket yang sama dan mengirim langsung ke unit yang meminta |
+| FR-10 | Revisi substansi | Perubahan material mengembalikan pengajuan ke Korwil untuk pemeriksaan ulang |
+| FR-11 | Sesi SLA | Setiap handoff mencatat waktu masuk unit, awal timer sesuai aturan jalur, waktu selesai, durasi, dan hasil |
+| FR-12 | Akumulasi SLA | Sistem menjumlahkan seluruh sesi berdasarkan unit, tanpa menghapus sesi lama |
+| FR-13 | Penolakan | Sistem meminta alasan sebelum status Ditolak disimpan |
+| FR-14 | Penyelesaian | Sistem meminta ringkasan hasil sebelum status Selesai disimpan |
+| FR-15 | Timeline | Pengguna yang berhak dapat melihat histori status, unit, petugas, komentar, lampiran, dan alasan |
+| FR-16 | Dashboard antrean | Unit dapat melihat pengajuan yang menunggu diambil, sedang diproses, dikembalikan, dan melewati SLA |
+| FR-17 | Konfigurasi katalog | Admin dapat mengelola Divisi Pusat, jenis pekerjaan, kolom wajib, lampiran, dan target SLA |
+| FR-18 | Audit log | Sistem mencatat pelaku, waktu, tindakan, status asal, status tujuan, unit asal, unit tujuan, dan alasan |
+
+## 11. Dashboard dan notifikasi
+
+### Dashboard Cabang
+
+Menampilkan pengajuan milik Cabang, status saat ini, unit yang memegang, waktu terakhir berubah, sisa atau selisih SLA, permintaan kelengkapan, dan timeline.
+
+### Dashboard Korwil
+
+Menampilkan pengajuan aktif dari 7 Cabang di bawah Korwil tersebut, pengajuan yang belum diambil, pengajuan yang perlu diperiksa, permintaan revisi, pengajuan yang akan diteruskan ke Pusat, dan total waktu Korwil per pengajuan. Tampilan Riwayat memuat tiket yang pernah masuk ke Korwil tersebut dan sudah berpindah dari antrean Korwil, termasuk yang diteruskan ke Pusat, menunggu kelengkapan Cabang, selesai, atau ditolak. Status dan lokasi terkini tetap terlihat dan detail membuka timeline tiket.
+
+### Dashboard Divisi Pusat
+
+Menampilkan pengajuan yang saat ini berada di divisi tersebut, pengajuan yang belum diambil, pengajuan yang sedang diproses, permintaan kelengkapan yang menunggu Cabang, dan pengajuan yang melewati SLA. Tampilan Riwayat memuat tiket yang benar-benar pernah diteruskan ke divisi itu dan sudah berpindah dari antrean atau ditutup. Pengajuan yang baru memilih divisi tetapi belum pernah diteruskan Korwil tidak termasuk riwayat divisi. Status, lokasi terkini, dan timeline tiket tetap tersedia.
+
+### Dashboard Supervisor atau Manajemen
+
+Menampilkan filter minimal berdasarkan Korwil dan Divisi Pusat serta periode. Badge status SLA terlihat pada ringkasan dan setiap tiket. Supervisor atau Manajemen global dapat membuka detail tiket secara baca-saja sampai timeline pengajuan. Tersedia halaman khusus tiket yang sedang menunggu jawaban atau pelengkapan Cabang dengan filter Cabang, sehingga Direksi dapat melihat kondisi Cabang, Korwil, dan Divisi Pusat yang masih menindaklanjuti.
+
+### Notifikasi MVP
+
+Notifikasi aplikasi dikirim saat:
+
+- pengajuan baru masuk ke unit;
+- pengajuan diambil;
+- pengajuan dikembalikan;
+- pengajuan diteruskan ke Divisi Pusat;
+- kelengkapan diminta;
+- kelengkapan dikirim kembali;
+- pengajuan mendekati atau melewati SLA;
+- pengajuan ditolak atau selesai.
+
+Penerima mengikuti keanggotaan unit yang aktif di Sistem SLA. Pengajuan baru dan pelengkapan Cabang dikirim ke unit tujuan; saat pengajuan diambil, dikembalikan, diminta kelengkapan, ditolak, atau selesai, Cabang pemilik tiket diberi kabar; jawaban kelengkapan dikirim ke unit yang meminta. Daftar hanya menampilkan tiket yang masih dapat diakses pengguna berdasarkan cakupan saat ini. Notifikasi dapat ditandai dibaca satu per satu atau sekaligus dan membuka detail tiket.
+
+Badge mendekati atau melewati SLA sudah memakai target umum MVP 7 hari dan ambang 3 hari. Notifikasi otomatis untuk peringatan SLA belum diaktifkan; kanal dan frekuensi notifikasinya ditentukan setelah dashboard diuji.
+
+Kanal email atau pesan eksternal ditentukan setelah kebutuhan dan akses organisasi disahkan.
+
+## 12. Audit, keamanan, dan kebutuhan nonfungsional
+
+- Semua perpindahan unit, perubahan status, pengambilan, komentar, lampiran, revisi, dan perubahan tujuan dicatat.
+- Lampiran disimpan privat dan hanya dapat diakses setelah pemeriksaan hak pengguna.
+- Server memeriksa cakupan Cabang atau Divisi Pusat pada setiap request API.
+- Nomor pengajuan tetap sama sepanjang proses dan revisi.
+- Waktu disimpan dengan timezone yang ditetapkan organisasi dan ditampilkan konsisten pada aplikasi.
+- Sistem menampilkan pesan yang jelas jika kode Cabang, Korwil, Divisi Pusat, jenis pekerjaan, atau target SLA belum dikonfigurasi.
+- Ukuran lampiran, tipe file, retensi, backup, pemulihan, logging, dan monitoring ditetapkan sebelum produksi.
+- Target kinerja dan ketersediaan ditetapkan oleh tim IT sesuai infrastruktur yang dipilih.
+
+## 13. Model data konseptual
+
+Tabel atau entitas awal:
+
+- `master_kantor`: kode kantor, nama kantor, nilai Korwil, dan status aktif; tabel awal lokal sudah tersedia.
+- `korwils`: master kode dan nama Korwil jika nanti diperlukan untuk pengelolaan Korwil terpisah.
+- `central_divisions`: kode, nama, dan status aktif Divisi Pusat.
+- `division_sso_unit_aliases`: nama unit `unit_kerja` SSO yang dipetakan ke satu Divisi Pusat; alias tidak memberi role dan dikelola Admin melalui master divisi.
+- `work_catalogs`: jenis pekerjaan, Divisi Pusat, aturan kewenangan, field wajib, lampiran wajib, dan target SLA.
+- `users`: akun, peran, kode Cabang atau unit, serta status aktif.
+- `service_requests`: data utama pengajuan dan pemilik tindakan saat ini.
+- `request_sla_sessions`: seluruh sesi timer per unit.
+- `request_status_histories`: perubahan status dan tahap.
+- `request_assignments`: histori penugasan dan pengambilan.
+- `request_comments`: komentar dan permintaan kelengkapan.
+- `request_attachments`: lampiran privat dan metadata file.
+- `notifications`: notifikasi aplikasi.
+- `audit_logs`: catatan tindakan yang perlu diaudit.
+
+Relasi penting:
+
+```text
+Korwil 1 --- banyak Cabang
+Divisi Pusat 1 --- banyak Jenis Pekerjaan
+Cabang 1 --- banyak Pengajuan
+Pengajuan 1 --- banyak Sesi SLA
+Pengajuan 1 --- banyak Histori Status
+Pengajuan 1 --- banyak Komentar dan Lampiran
+```
+
+## 14. Stack aplikasi
+
+| Bagian | Pilihan MVP | Catatan |
+|---|---|---|
+| Backend | Node.js + Express + TypeScript REST API | Menangani autentikasi, aturan bisnis, routing, SLA, audit, dan notifikasi |
+| Frontend | SvelteKit dan TypeScript | Menangani form, antrean, dashboard, timeline, dan state UI |
+| UI | shadcn-svelte dan Tailwind CSS | Dipakai untuk komponen admin yang konsisten dan mudah dirawat |
+| Database | MySQL | Menyimpan data transaksi, master, histori, dan konfigurasi |
+| Auth | SSO perusahaan dengan bearer token | Frontend menyimpan token di `sessionStorage` per-tab agar bertahan saat reload, mengirimkannya melalui header Authorization, dan menghapusnya saat logout atau token ditolak; Express memvalidasi token dengan `whoami` dan memeriksa akses lokal pada endpoint terlindungi |
+| Queue | Belum diperlukan untuk alur dasar MVP | Notifikasi terjadwal dapat ditambahkan setelah kebutuhan dan beban diketahui |
+| Storage | Storage privat yang disetujui organisasi | Lampiran tidak disimpan sebagai file publik |
+| API | Prefix `/api/v1` | Menjaga ruang untuk perubahan API berikutnya |
+
+Repository memakai folder `backend/` untuk REST API Express dan `frontend/` untuk SvelteKit. Frontend berkomunikasi dengan backend melalui API dan tidak mengakses MySQL secara langsung.
+
+### Integrasi login SSO
+
+SSO perusahaan memverifikasi identitas pegawai. Express menjadi perantara antara frontend dan SSO; browser tidak memanggil SSO secara langsung.
+
+| Operasi | Kontrak dari SSO |
+|---|---|
+| Login | `POST https://apisso.bkkjateng.co.id/api/auth/login` dengan `id_peg`, `password`, dan `app` |
+| Profil pengguna | `GET https://apisso.bkkjateng.co.id/api/auth/whoami` dengan header `Authorization: Bearer <token>` |
+| App code sementara | `simpeg`, sesuai arahan pemilik proyek; ganti setelah app code khusus Sistem SLA terdaftar |
+| Token | Respons login memberikan bearer token yang dipakai untuk meminta profil pengguna |
+| Field profil | `kode`, `employee_id`, `full_name`, `email`, `telp`, `branch_name`, `unit_kerja`, `job_position`, `level`, dan `group_jabatan` |
+
+Alur aplikasi: frontend mengirim kredensial ke endpoint login milik Express; Express meneruskan login ke SSO dan meminta profil melalui `whoami`. Setelah validasi, Express mengembalikan bearer token dan profil yang diperlukan ke frontend. Frontend menyimpan bearer token di `sessionStorage` per-tab agar sesi bertahan saat halaman di-reload, lalu mengirimkannya ke API menggunakan header `Authorization: Bearer <token>`. Setelah reload, profil diminta kembali melalui backend. ID pegawai terakhir boleh diingat di `sessionStorage` untuk mengisi form login; password tidak pernah disimpan. Endpoint Admin memvalidasi token dengan memanggil `whoami`, lalu memeriksa akun lokal dan hak akses SLA. Password dan token tidak boleh masuk ke repository atau log.
+
+Saat logout, frontend menghapus token dari state autentikasi dan `sessionStorage`; request berikutnya tidak mengirim header Authorization. Token juga dihapus jika API menolaknya dengan 401. Sesi per-tab bertahan saat reload dan berakhir saat tab ditutup atau pengguna logout. Kontrak SSO yang diberikan belum menyebut endpoint pencabutan token, jadi logout aplikasi belum tentu membatalkan token di SSO sebelum token kedaluwarsa. Header tetap menjadi cara mengirim token pada setiap request, bukan tempat penyimpanan.
+
+SSO membuktikan identitas dan menyediakan profil organisasi terkini. Admin mengelola status aktif dan role aplikasi pada data pengguna lokal; sinkronisasi profil tidak mengaktifkan akun dan tidak memberi role. Scope untuk role Pengguna Cabang diturunkan dari kode kantor SSO yang dipetakan ke `master_kantor`; scope Petugas Korwil diturunkan dari mapping kantor atau informasi organisasi SSO yang cocok dengan Korwil; scope Petugas Divisi Pusat diturunkan dari `unit_kerja` yang cocok dengan `master_divisi`. Scope tersebut diselaraskan otomatis ketika profil tersinkron, dan perubahan dicatat di audit akses. Jika scope belum dapat dipetakan, akses role terkait ditolak sampai profil cocok. Kode Pusat tidak memberikan scope Pengguna Cabang. Akun yang belum aktif atau belum memiliki role lokal tetap tidak mendapat akses. Sistem tidak menyimpulkan role dari jabatan.
+
+Express menangani seluruh komunikasi dengan SSO. Path endpoint login (`/api/auth/login`) dan profil (`/api/auth/whoami`) ditetapkan di backend karena merupakan bagian dari kontrak API. `.env` backend menyimpan konfigurasi yang dapat berbeda antar lingkungan: base URL SSO, app code sementara `simpeg`, dan timeout request. Nilai environment yang aman dicantumkan di `.env.example`, sedangkan `.env` lokal tidak boleh masuk Git. Setelah app code khusus Sistem SLA didaftarkan, cukup ubah nilainya di `.env`. Password pegawai dimasukkan saat login, bukan disimpan di `.env`; bearer token hanya diproses saat runtime. Status akses dan role lokal dikelola melalui assignment MySQL dan tidak disimpulkan otomatis dari jabatan. Masa berlaku token dan format error SSO tetap perlu dipastikan. Password, bearer token, dan data pribadi dari contoh tidak disimpan di repository.
+
+Antarmuka memakai gaya shadcn yang bersih, tetapi tidak menyalin produk tertentu. Fokus utama adalah antrean kerja, status, countdown SLA, filter, form bertahap, dan timeline pengajuan.
+
+## 15. Tahapan implementasi
+
+### Tahap 1: Fondasi organisasi dan akses
+
+- Buat struktur Express API dan SvelteKit dengan MySQL.
+- Buat pengguna, peran, Korwil, Cabang, dan mapping kode kantor.
+- Masukkan 28 kode kantor ke 4 Korwil.
+- Buat autentikasi dan pembatasan cakupan data.
+
+### Tahap 2: Katalog dan form
+
+- Buat master Divisi Pusat.
+- Buat katalog jenis pekerjaan per divisi.
+- Buat form kewenangan, Divisi Pusat, jenis pekerjaan, uraian, dan lampiran.
+- Tambahkan validasi field dan lampiran sesuai katalog.
+
+### Tahap 3: Workflow inti
+
+- Buat pengajuan, antrean Korwil, tombol Ambil, dan persetujuan.
+- Buat penerusan ke Divisi Pusat.
+- Buat status, komentar, lampiran, penolakan, dan penyelesaian.
+- Buat aturan revisi berkas dan revisi substansi.
+
+### Tahap 4: SLA dan visibilitas
+
+- Buat `request_sla_sessions`.
+- Hitung durasi 24 jam dan akumulasi waktu per unit.
+- Buat dashboard antrean, timeline, dan status SLA.
+- Tambahkan notifikasi aplikasi dan audit log.
+
+### Tahap 5: Pilot
+
+- Uji dengan data contoh dari seluruh Korwil.
+- Verifikasi mapping, katalog pekerjaan, hak akses, routing, dan perhitungan sesi.
+- Perbaiki aturan berdasarkan hasil pilot sebelum digunakan luas.
+
+## 16. Skenario penerimaan bisnis
+
+| Skenario | Hasil yang diharapkan |
+|---|---|
+| Pengguna Cabang 001 mengirim pengajuan | Sistem mengarahkan pengajuan ke Korwil Semarang Raya |
+| Pengguna Cabang 008 mengirim pengajuan | Sistem mengarahkan pengajuan ke Korwil Solo Raya |
+| Pengguna Cabang 015 mengirim pengajuan | Sistem mengarahkan pengajuan ke Korwil Banyumas Raya |
+| Pengguna Cabang 022 mengirim pengajuan | Sistem mengarahkan pengajuan ke Korwil Pekalongan Raya |
+| Admin memberi role Pengguna Cabang kepada pegawai | Backend menetapkan cakupan kantor dari profil SSO terkini; Admin tidak memilih kantor pada form |
+| Pegawai Cabang pindah ke kantor lain | Setelah profil SSO terbaru tersinkron, cakupan role mengikuti kantor baru tanpa mengubah kantor asal atau histori tiket |
+| Kacab baru diberi role Pengguna Cabang pada kantor yang sama | Ia dapat melihat dan melanjutkan pengajuan kantor tersebut, termasuk pengajuan yang dibuat Kacab sebelumnya |
+| Profil SSO menunjukkan Pusat atau kode kantor belum terpetakan untuk role Pengguna Cabang | Sistem tidak menampilkan akses Cabang dan API menolak akses Cabang |
+| Admin memberi role Petugas Korwil | Backend menetapkan Korwil dari mapping kantor aktif atau profil organisasi SSO; Admin tidak memilih Korwil pada form |
+| Pegawai Korwil pindah wilayah | Setelah profil SSO terbaru tersinkron, scope Korwil mengikuti wilayah baru; scope lama tidak memberikan akses |
+| Admin memberi role Petugas Divisi Pusat | Backend menetapkan divisi dari `unit_kerja` SSO yang cocok dengan master divisi aktif; Admin tidak memilih divisi pada form |
+| Pegawai Divisi Pusat pindah divisi | Setelah profil SSO terbaru tersinkron, scope mengikuti divisi baru dan divisi lama tidak lagi memberi akses |
+| `unit_kerja` SSO belum cocok dengan divisi aktif | Role tetap ditetapkan secara lokal, tetapi API tidak memberi akses sebagai petugas divisi sampai profil dapat dipetakan |
+| `unit_kerja` SSO bernilai `Satuan Kerja Audit Internal` | Alias master memetakan profil ke SKAI saat profil tersinkron; role dan status aktif tetap harus ditetapkan Admin |
+| Admin mengubah alias unit SSO pada Divisi Pusat | Alias tersimpan unik pada satu divisi dan cakupan pegawai diperbarui saat profil SSO berikutnya tersinkron |
+| Admin memasukkan alias yang sudah dimiliki divisi lain | API menolak perubahan dan tidak mengubah master divisi |
+| Cabang mengajukan kredit di bawah Rp500 juta | Pengajuan ditangani Korwil |
+| Cabang mengajukan kredit di atas Rp500 juta | Pengajuan diperiksa Korwil lalu diteruskan ke Pemasaran |
+| Cabang mengajukan kredit tepat Rp500 juta | Sementara masuk Korwil; pemilik proses masih perlu mengesahkan batas ini |
+| Cabang memilih kewenangan Korwil | Pengajuan masuk ke Korwil dan dapat selesai di Korwil |
+| Cabang memilih kewenangan Pusat | Cabang wajib memilih Divisi Pusat dan jenis pekerjaan yang tersedia |
+| Pengajuan Pusat dikirim | Pengajuan masuk ke Korwil terlebih dahulu |
+| Korwil menyetujui pengajuan Pusat | Pengajuan masuk ke antrean Divisi Pusat yang dipilih Cabang |
+| Pusat meminta dokumen tambahan | Cabang melengkapi tiket yang sama dan mengirim langsung kembali ke Pusat |
+| Pusat meminta perubahan substansi | Pengajuan kembali ke Korwil untuk pemeriksaan ulang |
+| Korwil memproses 2 jam lalu pengajuan kembali ke Korwil | Sistem menyimpan dua sesi dan menjumlahkan total waktu Korwil |
+| Korwil memproses 5 menit, meminta kelengkapan, lalu memproses 10 menit setelah jawaban Cabang | Sesi Korwil dijumlahkan menjadi 15 menit; sesi Cabang tampil terpisah; umur total mencakup seluruh perjalanan tiket |
+| Pengajuan Korwil belum diambil | Timer proses Korwil belum mulai; waktu antre tampil terpisah dan tetap termasuk umur total tiket |
+| Cabang melengkapi permintaan Korwil | Nomor tiket tetap sama dan sesi Korwil baru dimulai saat Cabang mengirim pelengkapan |
+| Petugas Korwil yang meminta kelengkapan masih aktif dan scope-nya cocok | Tiket kembali otomatis kepadanya dengan status Diproses Korwil; tombol Ambil tidak muncul lagi |
+| Petugas yang meminta sudah tidak aktif atau scope-nya berubah | Tiket kembali ke antrean unit tanpa pemilik; timer tetap berjalan sejak pengiriman Cabang |
+| Divisi Pusat meminta dokumen | Sesi Divisi berhenti, sesi Cabang berjalan, lalu tiket kembali langsung ke Divisi yang meminta |
+| Pengajuan dikirim pukul 21:00 | Umur tiket dimulai langsung; sesi Divisi masuk antrean saat handoff tetapi timer Divisi baru dimulai saat diambil, sementara sesi Korwil pertama juga baru dimulai saat diambil |
+| Pengguna di luar cakupan membuka tiket | API menolak akses dan tidak mengembalikan data tiket |
+| Petugas Korwil membuka Riwayat | Hanya tiket yang pernah dirutekan ke Korwil pada scope tersebut dan sudah keluar dari antreannya yang ditampilkan |
+| Petugas Divisi membuka Riwayat | Hanya tiket yang pernah masuk ke divisi pada scope tersebut dan sudah keluar dari antrean atau ditutup yang ditampilkan |
+| Tiket memilih Divisi Pusat tetapi ditolak Korwil sebelum diteruskan | Tiket tidak muncul pada riwayat Divisi Pusat yang dipilih |
+
+## 17. Keputusan yang perlu disahkan
+
+1. Daftar jenis pekerjaan yang dimiliki setiap Divisi Pusat.
+2. Jenis pekerjaan yang boleh selesai di Korwil dan yang harus diteruskan ke Pusat.
+3. Kolom dan lampiran wajib untuk setiap jenis pekerjaan.
+4. Aturan final untuk pengajuan tepat Rp500 juta. Usulan sementara: masuk Korwil karena jalur Pemasaran berlaku untuk nilai di atas Rp500 juta.
+5. Target SLA khusus untuk Korwil, Cabang, dan setiap Divisi Pusat setelah target umum MVP 7 hari dievaluasi.
+6. Apakah setelah MVP target SLA dihitung per jenis pekerjaan atau tetap memakai target umum.
+7. Peran yang boleh menyetujui penerusan dari Korwil ke Pusat.
+8. Batas tindakan Petugas Korwil dan Penyetuju Korwil.
+9. Aturan perubahan substansi yang wajib kembali ke Korwil.
+11. Aturan pembatalan setelah pengajuan diambil.
+12. Kanal notifikasi setelah notifikasi aplikasi diuji.
+13. Pendaftaran app code khusus Sistem SLA untuk menggantikan sementara `simpeg`.
+14. Masa berlaku token dan format error resmi dari SSO.
+15. Standar hosting, storage, backup, dan logging dari tim IT.
+
+## 18. Ukuran keberhasilan
+
+Target angka ditentukan setelah baseline tersedia. Indikator awal:
+
+- Persentase pengajuan yang berhasil dirouting ke Korwil yang benar.
+- Persentase pengajuan yang masuk ke Divisi Pusat sesuai katalog.
+- Persentase pengajuan dengan pemilik tindakan yang jelas.
+- Waktu menunggu sebelum pengajuan diambil.
+- Total waktu Korwil, Cabang, dan Divisi Pusat per pengajuan.
+- Persentase pengajuan yang selesai sesuai target SLA setelah target disahkan.
+- Jumlah pengajuan yang dikembalikan karena kelengkapan.
+- Jumlah pengajuan yang harus kembali ke Korwil karena perubahan substansi.
+- Jumlah pengajuan tanpa histori atau alasan tindakan yang lengkap.
+
