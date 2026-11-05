@@ -2,6 +2,8 @@
 
 Terakhir diperbarui: 5 November 2026
 
+**Publikasi repository (5 November 2026):** commit awal Sistem SLA sudah dipush ke repository GitHub `nadhifmaulana2508/sla-pengajuan` pada branch `main`. Working tree bersih; file `.env` dan dump database lokal tidak ikut terlacak.
+
 **Percobaan QA visual/click-through Manajemen (5 November 2026):** server lokal backend/frontend aktif dan halaman login Sistem SLA berhasil terbuka di browser. Akun lokal dengan role Manajemen tersedia. Pemeriksaan belum selesai karena sesi Computer Use dihentikan dengan tombol Escape fisik sebelum login dan sweep viewport/filter/detail dilakukan. Tidak ada perubahan kode, migrasi, assignment, atau data bisnis dari percobaan ini.
 
 **Verifikasi menjalankan sistem lokal (5 November 2026):** backend dev server aktif di `http://localhost:3000` dan frontend Vite aktif di `http://localhost:5173/`. Frontend merespons HTTP 200; endpoint backend merespons dan menolak `whoami` tanpa autentikasi dengan 401 sesuai harapan. Tidak ada perubahan kode, migrasi, atau data bisnis.
