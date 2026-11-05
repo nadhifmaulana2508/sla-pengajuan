@@ -1,192 +1,270 @@
 # Sistem SLA Pengajuan
 
-Aplikasi internal untuk mencatat dan melacak pengajuan dari Cabang melalui Korwil hingga Divisi Pusat. Satu pengajuan memakai satu nomor, menyimpan histori perpindahan, dan menghitung waktu proses per unit.
+Aplikasi internal untuk mencatat, meneruskan, dan memantau pengajuan dari Cabang melalui Korwil sampai Divisi Pusat.
 
-## Status project
+## Status saat ini
 
-**Tahap saat ini: siklus dasar tiket Cabang → Korwil → Divisi Pusat dan notifikasi aplikasi untuk event workflow utama tersedia.** Halaman Akses Pegawai memakai satu request workspace saat reload. Detail tiket menyediakan tindakan minta kelengkapan, teruskan, selesai, dan tolak sesuai tahap. Cabang dapat mengirim jawaban pada tiket yang sama. Detail menampilkan umur total tiket dan akumulasi waktu per Cabang/Korwil/Divisi. Migrasi workflow `005`–`009` sudah diterapkan ke MySQL lokal. Verifikasi visual responsif dan click-through notifikasi lintas scope masih terbuka.
+Workflow utama Cabang -> Korwil -> Divisi Pusat, autentikasi SSO, pembatasan akses berdasarkan assignment lokal, notifikasi aplikasi, dashboard operasional, SLA default 7 hari, serta halaman pemantauan tiket yang menunggu Cabang sudah tersedia.
 
-| Bagian | Status |
+| Area | Kondisi |
 |---|---|
-| Backend Express + TypeScript | Scaffold dan health endpoint tersedia |
-| Frontend SvelteKit + TypeScript | Login, dashboard, akses pegawai, dan katalog pekerjaan memakai komponen shadcn-svelte; navbar aplikasi sticky, kontrol tema/logout berupa ikon berlabel, layout responsif |
-| MySQL | Database lokal `sla_pengajuan` terhubung; `master_kantor` terisi 29 baris awal dan endpoint health database merespons connected |
-| Login dan akses awal | Proxy SSO tersedia; profil disinkronkan ke MySQL; API Admin memvalidasi bearer; Admin menetapkan role/status, sementara scope Cabang, Korwil, dan Divisi mengikuti profil SSO |
-| Master pekerjaan | CRUD katalog pekerjaan per divisi tersedia; target SLA boleh kosong sampai ditetapkan |
-| Pengajuan Cabang → Korwil | Form umum, routing, daftar/detail, timer total, revisi pada nomor yang sama, dan timeline tersedia |
-| Antrean Korwil | Antrean sesuai scope; Ambil, minta kelengkapan, teruskan, selesai, dan tolak tersedia |
-| Antrean Divisi Pusat | Antrean sesuai divisi SSO; Ambil, minta kelengkapan, selesai, dan tolak tersedia |
-| SLA | Umur total tiket, durasi tiap sesi/unit, akumulasi Cabang/Korwil/Divisi, dan waktu tunggu ditampilkan |
-| Notifikasi | Lonceng desktop/mobile, event tiket, unread count, tandai dibaca; peringatan SLA menunggu target dan ambang disahkan |
-| Field khusus dan lampiran | Jawaban revisi masih teks; field katalog dan lampiran privat belum tersedia |
+| Backend | Express 5 + TypeScript, REST API, validasi akses server-side, dan health check tersedia |
+| Frontend | SvelteKit + Svelte 5, dashboard, login, inbox, detail tiket, master data, tema, dan layout responsif tersedia |
+| Database | MySQL dengan migrasi bernomor dan seed master kantor |
+| Login | Express meneruskan login dan whoami ke API SSO; profil disimpan tanpa password atau token |
+| Workflow | Submit, claim, minta kelengkapan, jawab revisi, forward ke Pusat, selesai, tolak, timeline, dan riwayat tersedia |
+| SLA | Umur total tiket, sesi Cabang/Korwil/Divisi, waktu tunggu, badge SLA, dan akumulasi waktu unit tersedia |
+| Manajemen | Detail tiket baca-saja, filter Korwil/Divisi pada dashboard, serta daftar tiket yang menunggu tindak lanjut Cabang tersedia |
+| Belum tersedia | Field dinamis per katalog, lampiran privat, dan notifikasi otomatis peringatan SLA |
 
-Progres milestone dan keputusan yang masih terbuka dicatat lebih rinci di [PROJECT_STATUS.md](PROJECT_STATUS.md). Aturan kebutuhan lengkap ada di [prd.md](prd.md).
+Catatan progres dan keputusan terbuka ada di PROJECT_STATUS.md. Kebutuhan bisnis lengkap ada di prd.md.
+
+## Fitur utama
+
+- Pengajuan Cabang terikat pada kantor, bukan pada pembuat personal.
+- Routing awal otomatis ke Korwil sesuai mapping kantor Cabang.
+- Pengajuan tujuan Pusat selalu melewati Korwil terlebih dahulu.
+- Korwil dan Divisi Pusat memiliki antrean aktif, claim, riwayat, detail, dan timeline sesuai scope.
+- Revisi dikirim pada nomor tiket yang sama. Jika petugas peminta masih aktif dan scope-nya cocok, tiket kembali langsung kepadanya.
+- Perubahan substansi yang memengaruhi kewenangan, tujuan, nilai, jenis pekerjaan, atau keputusan bisnis harus diperiksa Korwil lagi.
+- Role Manajemen, Supervisor, dan Admin dapat membuka detail tiket global secara baca-saja tanpa tombol tindakan workflow.
+- Dashboard global dapat difilter berdasarkan tanggal, Korwil, dan Divisi Pusat.
+- Halaman /management/branch-follow-up menampilkan tiket yang sedang menunggu jawaban Cabang dan menyediakan filter Cabang.
+- Notifikasi aplikasi mencatat event workflow, unread count, dan tindakan tandai sudah dibaca.
+
+## Role dan cakupan akses
+
+| Role | Cakupan utama | Akses utama |
+|---|---|---|
+| branch_user | Kantor Cabang dari profil SSO | Membuat, melihat, dan menjawab revisi pengajuan kantornya |
+| korwil_staff | Korwil hasil pemetaan kantor/profil SSO | Melihat antrean/riwayat, claim, meminta kelengkapan, meneruskan, menyelesaikan, atau menolak sesuai tahap |
+| korwil_approver | Korwil hasil pemetaan kantor/profil SSO | Persetujuan atau tindakan Korwil sesuai assignment dan tahap workflow |
+| division_staff | Divisi Pusat hasil pemetaan unit_kerja SSO | Melihat antrean/riwayat divisinya, claim, meminta kelengkapan, menyelesaikan, atau menolak |
+| supervisor | Global | Dashboard dan detail baca-saja |
+| management | Global | Dashboard, filter, pemantauan Cabang, dan detail baca-saja |
+| admin | Global | Pengelolaan akun, role/status, master Divisi, katalog pekerjaan, dashboard, dan detail baca-saja |
+
+Identitas SSO saja tidak memberi akses. Akun harus aktif dan memiliki assignment role serta scope yang cocok di database lokal. Scope organisasi diselaraskan dari profil SSO; Admin tidak mengisi scope organisasi secara manual sebagai pengganti pemetaan.
+
+## Alur bisnis
+
+    Cabang membuat pengajuan
+            |
+            v
+    Antrean Korwil -- claim --> Proses Korwil
+            |                         |
+            | minta kelengkapan       | tujuan Korwil: selesai/tolak
+            v                         |
+    Cabang melengkapi ---------------+
+            |
+            | tujuan Pusat
+            v
+    Antrean Divisi Pusat -- claim --> Proses Divisi
+            |                              |
+            | minta kelengkapan            | selesai/tolak
+            v                              v
+    Cabang melengkapi -------------> Divisi yang meminta
+
+- Pengajuan kredit di bawah Rp500 juta ditangani Korwil.
+- Pengajuan kredit di atas Rp500 juta diperiksa Korwil lalu diteruskan ke Pemasaran.
+- Nilai tepat Rp500 juta saat ini masuk Korwil dan masih menjadi keputusan bisnis yang perlu disahkan.
+- Penolakan dan penyelesaian memerlukan alasan atau ringkasan hasil.
+- Seluruh handoff, revisi, claim, dan keputusan tercatat dalam timeline.
+
+## Aturan SLA
+
+Semua durasi memakai waktu kalender 24 jam.
+
+| Komponen | Awal perhitungan | Akhir perhitungan |
+|---|---|---|
+| Umur total tiket | Cabang mengirim pengajuan pertama | Selesai/ditolak; jika masih terbuka dihitung sampai sekarang |
+| Sesi Cabang | Korwil atau Divisi meminta kelengkapan | Cabang mengirim jawaban |
+| Sesi Korwil awal | Petugas Korwil menekan Ambil | Handoff, revisi, selesai, atau ditolak |
+| Sesi Korwil setelah revisi | Cabang mengirim pelengkapan | Handoff atau keputusan Korwil |
+| Sesi Divisi awal | Petugas Divisi menekan Ambil | Handoff, revisi, selesai, atau ditolak |
+| Sesi Divisi setelah revisi | Cabang mengirim pelengkapan langsung ke Divisi | Keputusan Divisi atau handoff berikutnya |
+
+Waktu antre sebelum claim dicatat terpisah dan tidak dihitung sebagai waktu proses Korwil atau Divisi pada sesi awal. Claim tidak mengulang timer yang sudah dimulai saat Cabang mengirim pelengkapan. Total waktu unit adalah jumlah semua sesi unit tersebut.
+
+Target sementara seluruh katalog dan sesi adalah 7 hari kalender (10.080 menit). Badge SLA pada dashboard:
+
+- Hijau: umur tiket kurang dari 3 hari.
+- Kuning: umur tiket 3 sampai dengan 7 hari.
+- Merah: umur tiket lebih dari 7 hari.
+
+Badge ini adalah indikator pemantauan. Peringatan otomatis berdasarkan ambang SLA belum diaktifkan.
 
 ## Teknologi
 
 - Backend: Node.js, Express 5, TypeScript, REST API.
 - Frontend: SvelteKit 3, Svelte 5, TypeScript, Tailwind CSS 4, shadcn-svelte.
-- Database: MySQL, diakses backend melalui `mysql2` connection pool.
-- Prefix API: `/api/v1`.
-- Node.js minimum mengikuti [kebutuhan SvelteKit 3](https://svelte.dev/docs/kit/migrating-to-sveltekit-3), yaitu 22.17 atau lebih baru. Scaffold ini diuji memakai Node.js 24.22.1.
-
-ORM belum dipilih. Schema disimpan sebagai SQL di `backend/src/db/migrations/` dan dijalankan berurutan dengan `npm.cmd run db:migrate`. Seed awal `master_kantor` masih dijalankan satu kali dari `backend/src/db/seeders/001_seed_master_kantor.sql`. Perubahan schema berikutnya dibuat di migrasi bernomor baru; jangan mengubah migrasi yang sudah diterapkan.
-
-Fondasi visual memakai preset Vega karena CLI mengidentifikasinya sebagai tampilan klasik shadcn, sesuai arahan pemilik proyek. Login dan dashboard memakai komponen shadcn-svelte seperti Button, Input, Label, Card, Badge, Separator, dan Alert. Login desktop dibatasi pada tinggi viewport; panel tetap dapat discroll bila konten atau zoom membutuhkan. Navbar aplikasi sticky; theme/logout menggunakan ikon dengan label aksesibel. Font Inter dipakai.
+- Database: MySQL melalui connection pool mysql2.
+- API: prefix /api/v1.
+- ORM belum digunakan; schema dikelola dengan SQL migration bernomor.
+- Node.js minimum: 22.17 atau lebih baru. Pengembangan lokal telah diuji pada Node.js 24.22.1.
 
 ## Menjalankan di Windows PowerShell
 
-Jalankan backend dan frontend di terminal terpisah. Pada environment PowerShell ini, `npm` terhalang execution policy, jadi gunakan `npm.cmd`. Di Command Prompt atau shell lain, perintah `npm` biasa dapat digunakan.
+### Prasyarat
 
-### 1. Siapkan MySQL
+- Node.js 22.17 atau lebih baru.
+- MySQL atau MariaDB aktif, misalnya melalui XAMPP.
+- Akses jaringan ke SSO jika login SSO hendak diuji.
 
-Pastikan layanan MySQL aktif. Buat database kosong, misalnya melalui phpMyAdmin atau MySQL client:
+PowerShell pada komputer ini dapat memblokir npm karena execution policy. Gunakan npm.cmd.
 
-```sql
-CREATE DATABASE IF NOT EXISTS sla_pengajuan
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-```
+### 1. Buat database
 
-Sesuaikan user dan password database di `backend/.env` dengan konfigurasi MySQL lokalmu.
+    CREATE DATABASE IF NOT EXISTS sla_pengajuan
+      CHARACTER SET utf8mb4
+      COLLATE utf8mb4_unicode_ci;
 
-Untuk membuat master kantor awal, pilih database `sla_pengajuan` lalu jalankan `backend/src/db/migrations/001_create_master_kantor.sql` dan `backend/src/db/seeders/001_seed_master_kantor.sql`. Seed aman dijalankan ulang: kode kantor yang sudah ada tidak ditimpa. Migrasi versi berikutnya dan bootstrap admin dijalankan pada langkah backend setelah dependency terpasang. Isi `SLA_INITIAL_ADMIN_EMPLOYEE_ID` di `.env` lokal sebelum bootstrap.
+Sesuaikan kredensial MySQL pada backend/.env.
 
-### 2. Jalankan backend
+### 2. Konfigurasi backend
 
-Dari folder utama project:
+Dari folder project:
 
-```powershell
-if (-not (Test-Path backend/.env)) { Copy-Item backend/.env.example backend/.env }
-```
+    if (-not (Test-Path backend/.env)) { Copy-Item backend/.env.example backend/.env }
 
-Edit `backend/.env`, terutama `DB_USER` dan `DB_PASSWORD`, lalu:
+Edit backend/.env. Konfigurasi penting:
 
-```powershell
-Set-Location backend
-npm.cmd install
-npm.cmd run db:migrate
-npm.cmd run db:bootstrap-admin
-npm.cmd run dev
-```
+    DB_HOST=127.0.0.1
+    DB_PORT=3306
+    DB_NAME=sla_pengajuan
+    DB_USER=sla_app
+    DB_PASSWORD=
 
-`db:bootstrap-admin` cukup dijalankan satu kali untuk tiap database. Perintah membaca `SLA_INITIAL_ADMIN_EMPLOYEE_ID` dari `.env` tanpa mencetak nilainya.
+    SSO_BASE_URL=https://apisso.bkkjateng.co.id
+    SSO_APP_CODE=simpeg
+    SSO_TIMEOUT_MS=10000
+    SSO_CONNECT_IP=
+    SLA_INITIAL_ADMIN_EMPLOYEE_ID=
 
-API berjalan di `http://127.0.0.1:3000`.
+Untuk jaringan lokal yang memerlukan pin koneksi, isi SSO_CONNECT_IP=10.0.2.2. Hostname pada SSO_BASE_URL tetap dipakai untuk SNI dan validasi sertifikat TLS.
 
-Tes endpoint:
+### 3. Migrasi, seed, dan bootstrap admin
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:3000/api/v1/health
-Invoke-RestMethod http://127.0.0.1:3000/api/v1/health/database
-```
+    Set-Location backend
+    npm.cmd install
+    npm.cmd run db:migrate
 
-Endpoint pertama memeriksa API. Endpoint kedua mengirim `SELECT 1` ke MySQL dan mengembalikan HTTP 503 jika database belum tersedia atau konfigurasinya salah.
+Setelah migrasi selesai, jalankan seed awal backend/src/db/seeders/001_seed_master_kantor.sql pada database sla_pengajuan melalui phpMyAdmin atau MySQL client. Seed berisi 29 kantor: kode 001 sampai 028 untuk Cabang dan kode 000 untuk Pusat.
 
-### 3. Jalankan frontend
+Isi SLA_INITIAL_ADMIN_EMPLOYEE_ID di backend/.env, kemudian jalankan sekali per database:
 
-Buka terminal kedua dari folder utama:
+    npm.cmd run db:bootstrap-admin
 
-```powershell
-Set-Location frontend
-npm.cmd install
-npm.cmd run dev
-```
+Variabel tersebut hanya dipakai untuk bootstrap admin. Endpoint runtime membaca assignment dari database lokal.
 
-Buka alamat yang ditampilkan Vite, biasanya `http://localhost:5173` atau `http://127.0.0.1:5173`. Pada mode development backend menerima kedua origin tersebut; production hanya menerima origin dari `FRONTEND_ORIGIN`. File `frontend/.env` memakai `VITE_API_BASE_URL` untuk koneksi ke API.
+### 4. Jalankan backend
 
-### Pemeriksaan lokal
+    npm.cmd run dev
 
-Jalankan dari folder aplikasi masing-masing:
+API berjalan di http://127.0.0.1:3000.
 
-```powershell
-npm.cmd run check
-npm.cmd run build
-```
+### 5. Jalankan frontend
+
+Buka terminal PowerShell kedua dari folder project:
+
+    Set-Location frontend
+    if (-not (Test-Path .env)) { Copy-Item frontend/.env.example frontend/.env }
+    npm.cmd install
+    npm.cmd run dev
+
+Buka http://localhost:5173 atau alamat yang ditampilkan Vite. frontend/.env memakai:
+
+    VITE_API_BASE_URL=http://127.0.0.1:3000/api/v1
+
+### Pemeriksaan health
+
+    Invoke-RestMethod http://127.0.0.1:3000/api/v1/health
+    Invoke-RestMethod http://127.0.0.1:3000/api/v1/health/database
+
+Endpoint database health mengembalikan HTTP 503 jika MySQL belum tersedia atau konfigurasi database salah.
+
+## Endpoint utama
+
+Semua endpoint berikut berada di bawah http://127.0.0.1:3000/api/v1 dan endpoint terproteksi memerlukan header Authorization: Bearer <token>.
+
+- POST /auth/login - login melalui SSO.
+- GET /auth/whoami - membaca profil SSO dan akses lokal aktif.
+- GET /dashboard - dashboard sesuai role, termasuk filter global Korwil dan Divisi.
+- GET /dashboard/branch-follow-up - tiket yang menunggu tindak lanjut Cabang.
+- GET /requests dan GET /requests/:id - daftar dan detail pengajuan sesuai scope.
+- POST /requests/:id/revision - mengirim jawaban revisi pada tiket yang sama.
+- GET /inbox/korwil dan GET /inbox/korwil/history - antrean/riwayat Korwil.
+- GET /inbox/central dan GET /inbox/central/history - antrean/riwayat Divisi Pusat.
+- POST /inbox/korwil/:id/claim dan POST /inbox/central/:id/claim - mengambil tiket.
+- Endpoint tindakan inbox - minta kelengkapan, forward, complete, dan reject sesuai tahap.
+- Endpoint Admin - pengelolaan akun, role/status, Divisi, alias unit SSO, dan katalog pekerjaan.
+
+Route selalu memvalidasi identitas, status aktif, role, dan scope di backend. Menyembunyikan tombol di frontend bukan mekanisme keamanan.
+
+## Pemeriksaan lokal
+
+Backend:
+
+    Set-Location backend
+    npm.cmd run check
+    npm.cmd run build
+    npm.cmd run test:e2e:workflow
+    npm.cmd run test:e2e:notifications
+    npm.cmd run test:e2e:management
+
+Frontend:
+
+    Set-Location frontend
+    npm.cmd run check
+    npm.cmd run build
+
+E2E memakai database lokal dan fixture sementara. Jalankan hanya pada database pengembangan yang dapat menerima data uji.
 
 ## Konfigurasi dan keamanan
 
-- Konfigurasi lokal disimpan di `backend/.env` dan `frontend/.env`; file `.env` tidak boleh masuk Git.
-- Template aman untuk disalin adalah `.env.example`. Jangan menaruh password pegawai, bearer token, atau data pribadi di file contoh, source, log, maupun commit.
-- Express akan menangani panggilan SSO. Path `/api/auth/login` dan `/api/auth/whoami` berada di backend sesuai kontrak SSO.
-- `SSO_BASE_URL`, `SSO_APP_CODE`, dan `SSO_TIMEOUT_MS` disimpan di `backend/.env`. Untuk jaringan lokal yang membutuhkan pin IP, `SSO_CONNECT_IP=10.0.2.2` boleh diisi; hostname pada `SSO_BASE_URL` tetap dipakai agar SNI dan validasi sertifikat SSO tetap benar. App code `simpeg` hanya nilai sementara dan bisa diganti di sana setelah app khusus Sistem SLA terdaftar.
-- `SLA_INITIAL_ADMIN_EMPLOYEE_ID` hanya dipakai oleh perintah satu kali `db:bootstrap-admin`. API tidak lagi memakai nilai ini untuk menentukan akses. Role admin disimpan sebagai assignment global di `user_role_scopes`.
-- `master_kantor.kode_kantor` disimpan sebagai teks tiga karakter. Nilai `001`–`028` adalah Cabang, `000` adalah Pusat, dan kolom `korwil` menyimpan kelompok `semarang`, `solo`, `banyumas`, `pekalongan`, atau `pusat`.
-- Frontend mengirim token melalui header `Authorization: Bearer <token>`. Token disimpan per tab di `sessionStorage` agar bertahan saat reload, dan logout menghapus sesi lokal. Mekanisme pencabutan token SSO belum tersedia dalam kontrak yang diberikan.
-- Profil SSO disimpan di `users` tanpa password atau token. Kode `kode` dipetakan ke `master_kantor` jika cocok; `unit_kerja` dipetakan ke `master_divisi` setelah awalan `Divisi` dihapus. Akun baru berstatus nonaktif dan tidak mendapat role otomatis.
-- Role dasar tersedia di `roles`; penugasan role dan cakupan global, kantor, Korwil, atau divisi disimpan di `user_role_scopes`. Admin mengelola akun lain melalui UI/API; akun admin yang sedang digunakan tidak dapat mengubah akses dirinya sendiri.
-- Admin menetapkan role/status, bukan scope organisasi: role Cabang mengikuti kode kantor SSO, role Korwil mengikuti mapping kantor atau informasi organisasi SSO, dan role Divisi Pusat mengikuti `unit_kerja` yang cocok dengan master divisi. Scope diperbarui saat profil tersinkron; jika tidak dapat dipetakan, akses ditolak. Pengajuan terikat pada kantor, bukan pembuat, sehingga Kacab baru yang diberi role di kantor yang sama dapat melihat dan melanjutkan tiket lama; nama pembuat tetap tercatat.
-- Identitas SSO saja tidak memberi hak akses. Hak aktif mensyaratkan akun lokal aktif dan assignment role/cakupan yang cocok.
+- Jangan commit backend/.env, frontend/.env, password, bearer token, password pegawai, atau data pribadi.
+- Express adalah satu-satunya service yang memanggil SSO. Frontend hanya memanggil REST API Sistem SLA.
+- Token hanya dikirim melalui header Authorization dan disimpan sementara per-tab di sessionStorage; logout menghapus sesi lokal.
+- Profil SSO disimpan di tabel users tanpa password atau token.
+- Role dan scope runtime berasal dari assignment MySQL. Profil SSO yang belum dapat dipetakan ditolak aksesnya.
+- kode_kantor disimpan sebagai teks agar nol di depan tetap terjaga.
+- Lampiran, bila ditambahkan nanti, harus disimpan privat dan hanya dapat diunduh setelah pemeriksaan scope.
+- SSO_APP_CODE=simpeg adalah konfigurasi sementara dan harus mudah diganti setelah app code Sistem SLA resmi tersedia.
 
-## Alur bisnis
+## Struktur folder
 
-1. Cabang membuat pengajuan dan memilih kewenangannya. Jika tujuannya Pusat, Cabang memilih Divisi Pusat dan jenis pekerjaan dari katalog.
-2. Semua pengajuan dikirim ke Korwil yang membawahi Cabang terlebih dahulu.
-3. Korwil memproses pengajuan. Jika tujuan akhirnya Pusat, Korwil menyetujui dan meneruskannya ke Divisi Pusat yang dipilih Cabang.
-4. Pengajuan kredit di bawah Rp500 juta ditangani Korwil. Pengajuan di atas Rp500 juta diperiksa Korwil lalu diteruskan ke Pemasaran. Nilai tepat Rp500 juta sementara masuk Korwil, menunggu pengesahan pemilik proses.
-5. Umur tiket berjalan sejak Cabang mengirim sampai selesai/ditolak. Sesi Korwil awal dimulai saat diambil; sesi Divisi awal mulai saat petugas mengambil setelah tiket diteruskan; sesi Cabang mulai saat kelengkapan diminta.
-6. Jika Korwil memproses 5 menit, meminta kelengkapan, lalu memproses 10 menit setelah Cabang mengirim, total waktu Korwil menjadi 15 menit. Waktu Cabang dan umur total tiket tampil terpisah.
-7. Jika Korwil meminta dokumen/data, tiket yang sama kembali ke Korwil setelah Cabang mengirim. Jika Divisi Pusat meminta kelengkapan, tiket kembali langsung ke Divisi itu. Perubahan substansi tetap harus diperiksa Korwil.
-8. Penolakan dan penyelesaian wajib memiliki alasan atau ringkasan hasil. Seluruh perpindahan dan revisi tercatat pada timeline.
+    backend/
+      src/
+        config/
+        db/
+          migrations/
+          seeders/
+        modules/
+        routes/
+        scripts/
+    frontend/
+      src/
+        lib/
+          api/
+          components/
+          features/
+        routes/
+    prd.md
+    PROJECT_STATUS.md
+    AGENTS.md
 
-Form yang tersedia saat ini hanya mengumpulkan perihal dan uraian umum. Field khusus dan lampiran sesuai katalog belum tersedia; jangan gunakan form untuk pengajuan resmi yang mewajibkan data/dokumen tersebut.
+## Batasan MVP dan pekerjaan berikutnya
 
-## Langkah menjalankan milestone workflow lokal
+1. Sahkan perlakuan pengajuan kredit tepat Rp500 juta.
+2. Sahkan target SLA per jenis pekerjaan dan kebijakan notifikasi peringatan.
+3. Tambahkan field khusus dan lampiran privat sesuai katalog pekerjaan.
+4. Selesaikan verifikasi visual/click-through lintas role, viewport, tema, dan browser.
+5. Tinjau kontrak SSO, lifetime token, logging, backup, monitoring, dan kesiapan pilot.
 
-Jalankan `npm.cmd run db:migrate` dari folder `backend/` untuk menerapkan migrasi terbaru, lalu jalankan backend dan frontend seperti petunjuk di atas. API workflow memakai prefix `/api/v1`; endpoint pengajuan memerlukan bearer SSO dan assignment lokal aktif. Endpoint utama mencakup `/requests`, `/requests/:id/revision`, `/inbox/korwil`, dan `/inbox/central` beserta aksi claim, request-documents, forward, complete, dan reject.
+## Dokumentasi proyek
 
-Backend/frontend type-check dan build lulus; smoke test lokal membuktikan database notifikasi tersedia dan endpoint menolak request tanpa bearer. Click-through event notifikasi lintas Cabang/Korwil/Divisi dan validasi visual navbar mobile masih perlu diuji. Lampiran privat, target SLA serta ambang notifikasi peringatan, dan persyaratan khusus pekerjaan tetap menjadi pekerjaan berikutnya.
+- PRD dan aturan bisnis: prd.md
+- Status, keputusan, dan milestone: PROJECT_STATUS.md
+- Laporan QA visual/responsif: QA_VISUAL_RESPONSIVE_2026-11-04.md
 
-## Organisasi awal
-
-| Korwil | Kode kantor Cabang |
-|---|---|
-| Semarang Raya | `001`–`007` |
-| Solo Raya | `008`–`014` |
-| Banyumas Raya | `015`–`021` |
-| Pekalongan Raya | `022`–`028` |
-
-Kode kantor disimpan sebagai teks agar nol di depan tidak hilang.
-
-Sembilan Divisi Pusat yang diketahui: Penyelesaian Kredit, Pemasaran, Sekretaris Perusahaan, Operasional, Litbang, SKK, SKMR, SKAI, dan SDM. Katalog pekerjaan dapat dikembangkan Admin; daftar jenis pekerjaan dan target SLA per unit masih perlu dilengkapi.
-
-Pekerjaan awal yang sudah diketahui:
-
-- Penyelesaian Kredit: persetujuan lelang, AYDA, hapus buku, keringanan bunga, restruck, dan pelunasan sebagian.
-- Pemasaran: pengajuan kredit di atas Rp500 juta.
-- Sekretaris Perusahaan: pendampingan hukum, fraud, dan pekerjaan terkait.
-- Operasional: permintaan EDC dan pekerjaan operasional terkait.
-- Litbang, SKK, SKMR, SKAI, dan SDM: katalog pekerjaan ditambahkan Admin.
-
-## Struktur kode
-
-```text
-backend/src/
-  app.ts, server.ts
-  config/env.ts
-  db/client.ts
-  modules/health/
-  routes/api.routes.ts
-
-frontend/src/
-  lib/api/
-  lib/components/{layout,ui}/
-  lib/features/{auth,catalog,inbox,requests}/
-  routes/
-```
-
-Modul backend menampung route dan aturan per domain. `lib/api/` menjadi satu pintu komunikasi frontend ke REST API. Folder fitur dibuat bertahap saat fiturnya mulai dikerjakan.
-
-## Langkah berikutnya
-
-1. Tetapkan model data pengajuan, timeline, dan antrean Korwil yang konsisten dengan PRD.
-2. Sahkan field wajib/lampiran per pekerjaan serta keputusan bisnis yang masih terbuka.
-3. Implementasikan submit Cabang, routing awal ke Korwil, serta SLA session dan timeline.
-4. Tambahkan penerusan Korwil ke Pusat, revisi kelengkapan, dan pengembalian substansi.
-5. Uji akses tiap cakupan dan skenario penerimaan PRD; target SLA diisi setelah disahkan.
-
-## Catatan dependency
-
-Build dan pemeriksaan TypeScript frontend/backend lolos. Audit npm frontend melaporkan empat advisory berlevel rendah pada dependency `deepmerge` yang terbawa dependency Svelte; `npm audit fix --force` menawarkan downgrade besar SvelteKit, jadi tidak dijalankan. Audit perlu diperiksa ulang saat dependency diperbarui dan sebelum rilis.
-#   s l a - p e n g a j u a n  
- 
+Dokumen dan source code ini ditujukan untuk penggunaan internal Sistem SLA Pengajuan.

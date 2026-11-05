@@ -2,6 +2,8 @@
 
 Terakhir diperbarui: 5 November 2026
 
+**Dokumentasi project (5 November 2026):** `README.md` dirapikan agar sesuai dengan implementasi aktual: role dan scope, alur workflow, aturan timer SLA, dashboard Manajemen, konfigurasi SSO lokal, endpoint utama, pemeriksaan lokal, batasan MVP, dan struktur folder. Karakter encoding rusak serta referensi status lama di README dihapus. Tidak ada perubahan kode, migrasi, atau data bisnis.
+
 **Publikasi repository (5 November 2026):** commit awal Sistem SLA sudah dipush ke repository GitHub `nadhifmaulana2508/sla-pengajuan` pada branch `main`. Working tree bersih; file `.env` dan dump database lokal tidak ikut terlacak.
 
 **Percobaan QA visual/click-through Manajemen (5 November 2026):** server lokal backend/frontend aktif dan halaman login Sistem SLA berhasil terbuka di browser. Akun lokal dengan role Manajemen tersedia. Pemeriksaan belum selesai karena sesi Computer Use dihentikan dengan tombol Escape fisik sebelum login dan sweep viewport/filter/detail dilakukan. Tidak ada perubahan kode, migrasi, assignment, atau data bisnis dari percobaan ini.
