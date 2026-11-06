@@ -12,7 +12,9 @@
 		updateProfile
 	} from '#lib/features/auth/auth.store.js';
 	import { theme, toggleTheme } from '#lib/features/theme/theme.store.js';
-	import { Bell, BriefcaseBusiness, Building2, Check, CheckCheck, ClipboardList, House, Inbox, LogOut, Menu, Moon, Sun, UsersRound, X } from '@lucide/svelte';
+	import slaLogoMark from '#lib/assets/favicon.svg';
+	import type { AuthenticatedProfile } from '#lib/features/auth/auth.types.js';
+	import { Bell, BriefcaseBusiness, Building2, Check, CheckCheck, ClipboardList, House, Inbox, LogOut, Menu, Moon, Sun, UserRound, UsersRound, X } from '@lucide/svelte';
 	import {
 		fetchNotifications,
 		markAllNotificationsRead,
@@ -21,8 +23,11 @@
 	} from '#lib/features/notifications/notifications.api.js';
 
 	let role = $state<string | null>(null);
+	let profile = $state<AuthenticatedProfile | null>(null);
+	let canManageForms = $state(false);
 	let mobileMenuOpen = $state(false);
 	let notificationsOpen = $state(false);
+	let profileOpen = $state(false);
 	let notifications = $state<AppNotification[]>([]);
 	let unreadCount = $state(0);
 	let notificationsLoading = $state(false);
@@ -38,7 +43,9 @@
 
 	onMount(() => authSession.subscribe((session) => {
 		activeToken = session.token;
+		profile = session.profile;
 		role = session.profile?.sla_access.role ?? null;
+		canManageForms = session.profile?.sla_access.can_manage_forms ?? false;
 		if (session.token && !session.profile && !currentPath.startsWith('/admin/users')) void restoreProfile(session.token);
 		if (!session.token) {
 			notificationsToken = null;
@@ -169,6 +176,30 @@
 		return currentPath === path;
 	}
 
+	function roleLabel(value: AuthenticatedProfile['sla_access']['role']): string {
+		const labels = {
+			admin: 'Administrator',
+			branch_user: 'Pengguna Cabang',
+			korwil_staff: 'Petugas Korwil',
+			korwil_approver: 'Penyetuju Korwil',
+			division_staff: 'Petugas Divisi Pusat',
+			supervisor: 'Supervisor',
+			management: 'Manajemen'
+		};
+		return value ? labels[value] : 'Belum memiliki peran';
+	}
+
+	function scopeLabel(value: AuthenticatedProfile['sla_access']['scope']): string {
+		const labels = { all: 'Seluruh unit', office: 'Kantor', korwil: 'Korwil', division: 'Divisi Pusat' };
+		return value ? labels[value] : 'Belum ditentukan';
+	}
+
+	function profileInitials(fullName: string | undefined): string {
+		const parts = (fullName ?? '').trim().split(/\s+/).filter(Boolean);
+		if (parts.length > 1) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+		return (parts[0]?.slice(0, 2) || 'P').toUpperCase();
+	}
+
 	function logout(): void {
 		mobileMenuOpen = false;
 		clearAuthenticatedSession();
@@ -181,38 +212,48 @@
 </script>
 
 {#snippet navigationLinks(mobile: boolean)}
-	<Button href="/dashboard" variant={!mobile && isActive('/dashboard') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/dashboard') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+					<Button href="/dashboard" variant={!mobile && isActive('/dashboard') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/dashboard') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 		{#if mobile}<House class="size-5" aria-hidden="true" />{/if}
 		<span>Beranda</span>
 	</Button>
 	{#if role === 'branch_user'}
-		<Button href="/requests" variant={!mobile && isActive('/requests') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/requests') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+						<Button href="/requests" variant={!mobile && isActive('/requests') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/requests') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 			<ClipboardList class={mobile ? 'size-5' : 'size-4'} aria-hidden="true" /> <span>Pengajuan</span>
 		</Button>
 	{:else if role === 'korwil_staff' || role === 'korwil_approver'}
-		<Button href="/inbox/korwil" variant={!mobile && isActive('/inbox/korwil') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/inbox/korwil') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+						<Button href="/inbox/korwil" variant={!mobile && isActive('/inbox/korwil') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/inbox/korwil') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 			<Inbox class={mobile ? 'size-5' : 'size-4'} aria-hidden="true" /> <span>Antrean Korwil</span>
 		</Button>
 	{:else if role === 'division_staff'}
-		<Button href="/inbox/central" variant={!mobile && isActive('/inbox/central') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/inbox/central') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+						<Button href="/inbox/central" variant={!mobile && isActive('/inbox/central') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/inbox/central') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 			<Building2 class={mobile ? 'size-5' : 'size-4'} aria-hidden="true" /> <span>Antrean Divisi</span>
 		</Button>
 	{:else if role === 'admin'}
-		<Button href="/admin/users" variant={!mobile && isActive('/admin/users') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/admin/users') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+						<Button href="/admin/users" variant={!mobile && isActive('/admin/users') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/admin/users') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 			{#if mobile}<UsersRound class="size-5" aria-hidden="true" />{/if}
 			<span>Pengguna</span>
 		</Button>
-		<Button href="/admin/master" variant={!mobile && isActive('/admin/master') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/admin/master') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+						<Button href="/admin/master" variant={!mobile && isActive('/admin/master') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/admin/master') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 			{#if mobile}<BriefcaseBusiness class="size-5" aria-hidden="true" />{/if}
 			<span>Pekerjaan</span>
 		</Button>
-		<Button href="/admin/divisions" variant={!mobile && isActive('/admin/divisions') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/admin/divisions') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+						<Button href="/admin/forms" variant={!mobile && isActive('/admin/forms') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/admin/forms') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+			{#if mobile}<ClipboardList class="size-5" aria-hidden="true" />{/if}
+			<span>Form</span>
+		</Button>
+						<Button href="/admin/divisions" variant={!mobile && isActive('/admin/divisions') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/admin/divisions') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 			{#if mobile}<Building2 class="size-5" aria-hidden="true" />{/if}
 			<span>Divisi</span>
 		</Button>
 	{/if}
+	{#if role === 'division_staff' && canManageForms}
+		<Button href="/admin/forms" variant={!mobile && isActive('/admin/forms') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/admin/forms') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+			<ClipboardList class={mobile ? 'size-5' : 'size-4'} aria-hidden="true" />
+			<span>Kelola Form</span>
+		</Button>
+	{/if}
 	{#if role === 'management' || role === 'supervisor' || role === 'admin'}
-		<Button href="/management/branch-follow-up" variant={!mobile && isActive('/management/branch-follow-up') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/management/branch-follow-up') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
+						<Button href="/management/branch-follow-up" variant={!mobile && isActive('/management/branch-follow-up') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/management/branch-follow-up') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 			{#if mobile}<ClipboardList class="size-5" aria-hidden="true" />{/if}
 			<span>Tindak lanjut Cabang</span>
 		</Button>
@@ -221,9 +262,9 @@
 
 <Dialog.Root bind:open={notificationsOpen}>
 <header class="app-navbar">
-	<a class="wordmark" href="/dashboard" aria-label="Beranda Sistem SLA Pengajuan">
-		<span class="wordmark-mark" aria-hidden="true">S</span>
-		<span>Sistem SLA <span class="wordmark-light">Pengajuan</span></span>
+	<a class="wordmark" href="/dashboard" aria-label="Beranda SLA Pengajuan, pelacakan pengajuan Cabang, Korwil, dan Pusat">
+		<img class="wordmark-mark" src={slaLogoMark} alt="" aria-hidden="true" />
+		<span class="wordmark-primary">SLA</span><span class="wordmark-light">Pengajuan</span>
 	</a>
 
 	<nav class="primary-nav" aria-label="Navigasi utama">
@@ -242,6 +283,9 @@
 			aria-pressed={$theme === 'dark'} onclick={toggleTheme}>
 			{#if $theme === 'dark'}<Sun class="size-4" aria-hidden="true" />{:else}<Moon class="size-4" aria-hidden="true" />{/if}
 		</Button>
+		<Button variant="ghost" size="icon-lg" class="profile-trigger min-h-11 min-w-11 border-0 bg-transparent p-0 shadow-none hover:bg-transparent hover:text-primary dark:hover:bg-transparent" type="button" aria-label="Profil pengguna" title="Profil pengguna" onclick={() => (profileOpen = true)}>
+			<UserRound class="size-4" aria-hidden="true" />
+		</Button>
 		<Button variant="ghost" size="icon-lg" class="min-h-11 min-w-11 border-0 bg-transparent p-0 shadow-none hover:bg-transparent hover:text-primary dark:hover:bg-transparent" type="button" aria-label="Keluar" title="Keluar" onclick={logout}>
 			<LogOut class="size-4" aria-hidden="true" />
 		</Button>
@@ -252,6 +296,9 @@
 			aria-label={unreadCount ? `Notifikasi, ${unreadCount} belum dibaca` : 'Notifikasi'} aria-busy={notificationsLoading} title="Notifikasi" onclick={showNotifications}>
 			<Bell class="size-4" aria-hidden="true" />
 			{#if unreadCount > 0}<span class="notification-count" aria-hidden="true">{unreadCount > 9 ? '9+' : unreadCount}</span>{/if}
+		</Button>
+		<Button variant="ghost" size="icon-lg" class="profile-trigger min-h-11 min-w-11 border-0 bg-transparent p-0 shadow-none hover:bg-transparent hover:text-primary dark:hover:bg-transparent" type="button" aria-label="Profil pengguna" title="Profil pengguna" onclick={() => (profileOpen = true)}>
+			<UserRound class="size-4" aria-hidden="true" />
 		</Button>
 		<Dialog.Root bind:open={mobileMenuOpen}>
 		<Dialog.Trigger>
@@ -343,19 +390,51 @@
 	</Dialog.Content>
 </Dialog.Root>
 
+<Dialog.Root bind:open={profileOpen}>
+	<Dialog.Content class="profile-dialog" showCloseButton={false}>
+		<Dialog.Header>
+			<Dialog.Title>Profil pengguna</Dialog.Title>
+			<Dialog.Description>Informasi akun yang sedang masuk ke Sistem SLA.</Dialog.Description>
+		</Dialog.Header>
+		{#if profile}
+			<div class="profile-identity">
+				<div class="profile-avatar" aria-hidden="true">{profileInitials(profile.full_name)}</div>
+				<div class="profile-identity-copy">
+					<strong>{profile.full_name || 'Nama belum tersedia'}</strong>
+					<span>ID Pegawai · {profile.employee_id}</span>
+				</div>
+			</div>
+			<dl class="profile-fields">
+				<div><dt>Peran</dt><dd>{roleLabel(profile.sla_access.role)}</dd></div>
+				<div><dt>Cakupan akses</dt><dd>{scopeLabel(profile.sla_access.scope)}</dd></div>
+				{#if profile.branch_name || profile.kode}<div><dt>Kantor</dt><dd>{profile.branch_name ?? `Kode ${profile.kode}`}</dd></div>{/if}
+				{#if profile.unit_kerja}<div><dt>Unit kerja</dt><dd>{profile.unit_kerja}</dd></div>{/if}
+				{#if profile.job_position}<div><dt>Jabatan</dt><dd>{profile.job_position}</dd></div>{/if}
+				{#if profile.email}<div><dt>Email</dt><dd>{profile.email}</dd></div>{/if}
+			</dl>
+			<div class="profile-actions"><Button variant="outline" class="min-h-11" onclick={() => (profileOpen = false)}>Tutup</Button></div>
+		{:else}
+			<p class="profile-loading" role="status">Memuat informasi profil…</p>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
+
 <style>
 	.app-navbar {
 		position: sticky;
 		top: 0;
 		z-index: 30;
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+		grid-template-columns: minmax(12rem, 1fr) auto minmax(12rem, 1fr);
 		align-items: center;
 		gap: 0.75rem;
-		min-height: 4.25rem;
-		padding-inline: clamp(1rem, 5vw, 4rem);
+		min-height: 4rem;
+		padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100vw - 88rem) / 2));
 		border-bottom: 1px solid var(--border);
-		background: var(--background);
+		background: color-mix(in srgb, var(--background) 96%, transparent);
+		box-shadow: 0 1px 0 color-mix(in srgb, var(--foreground) 2%, transparent);
+		-webkit-backdrop-filter: blur(14px);
+		backdrop-filter: blur(14px);
 	}
 
 	.wordmark {
@@ -363,34 +442,38 @@
 		min-width: 0;
 		align-items: center;
 		justify-self: start;
-		gap: 0.6rem;
+		gap: 0.4rem;
 		color: var(--foreground);
 		font-size: var(--type-sm);
 		font-weight: 650;
-		letter-spacing: -0.02em;
+		letter-spacing: -0.035em;
 		text-decoration: none;
 	}
 
-	.wordmark-mark {
-		display: grid;
-		width: 1.9rem;
-		height: 1.9rem;
-		flex: 0 0 auto;
-		place-items: center;
-		border: 1px solid var(--border);
-		border-radius: 0.5rem;
-		font-size: var(--type-xs);
-	}
-
-	.wordmark-light { color: var(--muted-foreground); font-weight: 450; }
+	.wordmark-mark { display: block; width: 1.8rem; height: 1.8rem; flex: 0 0 auto; }
+	.wordmark-primary { margin-left: .1rem; }
+	.wordmark-light { color: var(--muted-foreground); font-weight: 500; }
 	.wordmark > span:last-child { min-width: 0; overflow-wrap: anywhere; }
-	.wordmark:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
-	.primary-nav { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.15rem; }
+	.primary-nav { display: flex; min-width: 0; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 0.2rem; }
+	.primary-nav :global(a[aria-current='page']) { background: var(--accent); color: var(--accent-foreground); }
 	.navbar-actions { display: flex; align-items: center; justify-self: end; gap: 0.1rem; }
 	.mobile-header-actions { display: none; }
 	:global(.notification-trigger) { flex: 0 0 auto; }
 	:global(.notification-count) { position: absolute; top: 0.15rem; right: 0.1rem; min-width: 1rem; height: 1rem; padding-inline: 0.18rem; border-radius: 999px; background: var(--destructive); color: var(--destructive-foreground); font-size: 0.625rem; font-weight: 700; line-height: 1rem; text-align: center; }
 	:global(.notification-dialog) { width: min(32rem, calc(100vw - 1.5rem)); max-height: min(80dvh, 42rem); overflow: hidden; }
+	:global(.profile-dialog) { width: min(30rem, calc(100vw - 1.5rem)); max-height: min(84dvh, 42rem); overflow-y: auto; }
+	.profile-identity { display: grid; grid-template-columns: 3rem minmax(0, 1fr); align-items: center; gap: .85rem; padding: .85rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--muted); }
+	.profile-avatar { display: grid; width: 3rem; height: 3rem; place-items: center; border-radius: 50%; background: var(--accent); color: var(--accent-foreground); font-size: var(--type-base); font-weight: 700; }
+	.profile-identity-copy { display: grid; min-width: 0; gap: .2rem; }
+	.profile-identity-copy strong { overflow-wrap: anywhere; font-size: var(--type-base); }
+	.profile-identity-copy span { color: var(--muted-foreground); font-size: var(--type-xs); }
+	.profile-fields { display: grid; margin: 0; }
+	.profile-fields > div { display: grid; grid-template-columns: minmax(7rem, .7fr) minmax(0, 1.3fr); gap: .75rem; padding: .65rem 0; border-bottom: 1px solid var(--border); }
+	.profile-fields > div:last-child { border-bottom: 0; }
+	.profile-fields dt { color: var(--muted-foreground); font-size: var(--type-sm); }
+	.profile-fields dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: var(--type-sm); }
+	.profile-actions { display: flex; justify-content: flex-end; }
+	.profile-loading { margin: .25rem 0; color: var(--muted-foreground); font-size: var(--type-sm); }
 	:global(.notification-header) { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 1rem 1rem 0.8rem; border-bottom: 1px solid var(--border); }
 	.notification-header-actions { display: flex; align-items: center; gap: 0.15rem; }
 	.notification-mark-label { white-space: nowrap; }
@@ -406,29 +489,23 @@
 	.notification-item-body, .notification-item-copy time { overflow-wrap: anywhere; color: var(--muted-foreground); font-size: var(--type-xs); }
 	.notification-state { display: flex; min-height: 8rem; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 1.25rem; color: var(--muted-foreground); text-align: center; }
 	:global(.mobile-menu-trigger) { display: none; }
-	.mobile-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; }
+	.mobile-nav { display: grid; grid-auto-rows: minmax(5rem, auto); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; }
 	.mobile-nav :global(a:nth-child(3):last-child) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 0.125rem); }
+	.mobile-nav :global(a:nth-child(5):last-child) { grid-column: 1 / -1; justify-self: stretch; width: 100%; }
 	.mobile-nav :global(a:only-child) { width: 100%; }
-	.mobile-nav :global(a[aria-current='page']) { color: var(--primary); font-weight: 650; }
+	.mobile-nav :global(a[aria-current='page']) { background: var(--accent); color: var(--accent-foreground); font-weight: 650; }
 	.mobile-menu-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 
-	@media (max-width: 62rem) {
-		.app-navbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; row-gap: 0.35rem; padding-block: 0.55rem; }
-		.primary-nav { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
-		.navbar-actions { grid-column: 2; grid-row: 1; }
-		.mobile-header-actions { display: none; }
-	}
-
-	@media (max-width: 42rem) {
-		.app-navbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; gap: 0 0.45rem; padding: 0.55rem 0.65rem; }
+	@media (max-width: 64rem) {
+		.app-navbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; gap: 0 0.45rem; padding: 0.55rem 0.9rem; }
 		.wordmark { gap: 0.45rem; font-size: var(--type-xs); }
-		.wordmark-mark { width: 1.8rem; height: 1.8rem; }
 		.primary-nav, .navbar-actions { display: none; }
 		.mobile-header-actions { display: flex; grid-column: 2; grid-row: 1; align-items: center; justify-self: end; gap: 0.1rem; }
 		:global(.mobile-menu-trigger) { display: inline-flex; justify-self: end; }
 	}
 
 	@media (max-width: 22rem) {
+		.wordmark-light { display: none; }
 		.mobile-menu-actions { grid-template-columns: 1fr; }
 		.mobile-menu-actions :global(.mobile-menu-action) { width: 100%; }
 	}

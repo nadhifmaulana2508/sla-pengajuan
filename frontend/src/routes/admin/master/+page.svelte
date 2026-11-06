@@ -13,6 +13,7 @@
 	import * as Select from '#lib/components/ui/select/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
+	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { BriefcaseBusiness, Plus, Search } from '@lucide/svelte';
 	import {
 		createWorkCatalog,
@@ -236,19 +237,11 @@
 	<meta name="description" content="Kelola katalog pekerjaan dan target SLA untuk setiap divisi pusat." />
 </svelte:head>
 
-<main class="admin-page">
+<main id="main-content" class="admin-page">
 	<AppNavbar />
 
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
-		<div class="app-page-heading">
-			<div class="app-page-heading-copy">
-				<p class="app-page-kicker">Administrasi</p>
-				<div class="app-page-title-row">
-					<h1 id="page-title" class="app-page-title">Master pekerjaan</h1>
-					<p class="app-page-description">Atur jenis pekerjaan per divisi pusat. Target SLA dapat dikosongkan sampai disahkan.</p>
-				</div>
-			</div>
-		</div>
+		<AppPageHeading eyebrow="Administrasi" title="Master pekerjaan" description="Atur jenis pekerjaan per divisi pusat. Target SLA dapat dikosongkan sampai disahkan." />
 
 		{#if statusMessage}
 			<p class="save-status" role="status" aria-live="polite">{statusMessage}</p>
@@ -444,7 +437,7 @@
 		min-height: 0;
 	}
 
-	.admin-content > .app-page-heading {
+	:global(.admin-content > .app-page-heading) {
 		margin-bottom: 0;
 	}
 

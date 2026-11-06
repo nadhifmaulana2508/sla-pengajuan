@@ -5,6 +5,7 @@ import { inferKorwilFromSsoText, normalizeSsoUnitName } from '../organization/ss
 
 export type SlaAccess = {
 	enabled: boolean;
+	can_manage_forms: boolean;
 	role:
 		| 'admin'
 		| 'branch_user'
@@ -44,6 +45,7 @@ type AccessRow = RowDataPacket & {
 	scope_divisi_id: number | null;
 	scope_office_active: number | null;
 	scope_division_active: number | null;
+	scope_can_manage_forms: number;
 };
 
 export async function syncSsoProfile(profile: SsoProfile): Promise<void> {
@@ -234,7 +236,8 @@ export async function resolveSlaAccessDetails(employeeId: string): Promise<SlaAc
 			u.job_position AS user_job_position,
 			user_office.korwil AS profile_korwil,
 			s.kode_kantor AS scope_kode_kantor, s.korwil AS scope_korwil,
-			s.divisi_id AS scope_divisi_id, scope_office.is_active AS scope_office_active,
+			s.divisi_id AS scope_divisi_id, s.can_manage_forms AS scope_can_manage_forms,
+			scope_office.is_active AS scope_office_active,
 			scope_division.is_active AS scope_division_active
 		FROM users u
 		LEFT JOIN user_role_scopes s ON s.user_id = u.id AND s.is_active = 1
@@ -280,7 +283,7 @@ export async function resolveSlaAccessDetails(employeeId: string): Promise<SlaAc
 	});
 	if (!assignment) {
 		return {
-			access: { enabled: false, role: null, scope: null, source: null },
+			access: { enabled: false, can_manage_forms: false, role: null, scope: null, source: null },
 			assignment: null
 		};
 	}
@@ -310,6 +313,9 @@ export async function resolveSlaAccessDetails(employeeId: string): Promise<SlaAc
 	const enabled = role !== null && accessScope !== null;
 	const access: SlaAccess = {
 		enabled,
+		can_manage_forms: enabled && (
+			(role === 'admin' && accessScope === 'all') || Number(assignment.scope_can_manage_forms) === 1
+		),
 		role,
 		scope: accessScope,
 		source: enabled ? 'database' : null

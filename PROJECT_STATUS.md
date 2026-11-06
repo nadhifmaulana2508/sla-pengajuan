@@ -1,6 +1,30 @@
 # Status Proyek Sistem SLA
 
-Terakhir diperbarui: 5 November 2026
+Terakhir diperbarui: 6 November 2026
+
+**Persiapan deployment aaPanel (6 November 2026):** frontend production dikunci memakai `@sveltejs/adapter-node` dengan script `npm run start` (`node build`) agar dapat dikelola sebagai project Node/PM2. Runbook [docs/DEPLOY_AAPANEL.md](docs/DEPLOY_AAPANEL.md) mencatat alur development, setup MySQL, environment production, dua project Node, reverse proxy, SSL, verifikasi, release, backup, dan keamanan. Dependency/frontend build akan diverifikasi sebelum commit. Deployment live masih menunggu akses VPS aaPanel, DNS, dan domain.
+
+**Ikon profil/navbar (6 November 2026):** tombol profil tersedia di navbar desktop dan mobile. Tombol membuka dialog shadcn dengan nama, ID pegawai, role, cakupan akses, serta kantor/unit/jabatan/email yang tersedia pada profil SSO aktif. Tidak ada route profil atau data contoh yang ditambahkan. Navbar ponsel sangat sempit menyembunyikan teks sekunder merek agar ikon tetap muat. Svelte check 0 error/0 warning dan production build lulus.
+
+**Ringkasan SLA detail sebagai badge (6 November 2026):** kartu “Status SLA keseluruhan” yang berisi ambang berulang dihapus dari badan halaman detail. Badge SLA kini tampil di samping badge status tiket pada heading, sehingga status tetap terlihat tanpa panel lebar dan ruang kosongnya. Svelte check 0 error/0 warning dan production build lulus; alur tiket dan perhitungan SLA tidak berubah.
+
+**Kepadatan antrean Divisi dan detail tiket (6 November 2026):** kartu antrean Divisi Pusat memakai ukuran shadcn `sm`, metadata menyusun diri dalam baris yang membungkus saat ruang terbatas, dan tombol tetap mudah dijangkau pada ponsel. Kartu uraian, data tambahan, waktu proses, tindakan, serta timeline detail memakai spacing ringkas dan jarak antarbagian lebih rapat. Alur, data, timer, dan izin tindakan tetap sama. `npm.cmd run check` lulus 0 error/0 warning dan production build lulus. Click-through visual pada browser lokal masih perlu dilakukan.
+
+**Scrollbar tipis dan konsisten (6 November 2026):** aturan scrollbar dipusatkan di base stylesheet global sehingga berlaku pada semua halaman dan area scroll bertingkat. Scrollbar native memakai ukuran tipis, track transparan, thumb kontras yang mengikuti tema, serta state hover; gutter stabil sebelumnya tetap dipertahankan. Design Read menjadikannya aturan bersama. Svelte check 0 error/0 warning dan production build lulus. Tidak ada perubahan API, migrasi, atau data.
+
+**Logo login dan pergeseran saat overlay dibuka (6 November 2026):** halaman login memakai mark yang sama dengan navbar dan teks “SLA Pengajuan”. CSS root sekarang mempertahankan `scrollbar-gutter: stable`, sesuai pemeriksaan scroll lock Bits UI, sehingga dialog/select tidak mengubah lebar konten ketika body dikunci. Animasi zoom dan slide pada dialog serta dropdown dihapus; transisi overlay hanya fade singkat. Svelte check 0 error/0 warning dan production build lulus. Click-through browser belum dapat dijalankan karena native browser pipe tidak tersedia; konfirmasi dropdown, modal, dan notifikasi tetap perlu dilakukan saat browser lokal tersedia. Tidak ada perubahan API, migrasi, atau data.
+
+**Perapihan dashboard Cabang, Korwil, dan Divisi serta identitas logo (6 November 2026):** KPI setiap role kini memakai grid konsisten tanpa kartu durasi melebar; Korwil/Divisi menampilkan antrean, proses berjalan, revisi yang menunggu Cabang, tiket lewat target, dan akumulasi waktu unit. Ringkasan status ganda digabung menjadi satu sebaran status, berdampingan dengan daftar tiket terbaru; layout menumpuk untuk tablet dan ponsel. Logo SVG memakai jalur tiga checkpoint Cabang → Korwil → Pusat. Nama yang disarankan “SLA Pengajuan”, dengan deskripsi “Pelacakan pengajuan Cabang, Korwil, dan Pusat”; SLA tetap bermakna Service Level Agreement. `npm.cmd run check` dan `npm.cmd run build` lulus. Verifikasi browser visual belum dapat dilakukan karena native browser pipe tidak tersedia. Tidak ada perubahan API, migrasi, atau data bisnis.
+
+**Milestone form dinamis dan routing kredit (6 November 2026):** migrasi `011_work_forms_and_credit_routing.sql` diterapkan pada MySQL lokal. Kredit di bawah Rp250 juta ditolak sebelum tiket dibuat; Rp250 juta sampai di bawah Rp500 juta ditangani Korwil; mulai Rp500 juta masuk Korwil lalu dapat diteruskan ke Pemasaran. Backend menentukan tujuan berdasarkan nilai, menyimpan nominal, versi form, dan jawaban. Admin dapat mengelola semua form; Petugas Divisi hanya dapat menerbitkan form pada divisinya setelah izin diberikan melalui Akses Pegawai. Halaman Cabang menampilkan field versi aktif, dan detail tiket menampilkan jawaban yang tersimpan. Editor dibuat memakai primitive shadcn-svelte yang sudah ada dan layout menumpuk pada layar sempit. Field wajib Keringanan bunga belum ditetapkan; formnya belum berisi persyaratan khusus. Reset akun atau form EDC tidak dilakukan karena maksud dan objek reset belum terkonfirmasi. Pemeriksaan type/build lulus; click-through visual dan alur kredit dengan akun SSO masih perlu dilakukan.
+
+**Redesign frontend (5 November 2026):** arah visual Vercel-inspired dan aturan komponen dicatat di `DESIGN.md`. Token terang/gelap, judul halaman bersama, navbar, state fokus, skip link, palet SLA, dan pengurangan motion diseragamkan. Login, dashboard, daftar/antrean, detail tiket, pemantauan Manajemen, dan halaman Admin memakai pola visual yang sama; filter Korwil, Divisi, dan Cabang menggunakan Select shadcn-svelte. Tidak ada dependency baru karena komponen dan font sudah tersedia. Frontend `npm.cmd run check` lulus 0 error/0 warning dan production build lulus. Screenshot lokal dengan fixture sintetis memeriksa login pada lebar CSS 320, 360, 390, 430, 768, 1024, 1280, dan 1440 px tanpa horizontal overflow; dashboard desktop/ponsel, halaman Manajemen ponsel, serta tema gelap login juga dirender. Sweep lebar DOM pada 10 route utama di delapan ukuran tidak menemukan horizontal overflow pada dokumen. Screenshot dan profil browser sintetis sempat disimpan di `%TEMP%` di luar repository lalu dibersihkan; akun, tiket, API, migrasi, dan data bisnis tidak diubah. Screenshot detail semua route, click-through tindakan/filter/dialog, semua tema pada seluruh ukuran, serta uji role nyata tetap terbuka.
+
+**Penyempurnaan dashboard Manajemen (5 November 2026):** judul menjadi “Dashboard”; filter Korwil, Divisi Pusat, dan tanggal ditutup secara default dan dapat dibuka/tutup. Kartu ringkasan menampilkan Total tiket, SLA aman, Mendekati SLA, Melewati SLA, Selesai, dan Ditolak; KPI total umur tiket dihilangkan, dan batas SLA ditampilkan sebagai badge. Frontend check lulus tanpa error/peringatan dan production build lulus. Click-through pada fixture sintetis memverifikasi toggle filter serta tampilan gelap pada lebar desktop 1440 px dan ponsel 390 px tanpa horizontal overflow. Tidak ada perubahan alur bisnis, API, migrasi, atau data.
+
+**Penyamaan ukuran kontrol filter dashboard (5 November 2026):** input tanggal, pilihan Korwil/Divisi, serta tombol Terapkan/Reset kini memakai tinggi 44 px yang sama. Frontend Svelte check dan production build lulus. Perubahan hanya menyentuh tampilan.
+
+**Perbaikan menu navbar mobile (5 November 2026):** tautan menu mobile kini mengikuti tinggi kontennya, dan tautan kelima pada menu Admin memakai satu baris penuh agar label “Tindak lanjut Cabang” tidak bertumpuk atau keluar dari tombol. Frontend Svelte check dan production build lulus.
 
 **Dokumentasi project (5 November 2026):** `README.md` dirapikan agar sesuai dengan implementasi aktual: role dan scope, alur workflow, aturan timer SLA, dashboard Manajemen, konfigurasi SSO lokal, endpoint utama, pemeriksaan lokal, batasan MVP, dan struktur folder. Karakter encoding rusak serta referensi status lama di README dihapus. Tidak ada perubahan kode, migrasi, atau data bisnis.
 
@@ -109,6 +133,7 @@ Perbaikan reload Akses Pegawai dan notifikasi (4 November 2026): halaman Admin m
 - Admin menetapkan role/status, bukan cakupan untuk role organisasi. Pengguna Cabang mengikuti kode kantor aktif dari SSO; Petugas Korwil mengikuti mapping kantor atau informasi organisasi SSO; Petugas Divisi Pusat mengikuti `unit_kerja` yang cocok dengan master divisi. Scope diselaraskan saat profil disinkronkan dan perubahan dicatat di `user_access_audit_logs`; scope yang tidak dapat dipetakan tidak memberi akses.
 - Tiket Cabang dimiliki kantor (`kode_kantor`), bukan pegawai pembuat. Role Cabang baru pada kantor yang sama dapat melihat dan melanjutkan tiket lama; `created_by_user_id` tetap menjaga jejak pembuat.
 - Role dasar tersimpan di `roles`. Assignment pegawai dan cakupan `global`, `office`, `korwil`, atau `division` tersimpan di `user_role_scopes`.
+- Admin dapat mengaktifkan izin `can_manage_forms` pada assignment Petugas Divisi. Izin hanya memberi hak edit form pada divisi yang tetap mengikuti scope SSO; Admin global dapat mengelola semua form.
 - UI memakai shadcn-svelte dan Tailwind CSS dengan gaya dashboard admin yang bersih.
 - Endpoint Admin saat ini memvalidasi bearer dengan pemanggilan SSO `whoami` per request dan menolak akun tanpa assignment admin global aktif.
 - Workspace Akses Pegawai menggabungkan pemuatan profil terverifikasi, daftar pegawai, dan pilihan akses dalam satu API request; endpoint Admin lain tetap memvalidasi bearer SSO secara mandiri.
@@ -120,13 +145,13 @@ Perbaikan reload Akses Pegawai dan notifikasi (4 November 2026): halaman Admin m
 - Timer Korwil awal dimulai saat diambil; antrean Korwil terpisah. Sesi Cabang dimulai saat kelengkapan diminta. Bila Korwil meminta dokumen, sesi Korwil baru dimulai saat Cabang mengirim jawaban; bila Divisi meminta, tiket kembali langsung ke Divisi. Sesi Divisi awal masuk antrean saat diteruskan, tetapi timer baru dimulai saat diambil; resume pelengkapan langsung dimulai saat Cabang mengirim jawaban.
 - Semua durasi memakai waktu kalender 24 jam. Setiap handoff membuat sesi baru; total waktu per unit adalah penjumlahan seluruh sesinya.
 - Nomor pengajuan memakai format teknis `SLA-` diikuti ID database delapan digit; format ini belum menjadi kebijakan bisnis publik.
-- Form MVP awal saat ini hanya mengumpulkan perihal dan uraian umum. Field khusus tiap pekerjaan dan lampiran belum tersedia, sehingga form belum siap untuk pengajuan resmi yang mensyaratkan field/dokumen tersebut.
+- Form dinamis kini mendukung teks, teks panjang, angka, Rupiah, tanggal, pilihan, aturan wajib, dan batas angka. Penerbitan menghasilkan versi immutable yang disimpan bersama jawaban tiap tiket. Field tambahan Keringanan bunga masih menunggu pengesahan Divisi; lampiran belum tersedia.
 - Kekurangan berkas kembali langsung ke Cabang. Perubahan substansi kembali ke Korwil.
 - Untuk MVP, Petugas Korwil atau Penyetuju Korwil yang mengambil tiket dapat menjalankan tindakan yang tersedia pada tahap Korwil; pemisahan persetujuan formal belum dimodelkan dan perlu ditinjau sebelum produksi.
 - Pelengkapan saat ini berupa catatan teks pada timeline; file lampiran belum dapat diunggah karena kebijakan storage privat, tipe file, dan batas ukuran belum ditetapkan.
 - Organisasi terdiri dari 28 Cabang, 4 Korwil, dan 9 Divisi Pusat: Penyelesaian Kredit, Pemasaran, Sekretaris Perusahaan, Operasional, Litbang, SKK, SKMR, SKAI, dan SDM.
 - Master lokal awal memakai satu tabel `master_kantor` dengan kolom `id`, `kode_kantor`, `nama_kantor`, `korwil`, `is_active`. `kode_kantor` bertipe teks tiga karakter; `000` adalah Pusat. Kolom `korwil` memakai nilai kelompok seperti pada data sumber, belum dipisah menjadi tabel Korwil.
-- Pengajuan kredit di bawah Rp500 juta masuk ke Korwil; pengajuan di atas Rp500 juta melalui Korwil ke Pemasaran.
+- Pengajuan kredit di bawah Rp250 juta ditolak. Nilai Rp250 juta sampai di bawah Rp500 juta masuk Korwil; nilai mulai Rp500 juta diperiksa Korwil lalu dapat diteruskan ke Pemasaran.
 
 ## Progres
 
@@ -194,6 +219,12 @@ Perbaikan reload Akses Pegawai dan notifikasi (4 November 2026): halaman Admin m
 - [x] Buat dashboard Cabang, Korwil, Divisi Pusat, dan Admin.
 - [x] Tambahkan akses baca detail untuk Manajemen/Supervisor global dan badge SLA umum 7 hari pada dashboard/detail.
 - [x] Tambahkan filter Korwil/Divisi pada dashboard global serta halaman tiket menunggu tindak lanjut Cabang dengan filter kantor.
+- [x] Buat migrasi `011_work_forms_and_credit_routing.sql` untuk versi definisi form, snapshot jawaban tiket, nominal kredit, dan izin kelola form per assignment.
+- [x] Buat endpoint penerbitan form immutable untuk Admin global dan Petugas Divisi yang diberi izin; backend membatasi pengelola Divisi pada scope SSO aktifnya.
+- [x] Buat editor form responsif memakai komponen shadcn-svelte yang tersedia, dan tampilkan jawaban form pada detail tiket.
+- [x] Terapkan routing kredit di backend: di bawah Rp250 juta ditolak; Rp250 juta sampai di bawah Rp500 juta ditangani Korwil; mulai Rp500 juta ditetapkan ke Pemasaran setelah pemeriksaan Korwil.
+- [x] Siapkan frontend production dengan adapter-node dan dokumentasikan deployment aaPanel, reverse proxy, SSL, backup, serta alur release.
+- [ ] Deploy ke staging aaPanel dan verifikasi health, database, SSO, CORS, PM2, reverse proxy, SSL, serta click-through role nyata.
 - [ ] Siapkan data uji dan jalankan skenario penerimaan di PRD.
 
 ## Rancangan struktur folder
@@ -254,13 +285,13 @@ Backend membagi endpoint dan aturan domain dalam modul. Frontend memakai `routes
 
 ## Tugas berikutnya
 
-Milestone dashboard Manajemen sudah selesai secara kode dan perlu click-through/visual QA sebelum dipakai sebagai bukti penerimaan. Verifikasi wajib mencakup detail baca-saja untuk Manajemen, filter Korwil/Divisi, halaman tiket menunggu Cabang, dan badge SLA pada batas umur 3 serta 7 hari.
+Perapihan dashboard role, logo login, dan stabilisasi scrollbar saat dialog/select/notifikasi dibuka sudah selesai secara kode; click-through visual di browser tetap perlu dilakukan saat browser lokal tersedia untuk memastikan halaman tidak bergeser. Milestone dashboard Manajemen juga menunggu click-through/visual QA sebelum dipakai sebagai bukti penerimaan. Verifikasi wajib mencakup detail baca-saja untuk Manajemen, filter Korwil/Divisi, halaman tiket menunggu Cabang, dan badge SLA pada batas umur 3 serta 7 hari.
 
-**Prioritas sebelum milestone berikutnya — verifikasi visual responsif dan notifikasi:** sweep seluruh sepuluh route pada lebar 320, 360, 390, 430, 768, 1024, 1280, dan 1440 px dalam tema terang/gelap. Periksa overflow horizontal, reflow judul/kartu/tabel/form/dialog, navbar sticky, buka-tutup menu dan dialog lonceng, fokus keyboard, serta target sentuh. Capture browser yang tersedia timeout dua kali; ulangi ketika screenshot browser dapat diambil atau gunakan screenshot aktual sebagai bukti. Dalam click-through, jalankan pengajuan sampai klaim, pengembalian, penerusan, pelengkapan, dan penutupan; pastikan unread berkurang setelah dibaca dan pengguna di luar scope tidak menerima/menampilkan tiket. Jangan lanjut ke feature milestone sampai UI lolos pemeriksaan visual tersebut.
+**Prioritas berikutnya: verifikasi visual responsif dan click-through.** Sweep seluruh route termasuk `/requests/new` dan `/admin/forms` pada lebar 320, 360, 390, 430, 768, 1024, 1280, dan 1440 px dalam tema terang/gelap. Periksa overflow horizontal, reflow judul/kartu/tabel/form/dialog, navbar sticky, fokus keyboard, dan target sentuh. Pada sesi SSO, verifikasi permission Admin, pembatasan pengelola Divisi ke divisinya, versi lama pada tiket, jawaban detail, serta nilai kredit di bawah Rp250 juta, Rp250 juta, tepat Rp500 juta, dan di atasnya. Pastikan nilai di bawah batas tidak membuat tiket dan nilai mulai Rp500 juta diarahkan ke Pemasaran melalui Korwil. Click-through notifikasi lintas scope masih perlu dilakukan.
 
 **Sesudah verifikasi UI:** ulangi click-through memakai sesi SSO yang dapat memuat profil. Di Admin, pastikan editor role pegawai SKAI hanya meminta peran dan menampilkan cakupan Divisi otomatis; cek Riwayat Korwil/Pusat dan editor Master Divisi. Verifikasi alur pelengkapan Cabang: tiket kembali Diproses tanpa Ambil ulang, nomor tiket tetap, timer sesi Cabang berhenti, dan waktu unit menjumlah seluruh sesi. Lanjutkan login/reload/logout serta tema terang/gelap.
 
-**Milestone berikutnya:** setelah click-through, sepakati tipe file, batas ukuran, dan lokasi storage untuk unggah/unduh lampiran privat, lalu lanjutkan implementasinya. Sebelum produksi, pemilik proses juga perlu menetapkan apakah `Petugas Korwil` dan `Penyetuju Korwil` memiliki hak tindakan berbeda; MVP saat ini membolehkan pemegang tiket dari kedua role bertindak. Definisi field dinamis dan dokumen wajib per katalog tetap terbuka.
+**Setelah verifikasi:** minta Divisi menetapkan field wajib Keringanan bunga dan jenis pekerjaan lain yang akan memakai form khusus. Field dan versi form sudah dapat diterbitkan, tetapi daftar persyaratan bisnis tetap harus disahkan sebelum diwajibkan. Sesudah itu sepakati tipe file, batas ukuran, dan lokasi storage untuk lampiran privat. Sebelum produksi, tetapkan juga apakah `Petugas Korwil` dan `Penyetuju Korwil` memiliki hak tindakan berbeda.
 
 ## Hal yang masih perlu diputuskan
 
@@ -268,10 +299,10 @@ Milestone dashboard Manajemen sudah selesai secara kode dan perlu click-through/
 - Masa berlaku token dan format error dari SSO.
 - Profil pegawai muncul setelah login SSO pertama kali; impor direktori SSO belum tersedia.
 - Jika satu pegawai memiliki beberapa assignment aktif, aturan prioritas/perpaduan role efektif perlu ditetapkan sebelum endpoint workflow menggunakan akses tersebut.
-- Katalog pekerjaan saat ini menyimpan nama, deskripsi, status, divisi, dan target opsional. Field dinamis, lampiran wajib, dan aturan routing lanjutan belum dimodelkan.
+- Field wajib Keringanan bunga dan field khusus katalog lain menunggu pengesahan Divisi/pemilik proses; migrasi 011 memulai form Keringanan tanpa field tambahan.
+- Maksud permintaan "reset user EDC" belum jelas apakah reset akun/akses atau perubahan form Permintaan EDC Operasional; tidak ada akun maupun data EDC yang diubah.
 - ORM belum dipilih; migrasi saat ini memakai SQL bernomor dan runner sederhana.
 - Target SLA per unit atau jenis pekerjaan.
-- Konfirmasi batas tepat Rp500 juta. Usulan sementara: Korwil, karena Pemasaran berlaku untuk nilai di atas Rp500 juta.
 - Peran Korwil yang boleh menyetujui penerusan ke Pusat.
 - Ketentuan hosting dan penyimpanan lampiran.
 

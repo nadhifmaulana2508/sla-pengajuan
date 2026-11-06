@@ -12,7 +12,7 @@
 
 <div class="workflow-shell">
 	<AppNavbar />
-	<main class="workflow-content app-page-shell">{@render children()}</main>
+	<main id="main-content" class="workflow-content app-page-shell">{@render children()}</main>
 </div>
 
 <style>

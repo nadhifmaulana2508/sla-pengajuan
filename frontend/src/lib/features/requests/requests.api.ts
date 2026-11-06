@@ -11,7 +11,27 @@ export type RequestSummary = {
 	overall_elapsed_seconds: number | string; closed_at: string | null;
 	sla_target_minutes?: number; sla_status?: SlaStatus;
 };
-export type WorkCatalog = { id: number; divisi_id: number; nama_pekerjaan: string; deskripsi: string | null; target_sla_minutes: number | null };
+export type WorkFormField = {
+	key: string;
+	label: string;
+	type: 'text' | 'textarea' | 'number' | 'currency' | 'date' | 'select';
+	required: boolean;
+	options?: string[];
+	min_value?: number;
+	max_value?: number;
+	system?: boolean;
+};
+export type WorkCatalog = {
+	id: number;
+	divisi_id: number;
+	nama_pekerjaan: string;
+	deskripsi: string | null;
+	target_sla_minutes: number | null;
+	system_key: string | null;
+	form_version_id: number | null;
+	version_number: number | null;
+	form_fields: WorkFormField[];
+};
 export type RequestOptions = {
 	office: { kode_kantor: string; korwil: string };
 	divisions: Array<{ id: number; nama_divisi: string }>;
@@ -27,6 +47,7 @@ export async function fetchRequests(token: string) {
 export async function fetchRequest(token: string, id: string) {
 	return apiRequest<ApiEnvelope<{
 		request: RequestSummary;
+		form_answers: Array<{ key: string; label: string; type: WorkFormField['type']; value: string | number }>;
 		sessions: Array<{ id: number; unit_type: string; unit_code: string; created_at: string; started_at: string | null; start_reason: 'claim' | 'sent' | null; claimed_at: string | null; ended_at: string | null; target_sla_minutes: number | null; outcome: string | null; duration_seconds: number | string | null }>;
 		timeline: Array<{ id: number; action_name: string; status_from: string | null; status_to: string; unit_from_type: string | null; unit_from_code: string | null; unit_to_type: string; unit_to_code: string; reason: string | null; created_at: string; actor_name: string | null }>;
 		capabilities: {
@@ -40,7 +61,8 @@ export async function submitRevision(token: string, id: number, response: string
 }
 export async function createRequest(token: string, input: {
 	authority_type: 'korwil' | 'central'; central_division_id: number | null;
-	work_catalog_id: number | null; subject: string; description: string;
+	work_catalog_id: number | null; form_version_id: number | null;
+	form_answers: Record<string, string | number>; subject: string; description: string;
 }) {
 	return apiRequest<ApiEnvelope<{ id: number; request_number: string }>>('requests', { method: 'POST', token, body: input });
 }

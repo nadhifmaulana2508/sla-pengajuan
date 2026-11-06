@@ -10,6 +10,7 @@ export type UserAssignmentInput = {
 	kode_kantor: string | null;
 	korwil: string | null;
 	divisi_id: number | null;
+	can_manage_forms: boolean;
 };
 
 export type UserAccessInput = {
@@ -48,6 +49,7 @@ type UserListRow = RowDataPacket & {
 	scope_korwil: string | null;
 	scope_divisi_id: number | null;
 	scope_nama_divisi: string | null;
+	scope_can_manage_forms: number;
 };
 
 type RoleRow = RowDataPacket & { id: number; kode: string; nama_role: string };
@@ -82,6 +84,7 @@ export async function listAdminUsers() {
 			role.nama_role AS role_name, s.scope_type,
 			s.kode_kantor AS scope_kode_kantor, scope_office.nama_kantor AS scope_nama_kantor,
 			s.korwil AS scope_korwil, s.divisi_id AS scope_divisi_id,
+			s.can_manage_forms AS scope_can_manage_forms,
 			scope_division.nama_divisi AS scope_nama_divisi
 		FROM users u
 		LEFT JOIN master_kantor office ON office.kode_kantor = u.kode_kantor
@@ -117,6 +120,7 @@ export async function listAdminUsers() {
 			korwil: string | null;
 			divisi_id: number | null;
 			nama_divisi: string | null;
+			can_manage_forms: boolean;
 		}>;
 	}>();
 
@@ -158,7 +162,8 @@ export async function listAdminUsers() {
 				nama_kantor: row.scope_nama_kantor,
 				korwil: row.scope_korwil,
 				divisi_id: row.scope_divisi_id,
-				nama_divisi: row.scope_nama_divisi
+				nama_divisi: row.scope_nama_divisi,
+				can_manage_forms: Number(row.scope_can_manage_forms) === 1
 			});
 		}
 	}
@@ -262,6 +267,7 @@ export async function updateAdminUserAccess(
 			kode_kantor: string | null;
 			korwil: string | null;
 			divisi_id: number | null;
+			can_manage_forms: boolean;
 		}> = [];
 		const [knownKorwilRows] = await connection.execute<Array<RowDataPacket & { korwil: string }>>(
 			`SELECT DISTINCT korwil FROM master_kantor
@@ -356,6 +362,9 @@ export async function updateAdminUserAccess(
 				if (!divisions[0]) throw new AdminUserAccessError(400, 'Divisi dari profil SSO tidak ditemukan atau nonaktif.');
 				targetKey = `division:${resolvedDivisionId}`;
 			}
+			if (assignment.can_manage_forms && (role.kode !== 'division_staff' || assignment.scope_type !== 'division' || resolvedDivisionId === null)) {
+				throw new AdminUserAccessError(400, 'Izin kelola form hanya dapat diberikan kepada Petugas Divisi dengan cakupan Divisi dari profil SSO.');
+			}
 
 			const fingerprint = `${assignment.role_id}:${assignment.scope_type}:${targetKey}`;
 			if (uniqueAssignments.has(fingerprint)) {
@@ -366,7 +375,8 @@ export async function updateAdminUserAccess(
 				assignment,
 				kode_kantor: resolvedOfficeCode,
 				korwil: resolvedKorwil,
-				divisi_id: resolvedDivisionId
+				divisi_id: resolvedDivisionId,
+				can_manage_forms: assignment.can_manage_forms
 			});
 		}
 
@@ -377,18 +387,19 @@ export async function updateAdminUserAccess(
 			'UPDATE user_role_scopes SET is_active = 0 WHERE user_id = ? AND is_active = 1',
 			[userId]
 		);
-		for (const { assignment, kode_kantor, korwil, divisi_id } of resolvedAssignments) {
+		for (const { assignment, kode_kantor, korwil, divisi_id, can_manage_forms } of resolvedAssignments) {
 			await connection.execute(
 				`INSERT INTO user_role_scopes
-					(user_id, role_id, scope_type, kode_kantor, korwil, divisi_id, is_active)
-				VALUES (?, ?, ?, ?, ?, ?, 1)`,
+					(user_id, role_id, scope_type, kode_kantor, korwil, divisi_id, can_manage_forms, is_active)
+				VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
 				[
 					userId,
 					assignment.role_id,
 					assignment.scope_type,
 					assignment.scope_type === 'office' ? kode_kantor : null,
 					assignment.scope_type === 'korwil' ? korwil : null,
-					assignment.scope_type === 'division' ? divisi_id : null
+					assignment.scope_type === 'division' ? divisi_id : null,
+					can_manage_forms ? 1 : 0
 				]
 			);
 		}
@@ -433,9 +444,10 @@ async function getActiveAssignments(connection: PoolConnection, userId: number) 
 		kode_kantor: string | null;
 		korwil: string | null;
 		divisi_id: number | null;
+		can_manage_forms: number;
 	}>>(
 		`SELECT r.id AS role_id, r.kode AS role_code, r.nama_role,
-			s.scope_type, s.kode_kantor, s.korwil, s.divisi_id
+			s.scope_type, s.kode_kantor, s.korwil, s.divisi_id, s.can_manage_forms
 		FROM user_role_scopes s INNER JOIN roles r ON r.id = s.role_id
 		WHERE s.user_id = ? AND s.is_active = 1 ORDER BY s.id`,
 		[userId]

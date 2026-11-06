@@ -9,6 +9,8 @@ const submitSchema = z.object({
 	authority_type: z.enum(['korwil', 'central']),
 	central_division_id: z.number().int().positive().nullable(),
 	work_catalog_id: z.number().int().positive().nullable(),
+	form_version_id: z.number().int().positive().nullable().optional().default(null),
+	form_answers: z.record(z.string(), z.unknown()).optional().default({}),
 	subject: z.string().trim().min(3).max(200),
 	description: z.string().trim().min(3).max(5000)
 }).strict();

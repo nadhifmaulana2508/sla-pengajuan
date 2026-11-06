@@ -15,7 +15,8 @@ Workflow utama Cabang -> Korwil -> Divisi Pusat, autentikasi SSO, pembatasan aks
 | Workflow | Submit, claim, minta kelengkapan, jawab revisi, forward ke Pusat, selesai, tolak, timeline, dan riwayat tersedia |
 | SLA | Umur total tiket, sesi Cabang/Korwil/Divisi, waktu tunggu, badge SLA, dan akumulasi waktu unit tersedia |
 | Manajemen | Detail tiket baca-saja, filter Korwil/Divisi pada dashboard, serta daftar tiket yang menunggu tindak lanjut Cabang tersedia |
-| Belum tersedia | Field dinamis per katalog, lampiran privat, dan notifikasi otomatis peringatan SLA |
+| Form dinamis | Form kredit berbasis nominal dan form per katalog dapat diterbitkan sebagai versi baru; jawaban tampil pada detail tiket |
+| Belum tersedia | Lampiran privat dan notifikasi otomatis peringatan SLA |
 
 Catatan progres dan keputusan terbuka ada di PROJECT_STATUS.md. Kebutuhan bisnis lengkap ada di prd.md.
 
@@ -31,6 +32,9 @@ Catatan progres dan keputusan terbuka ada di PROJECT_STATUS.md. Kebutuhan bisnis
 - Dashboard global dapat difilter berdasarkan tanggal, Korwil, dan Divisi Pusat.
 - Halaman /management/branch-follow-up menampilkan tiket yang sedang menunggu jawaban Cabang dan menyediakan filter Cabang.
 - Notifikasi aplikasi mencatat event workflow, unread count, dan tindakan tandai sudah dibaca.
+- Pengajuan kredit memakai nilai minimum Rp250 juta; jalur Rp250 juta sampai di bawah Rp500 juta ditangani Korwil, sedangkan mulai Rp500 juta diteruskan Korwil ke Pemasaran.
+- Admin global dapat menerbitkan semua form. Petugas Divisi hanya dapat menerbitkan form divisinya jika Admin mengaktifkan izin kelola form pada assignment.
+- Setiap penerbitan membuat versi form baru; tiket mempertahankan jawaban dari versi saat diajukan.
 
 ## Role dan cakupan akses
 
@@ -39,10 +43,10 @@ Catatan progres dan keputusan terbuka ada di PROJECT_STATUS.md. Kebutuhan bisnis
 | branch_user | Kantor Cabang dari profil SSO | Membuat, melihat, dan menjawab revisi pengajuan kantornya |
 | korwil_staff | Korwil hasil pemetaan kantor/profil SSO | Melihat antrean/riwayat, claim, meminta kelengkapan, meneruskan, menyelesaikan, atau menolak sesuai tahap |
 | korwil_approver | Korwil hasil pemetaan kantor/profil SSO | Persetujuan atau tindakan Korwil sesuai assignment dan tahap workflow |
-| division_staff | Divisi Pusat hasil pemetaan unit_kerja SSO | Melihat antrean/riwayat divisinya, claim, meminta kelengkapan, menyelesaikan, atau menolak |
+| division_staff | Divisi Pusat hasil pemetaan unit_kerja SSO | Melihat antrean/riwayat divisinya; mengelola form jika diberi izin Admin |
 | supervisor | Global | Dashboard dan detail baca-saja |
 | management | Global | Dashboard, filter, pemantauan Cabang, dan detail baca-saja |
-| admin | Global | Pengelolaan akun, role/status, master Divisi, katalog pekerjaan, dashboard, dan detail baca-saja |
+| admin | Global | Pengelolaan akun, role/status, master Divisi, katalog dan seluruh form pekerjaan, dashboard, dan detail baca-saja |
 
 Identitas SSO saja tidak memberi akses. Akun harus aktif dan memiliki assignment role serta scope yang cocok di database lokal. Scope organisasi diselaraskan dari profil SSO; Admin tidak mengisi scope organisasi secara manual sebagai pengganti pemetaan.
 
@@ -65,9 +69,9 @@ Identitas SSO saja tidak memberi akses. Akun harus aktif dan memiliki assignment
             v                              v
     Cabang melengkapi -------------> Divisi yang meminta
 
-- Pengajuan kredit di bawah Rp500 juta ditangani Korwil.
-- Pengajuan kredit di atas Rp500 juta diperiksa Korwil lalu diteruskan ke Pemasaran.
-- Nilai tepat Rp500 juta saat ini masuk Korwil dan masih menjadi keputusan bisnis yang perlu disahkan.
+- Pengajuan kredit di bawah Rp250 juta ditolak tanpa membuat tiket.
+- Nilai Rp250 juta sampai kurang dari Rp500 juta ditangani Korwil.
+- Nilai Rp500 juta atau lebih diperiksa Korwil lalu diteruskan ke Pemasaran.
 - Penolakan dan penyelesaian memerlukan alasan atau ringkasan hasil.
 - Seluruh handoff, revisi, claim, dan keputusan tercatat dalam timeline.
 
@@ -220,6 +224,10 @@ Frontend:
 
 E2E memakai database lokal dan fixture sementara. Jalankan hanya pada database pengembangan yang dapat menerima data uji.
 
+## Deployment aaPanel
+
+Frontend production memakai `@sveltejs/adapter-node` dan dapat dijalankan sebagai project Node/PM2 di aaPanel. Panduan lengkap untuk setup server, database, environment, reverse proxy, SSL, backup, dan release tersedia di [docs/DEPLOY_AAPANEL.md](docs/DEPLOY_AAPANEL.md).
+
 ## Konfigurasi dan keamanan
 
 - Jangan commit backend/.env, frontend/.env, password, bearer token, password pegawai, atau data pribadi.
@@ -255,9 +263,9 @@ E2E memakai database lokal dan fixture sementara. Jalankan hanya pada database p
 
 ## Batasan MVP dan pekerjaan berikutnya
 
-1. Sahkan perlakuan pengajuan kredit tepat Rp500 juta.
+1. Pengelola Divisi menetapkan field wajib untuk form Keringanan bunga dan katalog pekerjaan lainnya.
 2. Sahkan target SLA per jenis pekerjaan dan kebijakan notifikasi peringatan.
-3. Tambahkan field khusus dan lampiran privat sesuai katalog pekerjaan.
+3. Tetapkan kebijakan serta storage lampiran privat.
 4. Selesaikan verifikasi visual/click-through lintas role, viewport, tema, dan browser.
 5. Tinjau kontrak SSO, lifetime token, logging, backup, monitoring, dan kesiapan pilot.
 

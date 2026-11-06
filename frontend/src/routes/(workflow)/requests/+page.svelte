@@ -6,6 +6,7 @@
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
+	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { authSession, clearAuthenticatedSession } from '#lib/features/auth/auth.store.js';
 	import { fetchRequests, formatDate, formatElapsed, statusLabels, type RequestSummary } from '#lib/features/requests/requests.api.js';
 	import { ArrowRight, Clock3, FilePlus2, Inbox } from '@lucide/svelte';
@@ -36,10 +37,11 @@
 <svelte:head><title>Pengajuan Cabang | Sistem SLA</title></svelte:head>
 
 <section class="app-page-stack" aria-labelledby="page-title">
-	<div class="app-page-heading app-page-heading--flush">
-		<div class="app-page-heading-copy"><p class="app-page-kicker">Cabang</p><div class="app-page-title-row"><h1 id="page-title" class="app-page-title">Pengajuan</h1><p class="app-page-description">Pantau status dan waktu sejak pengajuan masuk ke antrean Korwil.</p></div></div>
-		<div class="app-page-heading-action"><Button href="/requests/new" size="lg" class="min-h-11"><FilePlus2 class="size-4" aria-hidden="true" />Buat pengajuan</Button></div>
-	</div>
+	<AppPageHeading eyebrow="Cabang" title="Pengajuan" description="Umur tiket berjalan sejak dikirim; waktu proses Korwil dimulai setelah tiket diambil." flush>
+		{#snippet actions()}
+			<Button href="/requests/new" class="min-h-11"><FilePlus2 class="size-4" aria-hidden="true" />Buat pengajuan</Button>
+		{/snippet}
+	</AppPageHeading>
 
 	{#if isLoading}
 		<Card.Root role="status" aria-live="polite"><Card.Content class="flex min-h-28 items-center gap-3"><Clock3 class="size-5 text-muted-foreground" aria-hidden="true" /><p class="m-0 text-muted-foreground">Memuat daftar pengajuan…</p></Card.Content></Card.Root>

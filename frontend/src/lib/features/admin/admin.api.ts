@@ -19,7 +19,24 @@ export type WorkCatalog = {
 	target_sla_minutes: number | null;
 	is_active: boolean;
 	updated_at: string;
+	system_key?: string | null;
+	form_version_id?: number | null;
+	version_number?: number | null;
+	form_fields?: WorkFormField[];
 };
+
+export type WorkFormField = {
+	key: string;
+	label: string;
+	type: 'text' | 'textarea' | 'number' | 'currency' | 'date' | 'select';
+	required: boolean;
+	options?: string[];
+	min_value?: number;
+	max_value?: number;
+	system?: boolean;
+};
+
+export type WorkFormFieldInput = Omit<WorkFormField, 'key' | 'system'>;
 
 export type WorkCatalogInput = {
 	divisi_id: number;
@@ -42,6 +59,7 @@ export type AdminUserAssignment = {
 	korwil: string | null;
 	divisi_id: number | null;
 	nama_divisi: string | null;
+	can_manage_forms: boolean;
 };
 
 export type AdminUser = {
@@ -70,6 +88,7 @@ export type AdminUserAssignmentInput = {
 	kode_kantor: string | null;
 	korwil: string | null;
 	divisi_id: number | null;
+	can_manage_forms: boolean;
 };
 
 export type AdminUserAccessInput = {
@@ -87,6 +106,22 @@ type AdminMasterResponse = {
 };
 
 type MutationResponse = { status: number; message: string; data: { id: number } | null };
+
+type FormManagementResponse = {
+	status: number;
+	message: string;
+	data: {
+		can_manage_all: boolean;
+		division_id: number | null;
+		work_catalogs: WorkCatalog[];
+	};
+};
+
+type PublishFormResponse = {
+	status: number;
+	message: string;
+	data: { id: number; version_number: number };
+};
 
 type AdminUsersResponse = {
 	status: number;
@@ -147,6 +182,18 @@ export async function updateWorkCatalog(token: string, id: number, input: WorkCa
 		method: 'PUT',
 		token,
 		body: input
+	});
+}
+
+export async function fetchFormManagementWorkspace(token: string) {
+	return apiRequest<FormManagementResponse>('forms/manage', { token });
+}
+
+export async function publishWorkForm(token: string, catalogId: number, fields: WorkFormFieldInput[]) {
+	return apiRequest<PublishFormResponse>(`forms/manage/${catalogId}/publish`, {
+		method: 'POST',
+		token,
+		body: { fields }
 	});
 }
 

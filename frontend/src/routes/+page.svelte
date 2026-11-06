@@ -15,6 +15,7 @@
 		setAuthenticatedSession
 	} from '#lib/features/auth/auth.store.js';
 	import { theme, toggleTheme } from '#lib/features/theme/theme.store.js';
+	import slaLogoMark from '#lib/assets/favicon.svg';
 
 	let employeeId = $state('');
 	let password = $state('');
@@ -67,11 +68,11 @@
 	/>
 </svelte:head>
 
-<main class="sign-in-page">
+<main id="main-content" class="sign-in-page">
 	<section class="process-panel" aria-labelledby="product-name">
-		<a class="wordmark" href="/" aria-label="Sistem SLA Pengajuan">
-			<span class="wordmark-mark" aria-hidden="true">S</span>
-			<span id="product-name">Sistem SLA <span class="wordmark-light">Pengajuan</span></span>
+		<a class="wordmark" href="/" aria-label="SLA Pengajuan, pelacakan pengajuan Cabang, Korwil, dan Pusat">
+			<img class="wordmark-mark" src={slaLogoMark} alt="" aria-hidden="true" />
+			<span id="product-name">SLA</span><span class="wordmark-light">Pengajuan</span>
 		</a>
 
 		<div class="process-intro">
@@ -190,6 +191,7 @@
 <style>
 	.sign-in-page {
 		min-height: 100svh;
+		min-width: 0;
 		display: grid;
 		grid-template-columns: minmax(0, 1.03fr) minmax(420px, 0.97fr);
 		background: var(--background);
@@ -202,13 +204,13 @@
 		flex-direction: column;
 		padding: clamp(1.25rem, 3.5vw, 3.5rem);
 		color: #f8fafc;
-		background: #111827;
+		background: #0b0b0b;
 	}
 
 	.wordmark {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.75rem;
+		gap: 0.5rem;
 		width: fit-content;
 		color: #f8fafc;
 		font-size: var(--type-sm);
@@ -218,18 +220,14 @@
 	}
 
 	.wordmark-mark {
-		display: grid;
+		display: block;
 		width: 2rem;
 		height: 2rem;
-		place-items: center;
-		border: 1px solid #526174;
-		border-radius: 0.55rem;
-		color: #fff;
-		font-size: var(--type-sm);
+		flex: 0 0 auto;
 	}
 
 	.wordmark-light {
-		color: #aab5c4;
+		color: #a3a3a3;
 		font-weight: 450;
 	}
 
@@ -248,7 +246,7 @@
 	}
 
 	.process-panel .section-label {
-		color: #afc4ff;
+		color: #82ddb5;
 		margin-bottom: 0.75rem;
 	}
 
@@ -264,7 +262,7 @@
 	.process-description {
 		max-width: 31rem;
 		margin: 0.9rem 0 0;
-		color: #b8c3d1;
+		color: #b5b5b5;
 		font-size: var(--type-base);
 		line-height: 1.55;
 	}
@@ -285,7 +283,7 @@
 		right: 14%;
 		left: 10%;
 		height: 1px;
-		background: #445164;
+		background: #444444;
 		content: '';
 	}
 
@@ -303,17 +301,17 @@
 		width: 2rem;
 		height: 2rem;
 		place-items: center;
-		border: 1px solid #617087;
+		border: 1px solid #666666;
 		border-radius: 50%;
-		background: #111827;
-		color: #dce4ed;
+		background: #0b0b0b;
+		color: #e5e5e5;
 		font-size: var(--type-xs);
 		font-variant-numeric: tabular-nums;
 	}
 
 	.workflow li:first-child .workflow-index {
-		border-color: #afc4ff;
-		background: #2747a0;
+		border-color: #62c99a;
+		background: #174b37;
 		color: white;
 	}
 
@@ -329,20 +327,21 @@
 
 	.workflow-copy small {
 		max-width: 9rem;
-		color: #aab5c4;
+		color: #b5b5b5;
 		font-size: var(--type-xs);
 		line-height: 1.45;
 	}
 
 	.panel-footnote {
 		margin: 1.6rem 0 0;
-		color: #8996a8;
+		color: #a3a3a3;
 		font-size: var(--type-xs);
 	}
 
 	.form-panel {
 		position: relative;
 		display: grid;
+		min-width: 0;
 		place-items: center;
 		padding: 1.5rem clamp(1.5rem, 5vw, 5rem);
 		background: var(--background);
@@ -356,7 +355,9 @@
 	}
 
 	.login-form-wrap {
-		width: min(100%, 25rem);
+		width: 100%;
+		max-width: 25rem;
+		min-width: 0;
 	}
 
 	.login-heading {

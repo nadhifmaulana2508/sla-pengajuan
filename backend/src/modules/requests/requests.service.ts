@@ -4,6 +4,10 @@ import { notifyUnitMembers, notifyUser, type NotificationUnit } from '../notific
 import { inferKorwilFromSsoText } from '../organization/sso-scope.js';
 import { resolveSlaAccessDetails } from '../auth/access.service.js';
 import { DEFAULT_SLA_MINUTES, getSlaStatus, type SlaStatus } from '../../shared/sla.js';
+import { parseFormDefinition, validateFormAnswers, type FormDefinition } from '../forms/form-schema.js';
+
+const CREDIT_MINIMUM_AMOUNT = 250_000_000;
+const CREDIT_CENTRAL_AMOUNT = 500_000_000;
 
 export class RequestWorkflowError extends Error {
 	constructor(public readonly statusCode: number, message: string) {
@@ -37,7 +41,7 @@ type RequestRow = RowDataPacket & {
 	created_by_user_id: number; created_by_name: string | null;
 	active_elapsed_seconds: number | null; active_target_sla_minutes: number | null;
 	overall_elapsed_seconds: number; closed_at: Date | null;
-	sla_target_minutes: number | null; sla_status?: SlaStatus;
+	sla_target_minutes: number | null; credit_amount?: number | string | null; sla_status?: SlaStatus;
 };
 
 async function getActiveBranch(employeeId: string, connection?: PoolConnection): Promise<UserRow> {
@@ -130,51 +134,135 @@ export async function getRequestOptions(employeeId: string) {
 	);
 	const [workCatalogs] = await mysqlPool.execute<Array<RowDataPacket & {
 		id: number; divisi_id: number; nama_pekerjaan: string; deskripsi: string | null; target_sla_minutes: number | null;
+		system_key: string | null; form_version_id: number | null; version_number: number | null; definition_json: unknown;
 	}>>(
 		`SELECT catalog.id, catalog.divisi_id, catalog.nama_pekerjaan, catalog.deskripsi,
+			catalog.system_key, current_form.id AS form_version_id, current_form.version_number,
+			current_form.definition_json,
 			COALESCE(catalog.target_sla_minutes, ${DEFAULT_SLA_MINUTES}) AS target_sla_minutes
 		FROM work_catalogs catalog INNER JOIN master_divisi division ON division.id = catalog.divisi_id
+		LEFT JOIN work_catalog_form_versions current_form ON current_form.id = (
+			SELECT form_version.id FROM work_catalog_form_versions form_version
+			WHERE form_version.work_catalog_id = catalog.id
+			ORDER BY form_version.version_number DESC LIMIT 1
+		)
 		WHERE catalog.is_active = 1 AND division.is_active = 1
 		ORDER BY division.nama_divisi, catalog.nama_pekerjaan`
 	);
 	return {
 		office: { kode_kantor: branch.kode_kantor, korwil: branch.korwil },
 		divisions,
-		work_catalogs: workCatalogs.map((item) => ({ ...item, target_sla_minutes: Number(item.target_sla_minutes) }))
+		work_catalogs: workCatalogs.map((item) => ({
+			id: Number(item.id),
+			divisi_id: Number(item.divisi_id),
+			nama_pekerjaan: item.nama_pekerjaan,
+			deskripsi: item.deskripsi,
+			target_sla_minutes: Number(item.target_sla_minutes),
+			system_key: item.system_key,
+			form_version_id: item.form_version_id === null ? null : Number(item.form_version_id),
+			version_number: item.version_number === null ? null : Number(item.version_number),
+			form_fields: parseFormDefinition(item.definition_json).fields
+		}))
 	};
 }
 
 export async function submitRequest(employeeId: string, input: {
 	authority_type: 'korwil' | 'central'; central_division_id: number | null;
-	work_catalog_id: number | null; subject: string; description: string;
+	work_catalog_id: number | null; form_version_id?: number | null;
+	form_answers?: Record<string, unknown>; subject: string; description: string;
 }) {
 	const connection = await mysqlPool.getConnection();
 	try {
 		await connection.beginTransaction();
 		const branch = await getActiveBranch(employeeId, connection);
+		let resolvedAuthority = input.authority_type;
+		let resolvedDivisionId = input.central_division_id;
+		let workCatalogId = input.work_catalog_id;
+		let formVersionId: number | null = null;
+		let formAnswers: Record<string, string | number> = {};
+		let creditAmount: number | null = null;
 		let targetSlaMinutes = DEFAULT_SLA_MINUTES;
-		if (input.authority_type === 'korwil') {
+		let catalog: (RowDataPacket & {
+			id: number; divisi_id: number; target_sla_minutes: number | null; system_key: string | null;
+			form_version_id: number | null; definition_json: unknown;
+		}) | null = null;
+
+		if (input.work_catalog_id !== null) {
+			const [catalogRows] = await connection.execute<Array<RowDataPacket & {
+				id: number; divisi_id: number; target_sla_minutes: number | null; system_key: string | null;
+				form_version_id: number | null; definition_json: unknown;
+			}>>(
+				`SELECT catalog.id, catalog.divisi_id, catalog.target_sla_minutes, catalog.system_key,
+					current_form.id AS form_version_id, current_form.definition_json
+				FROM work_catalogs catalog
+				INNER JOIN master_divisi division ON division.id = catalog.divisi_id AND division.is_active = 1
+				LEFT JOIN work_catalog_form_versions current_form ON current_form.id = (
+					SELECT form_version.id FROM work_catalog_form_versions form_version
+					WHERE form_version.work_catalog_id = catalog.id
+					ORDER BY form_version.version_number DESC LIMIT 1
+				)
+				WHERE catalog.id = ? AND catalog.is_active = 1 LIMIT 1 FOR UPDATE`,
+				[input.work_catalog_id]
+			);
+			catalog = catalogRows[0] ?? null;
+			if (!catalog) throw new RequestWorkflowError(400, 'Jenis pekerjaan aktif tidak ditemukan. Muat ulang katalog pekerjaan.');
+			targetSlaMinutes = Number(catalog.target_sla_minutes ?? DEFAULT_SLA_MINUTES);
+		}
+
+		const isCreditApplication = catalog?.system_key === 'credit_application';
+		if (catalog && isCreditApplication) {
+			if (catalog.form_version_id === null) throw new RequestWorkflowError(409, 'Form pengajuan kredit belum diterbitkan. Hubungi Admin atau Divisi Pemasaran.');
+			if (input.form_version_id !== Number(catalog.form_version_id)) throw new RequestWorkflowError(409, 'Form kredit sudah diperbarui. Muat ulang halaman lalu isi kembali.');
+			const definition = parseFormDefinition(catalog.definition_json);
+			try {
+				formAnswers = validateFormAnswers(definition, input.form_answers ?? {});
+			} catch (error) {
+				throw new RequestWorkflowError(400, error instanceof Error ? error.message : 'Periksa kembali isian form kredit.');
+			}
+			const amount = formAnswers.credit_amount;
+			if (typeof amount !== 'number' || amount < CREDIT_MINIMUM_AMOUNT) {
+				throw new RequestWorkflowError(400, 'Pengajuan kredit harus bernilai minimal Rp250.000.000.');
+			}
+			creditAmount = amount;
+			resolvedAuthority = amount >= CREDIT_CENTRAL_AMOUNT ? 'central' : 'korwil';
+			resolvedDivisionId = resolvedAuthority === 'central' ? Number(catalog.divisi_id) : null;
+			workCatalogId = Number(catalog.id);
+			formVersionId = Number(catalog.form_version_id);
+		} else if (input.authority_type === 'korwil') {
 			if (input.central_division_id !== null || input.work_catalog_id !== null) {
 				throw new RequestWorkflowError(400, 'Divisi dan jenis pekerjaan hanya diisi untuk pengajuan ke Pusat.');
 			}
+			if ((input.form_version_id ?? null) !== null || Object.keys(input.form_answers ?? {}).length > 0) {
+				throw new RequestWorkflowError(400, 'Isian form khusus harus terhubung dengan jenis pekerjaan aktif.');
+			}
 		} else {
-			const [catalogs] = await connection.execute<Array<RowDataPacket & { id: number; divisi_id: number; target_sla_minutes: number | null }>>(
-				`SELECT catalog.id, catalog.divisi_id, catalog.target_sla_minutes FROM work_catalogs catalog
-				INNER JOIN master_divisi division ON division.id = catalog.divisi_id
-				WHERE catalog.id = ? AND catalog.divisi_id = ? AND catalog.is_active = 1 AND division.is_active = 1 LIMIT 1`,
-				[input.work_catalog_id, input.central_division_id]
-			);
-			if (!catalogs[0]) throw new RequestWorkflowError(400, 'Jenis pekerjaan aktif harus sesuai dengan divisi tujuan.');
-			targetSlaMinutes = Number(catalogs[0].target_sla_minutes ?? DEFAULT_SLA_MINUTES);
+			if (!catalog || input.central_division_id === null || Number(catalog.divisi_id) !== input.central_division_id) {
+				throw new RequestWorkflowError(400, 'Jenis pekerjaan aktif harus sesuai dengan divisi tujuan.');
+			}
+			if (catalog.form_version_id !== null) {
+				const definition = parseFormDefinition(catalog.definition_json);
+				const answerInput = input.form_answers ?? {};
+				const legacyEmptyForm = definition.fields.length === 0 && input.form_version_id == null && Object.keys(answerInput).length === 0;
+				if (!legacyEmptyForm && input.form_version_id !== Number(catalog.form_version_id)) throw new RequestWorkflowError(409, 'Form pekerjaan sudah diperbarui. Muat ulang halaman lalu isi kembali.');
+				try {
+					formAnswers = validateFormAnswers(definition, answerInput);
+				} catch (error) {
+					throw new RequestWorkflowError(400, error instanceof Error ? error.message : 'Periksa kembali isian form pekerjaan.');
+				}
+				formVersionId = Number(catalog.form_version_id);
+			} else if ((input.form_version_id ?? null) !== null || Object.keys(input.form_answers ?? {}).length > 0) {
+				throw new RequestWorkflowError(409, 'Form pekerjaan belum aktif atau sudah berubah. Muat ulang halaman.');
+			}
 		}
 
 		const [insert] = await connection.execute<ResultSetHeader>(
 			`INSERT INTO service_requests
 			(created_by_user_id, kode_kantor, korwil, authority_type, central_division_id, work_catalog_id,
-			 subject, description, status, current_unit_type, current_unit_code)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'waiting_korwil', 'korwil', ?)`,
-			[branch.id, branch.kode_kantor, branch.korwil, input.authority_type,
-				input.central_division_id, input.work_catalog_id, input.subject, input.description, branch.korwil]
+			 form_version_id, form_answers_json, credit_amount, subject, description, status, current_unit_type, current_unit_code)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting_korwil', 'korwil', ?)`,
+			[branch.id, branch.kode_kantor, branch.korwil, resolvedAuthority,
+				resolvedDivisionId, workCatalogId, formVersionId, formVersionId === null ? null : JSON.stringify(formAnswers),
+				creditAmount, input.subject, input.description, branch.korwil]
 		);
 		const requestId = insert.insertId;
 		const requestNumber = `SLA-${String(requestId).padStart(8, '0')}`;
@@ -330,6 +418,29 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 	const request = rows[0];
 	if (!request) throw new RequestWorkflowError(404, 'Pengajuan tidak ditemukan.');
 	if (!(await canViewRequest(employeeId, request))) throw new RequestWorkflowError(403, 'Kamu tidak memiliki akses ke pengajuan ini.');
+	const [formRows] = await mysqlPool.execute<Array<RowDataPacket & {
+		form_answers_json: unknown;
+		definition_json: unknown;
+	}>>(
+		`SELECT request.form_answers_json, form_version.definition_json
+		FROM service_requests request
+		LEFT JOIN work_catalog_form_versions form_version ON form_version.id = request.form_version_id
+		WHERE request.id = ? LIMIT 1`,
+		[requestId]
+	);
+	let storedAnswers: unknown = formRows[0]?.form_answers_json;
+	if (typeof storedAnswers === 'string') {
+		try { storedAnswers = JSON.parse(storedAnswers) as unknown; } catch { storedAnswers = null; }
+	}
+	const answerValues = storedAnswers && typeof storedAnswers === 'object' && !Array.isArray(storedAnswers)
+		? storedAnswers as Record<string, unknown>
+		: {};
+	const formAnswers = parseFormDefinition(formRows[0]?.definition_json).fields.flatMap((field) => {
+		const value = answerValues[field.key];
+		return typeof value === 'string' || typeof value === 'number'
+			? [{ key: field.key, label: field.label, type: field.type, value }]
+			: [];
+	});
 	const [sessions] = await mysqlPool.execute<Array<RowDataPacket & {
 		id: number; unit_type: string; unit_code: string; started_at: Date | null; start_reason: string | null; claimed_at: Date | null;
 		ended_at: Date | null; created_at: Date; target_sla_minutes: number | null; outcome: string | null; duration_seconds: number | null;
@@ -393,7 +504,7 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 			if (!(error instanceof RequestWorkflowError && error.statusCode === 403)) throw error;
 		}
 	}
-	return { request: decorateRequest(request), sessions, timeline, capabilities };
+	return { request: decorateRequest(request), form_answers: formAnswers, sessions, timeline, capabilities };
 }
 
 export async function claimKorwilRequest(employeeId: string, requestId: number) {

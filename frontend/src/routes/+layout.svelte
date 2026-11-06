@@ -14,4 +14,5 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
+<a class="skip-link" href="#main-content">Lewati ke konten utama</a>
 {@render children()}

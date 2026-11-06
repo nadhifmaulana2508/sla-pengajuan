@@ -10,6 +10,7 @@
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
+	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { authSession, clearAuthenticatedSession } from '#lib/features/auth/auth.store.js';
 	import {
 		fetchRequest, finishCentral, finishKorwil, forwardKorwilRequest, formatDate, formatElapsed,
@@ -186,11 +187,17 @@
 		<Alert.Root variant="destructive"><Alert.Title>Detail belum dapat dimuat</Alert.Title><Alert.Description>{errorMessage}</Alert.Description><Alert.Action><Button variant="outline" class="min-h-11" onclick={() => void load()}>Coba lagi</Button></Alert.Action></Alert.Root>
 	{:else if detail}
 		{@const item = detail.request}
-		<div class="app-page-heading app-page-heading--flush"><div class="app-page-heading-copy"><p class="app-page-meta">{item.request_number} · {formatDate(item.submitted_at)}</p><div class="app-page-title-row"><h1 id="page-title" class="app-page-title">{item.subject}</h1><p class="app-page-description">{item.nama_kantor} · Korwil {item.korwil}</p></div></div><div class="app-page-heading-action"><Badge variant={item.status.startsWith('in_progress') ? 'default' : 'secondary'}>{statusLabels[item.status] ?? item.status}</Badge></div></div>
-		<Card.Root class="sla-summary"><Card.Content class="sla-summary-content"><div><p class="sla-summary-label">Status SLA keseluruhan</p><p class="sla-summary-copy">Target 7 hari kalender · hijau &lt; 3 hari · kuning 3–7 hari · merah &gt; 7 hari.</p></div><Badge variant="outline" class={slaClass(item.sla_status)}>{slaLabel(item.sla_status)}</Badge></Card.Content></Card.Root>
+		<AppPageHeading id="page-title" meta={`${item.request_number} · ${formatDate(item.submitted_at)}`} title={item.subject} description={`${item.nama_kantor} · Korwil ${item.korwil}`} flush>
+			{#snippet actions()}
+				<div class="heading-badges">
+					<Badge variant={item.status.startsWith('in_progress') ? 'default' : 'secondary'}>{statusLabels[item.status] ?? item.status}</Badge>
+					<Badge variant="outline" class={slaClass(item.sla_status)}>{slaLabel(item.sla_status)}</Badge>
+				</div>
+			{/snippet}
+		</AppPageHeading>
 		{#if actionNotice}<Alert.Root><Alert.Title>Perubahan tersimpan</Alert.Title><Alert.Description>{actionNotice}</Alert.Description></Alert.Root>{/if}
 		{#if detail.capabilities.can_request_documents || detail.capabilities.can_forward_to_central || detail.capabilities.can_complete || detail.capabilities.can_reject || detail.capabilities.can_submit_revision}
-			<Card.Root><Card.Header><Card.Title>Tindakan pengajuan</Card.Title><Card.Description>{detail.capabilities.can_submit_revision ? 'Lengkapi permintaan pada tiket yang sama; tidak perlu membuat pengajuan baru.' : 'Setiap keputusan akan menutup sesi unit dan tercatat pada timeline.'}</Card.Description></Card.Header><Card.Content class="action-list">
+			<Card.Root size="sm"><Card.Header><Card.Title>Tindakan pengajuan</Card.Title><Card.Description>{detail.capabilities.can_submit_revision ? 'Lengkapi permintaan pada tiket yang sama; tidak perlu membuat pengajuan baru.' : 'Setiap keputusan akan menutup sesi unit dan tercatat pada timeline.'}</Card.Description></Card.Header><Card.Content class="action-list">
 				{#if detail.capabilities.can_request_documents}<Button variant="outline" class="min-h-11" onclick={() => openAction('request-documents')}><FileText class="size-4" aria-hidden="true" />Minta kelengkapan</Button>{/if}
 				{#if detail.capabilities.can_forward_to_central}<Button class="min-h-11" onclick={() => openAction('forward')}><Send class="size-4" aria-hidden="true" />Teruskan ke {item.nama_divisi ?? 'Divisi Pusat'}</Button>{/if}
 				{#if detail.capabilities.can_complete}<Button class="min-h-11" onclick={() => openAction('complete')}><Check class="size-4" aria-hidden="true" />Selesaikan</Button>{/if}
@@ -200,8 +207,11 @@
 		{/if}
 		<div class="detail-grid">
 			<div class="main-column">
-				<Card.Root><Card.Header><Card.Title><FileText class="mr-2 inline size-4" aria-hidden="true" />Uraian pengajuan</Card.Title><Card.Description>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : 'Kewenangan Korwil'}</Card.Description></Card.Header><Card.Content><p class="description">{item.description}</p></Card.Content></Card.Root>
-				<Card.Root><Card.Header><Card.Title><Clock3 class="mr-2 inline size-4" aria-hidden="true" />Waktu proses</Card.Title><Card.Description>Umur tiket dan waktu yang tercatat pada setiap unit, memakai waktu kalender.</Card.Description></Card.Header><Card.Content class="session-list">
+				<Card.Root size="sm"><Card.Header><Card.Title><FileText class="mr-2 inline size-4" aria-hidden="true" />Uraian pengajuan</Card.Title><Card.Description>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : 'Kewenangan Korwil'}</Card.Description></Card.Header><Card.Content><p class="description">{item.description}</p></Card.Content></Card.Root>
+				{#if detail.form_answers.length > 0}
+					<Card.Root size="sm"><Card.Header><Card.Title>Data tambahan</Card.Title><Card.Description>Jawaban disimpan sesuai versi form saat tiket dibuat.</Card.Description></Card.Header><Card.Content><dl class="answer-list">{#each detail.form_answers as answer (answer.key)}<div><dt>{answer.label}</dt><dd>{#if answer.type === 'currency'}{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(answer.value))}{:else}{answer.value}{/if}</dd></div>{/each}</dl></Card.Content></Card.Root>
+				{/if}
+				<Card.Root size="sm"><Card.Header><Card.Title><Clock3 class="mr-2 inline size-4" aria-hidden="true" />Waktu proses</Card.Title><Card.Description>Umur tiket dan waktu yang tercatat pada setiap unit, memakai waktu kalender.</Card.Description></Card.Header><Card.Content class="session-list">
 					<div class="overall-row"><div><strong>Total umur tiket</strong><p>Sejak pertama kali dikirim Cabang</p></div><div class="session-time"><strong>{formatElapsed(overallElapsed)}</strong><Badge variant={item.closed_at ? 'secondary' : 'outline'}>{item.closed_at ? 'Ditutup' : 'Berjalan'}</Badge></div></div>
 					<Separator />
 					{#if detail.sessions.length === 0}<p class="muted-copy">Belum ada sesi waktu.</p>{:else}
@@ -211,7 +221,7 @@
 					{#each totals as total (total.key)}<div class="total-row"><span>Total {total.unit}</span><strong>{formatElapsed(total.seconds)}</strong></div>{/each}
 				</Card.Content></Card.Root>
 			</div>
-			<aside><Card.Root><Card.Header><Card.Title><Building2 class="mr-2 inline size-4" aria-hidden="true" />Alur pengajuan</Card.Title><Card.Description>Riwayat perpindahan tercatat dengan nomor yang sama.</Card.Description></Card.Header><Card.Content class="timeline">
+			<aside><Card.Root size="sm"><Card.Header><Card.Title><Building2 class="mr-2 inline size-4" aria-hidden="true" />Alur pengajuan</Card.Title><Card.Description>Riwayat perpindahan tercatat dengan nomor yang sama.</Card.Description></Card.Header><Card.Content class="timeline">
 					{#each detail.timeline as event, index (event.id)}<div class="timeline-item"><span class="timeline-marker">{#if index === detail.timeline.length - 1}<Send class="size-3" aria-hidden="true" />{:else}<Check class="size-3" aria-hidden="true" />{/if}</span><div><strong>{timelineLabel(event.action_name, event.status_to)}</strong><p>{event.actor_name ?? 'Pegawai'} · {formatDate(event.created_at)}</p><small>{event.unit_from_code ? `${event.unit_from_type} ${event.unit_from_code} → ` : 'Dari Cabang → '}{event.unit_to_type} {event.unit_to_code}</small>{#if event.reason}<p>{event.reason}</p>{/if}</div></div>{/each}
 				</Card.Content></Card.Root></aside>
 		</div>
@@ -237,26 +247,22 @@
 	.back-link { display:inline-flex; min-height:2.75rem; align-items:center; gap:.45rem; color:var(--muted-foreground); font-size:var(--type-sm); text-decoration:none; }
 	.back-link:hover { color:var(--foreground); }
 	.back-link:focus-visible { outline:3px solid var(--ring); outline-offset:2px; }
-	.detail-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(17rem,.8fr); align-items:start; gap:1rem; }
-	.main-column, aside { display:grid; gap:1rem; min-width:0; }
+	.detail-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(17rem,.8fr); align-items:start; gap:.8rem; }
+	.main-column, aside { display:grid; gap:.75rem; min-width:0; }
+	.heading-badges { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:.4rem; }
 	:global(.action-list) { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(10rem,100%),max-content)); justify-content:end; align-items:center; gap:.55rem .65rem; }
 	:global(.action-list > button) { min-width:10rem; }
 	.action-note { grid-column:1 / -1; margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
 	:global(.action-dialog) { width:min(100% - 2rem, 34rem); max-height:calc(100dvh - 2rem); overflow-y:auto; }
 	.action-label { margin-top:.2rem; font-size:var(--type-sm); font-weight:600; }
 	.dialog-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.55rem; }
-	.description { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.7; }
-	:global(.sla-summary-content) { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
-	.sla-summary-label, .sla-summary-copy { margin:0; }
-	.sla-summary-label { font-size:var(--type-sm); font-weight:650; }
-	.sla-summary-copy { margin-top:.25rem; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.45; }
-	:global(.sla-badge) { border-color: transparent; }
-	:global(.sla-badge--safe) { border-color: #8cc9a9; background: #e9f8ef; color: #166534; }
-	:global(.sla-badge--warning) { border-color: #e5c36b; background: #fff7d6; color: #854d0e; }
-	:global(.sla-badge--overdue) { border-color: color-mix(in srgb, var(--destructive) 38%, transparent); background: color-mix(in srgb, var(--destructive) 12%, transparent); color: var(--destructive); }
-	:global(.dark .sla-badge--safe) { background: color-mix(in srgb, #16794b 25%, var(--card)); color: #8be0b0; }
-	:global(.dark .sla-badge--warning) { background: color-mix(in srgb, #9a6700 25%, var(--card)); color: #f5d477; }
-	:global(.session-list) { gap:.85rem; }
+	.description { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; }
+	.answer-list { display:grid; gap:.55rem; margin:0; }
+	.answer-list div { display:grid; grid-template-columns:minmax(8rem,.7fr) minmax(0,1.3fr); gap:.65rem; padding-bottom:.5rem; border-bottom:1px solid var(--border); }
+	.answer-list div:last-child { padding-bottom:0; border-bottom:0; }
+	.answer-list dt { color:var(--muted-foreground); font-size:var(--type-sm); }
+	.answer-list dd { min-width:0; margin:0; overflow-wrap:anywhere; font-size:var(--type-sm); white-space:pre-wrap; }
+	:global(.session-list) { gap:.65rem; }
 	.session-row, .total-row, .overall-row { display:flex; justify-content:space-between; align-items:flex-start; gap:.8rem; }
 	.session-row > div:first-child { min-width:0; }
 	.session-row p { margin:.25rem 0 0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
@@ -268,14 +274,16 @@
 	.total-row strong { color:var(--foreground); }
 	.muted-copy { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
 	:global(.timeline) { gap:0; }
-	.timeline-item { position:relative; display:grid; grid-template-columns:1.6rem minmax(0,1fr); gap:.65rem; padding:0 0 1.2rem; }
+	.timeline-item { position:relative; display:grid; grid-template-columns:1.6rem minmax(0,1fr); gap:.55rem; padding:0 0 .8rem; }
 	.timeline-item:not(:last-child)::after { position:absolute; top:1.55rem; bottom:0; left:.68rem; width:1px; background:var(--border); content:''; }
 	.timeline-marker { z-index:1; display:grid; width:1.45rem; height:1.45rem; place-items:center; border:1px solid var(--border); border-radius:50%; background:var(--card); color:var(--muted-foreground); }
 	.timeline-item strong { font-size:var(--type-sm); }
 	.timeline-item p { margin:.25rem 0 0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
 	.timeline-item small { display:block; margin-top:.3rem; color:var(--muted-foreground); font-size:var(--type-xs); overflow-wrap:anywhere; }
 	@media(max-width:56rem) { .detail-grid { grid-template-columns:minmax(0,1fr); } }
+	@media(max-width:32rem) { .answer-list div { grid-template-columns:minmax(0,1fr); gap:.25rem; } }
 	@media(max-width:40rem) {
+		.heading-badges { justify-content:flex-start; }
 		:global(.action-list) { grid-template-columns:repeat(2,minmax(0,1fr)); justify-content:stretch; }
 		:global(.action-list > button) { width:100%; min-width:0; }
 	}

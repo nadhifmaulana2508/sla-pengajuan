@@ -6,6 +6,7 @@
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
+	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { authSession, clearAuthenticatedSession } from '#lib/features/auth/auth.store.js';
 	import { claimCentral, fetchCentralHistory, fetchCentralInbox, formatDate, formatElapsed, statusLabels, type RequestSummary } from '#lib/features/requests/requests.api.js';
 	import { ArrowRight, Clock3, History, Inbox, Landmark, LoaderCircle } from '@lucide/svelte';
@@ -63,10 +64,11 @@
 <svelte:head><title>Antrean Divisi Pusat | Sistem SLA</title></svelte:head>
 
 <section class="app-page-stack" aria-labelledby="page-title">
-	<div class="app-page-heading app-page-heading--flush">
-		<div class="app-page-heading-copy"><p class="app-page-kicker">Divisi Pusat</p><div class="app-page-title-row"><h1 id="page-title" class="app-page-title">Antrean pengajuan</h1><p class="app-page-description">Pengajuan yang diteruskan Korwil ke divisi sesuai profil SSO kamu.</p></div></div>
-		<div class="app-page-heading-action"><Badge variant="outline"><Clock3 class="mr-1 size-3.5" aria-hidden="true" />SLA sejak diambil</Badge></div>
-	</div>
+	<AppPageHeading eyebrow="Divisi Pusat" title="Antrean pengajuan" description="Pengajuan yang diteruskan Korwil ke divisi sesuai profil SSO kamu." flush>
+		{#snippet actions()}
+			<Badge variant="outline"><Clock3 class="mr-1 size-3.5" aria-hidden="true" />SLA sejak diambil</Badge>
+		{/snippet}
+	</AppPageHeading>
 	<div class="view-switch" role="group" aria-label="Tampilan pengajuan Divisi Pusat">
 		<Button variant={view === 'active' ? 'secondary' : 'ghost'} class="min-h-11" aria-pressed={view === 'active'} onclick={() => void changeView('active')}><Inbox class="size-4" aria-hidden="true" />Aktif</Button>
 		<Button variant={view === 'history' ? 'secondary' : 'ghost'} class="min-h-11" aria-pressed={view === 'history'} onclick={() => void changeView('history')}><History class="size-4" aria-hidden="true" />Riwayat</Button>
@@ -83,7 +85,7 @@
 	{:else if requests.length > 0 && view === 'history'}
 		<div class="request-list">
 			{#each requests as item (item.id)}
-				<Card.Root class="request-card">
+				<Card.Root class="request-card" size="sm">
 					<Card.Header class="request-header"><div class="request-copy"><p class="request-number">{item.request_number} · {formatDate(item.submitted_at)}</p><Card.Title class="break-words text-base">{item.subject}</Card.Title><Card.Description>{item.nama_kantor} · Korwil {item.korwil}</Card.Description></div><Badge variant="outline">{statusLabels[item.status] ?? item.status}</Badge></Card.Header>
 					<Card.Content class="request-footer"><div class="metadata"><span>{item.nama_divisi ?? 'Divisi Pusat'} · {item.nama_pekerjaan ?? 'Jenis pekerjaan'}</span><span><Clock3 class="size-3.5" aria-hidden="true" />Umur total · {formatElapsed(Number(item.overall_elapsed_seconds))}</span><span>Lokasi sekarang · {item.current_unit_type === 'central' ? item.nama_divisi ?? 'Divisi Pusat' : item.current_unit_type === 'korwil' ? `Korwil ${item.current_unit_code}` : `Cabang ${item.nama_kantor}`}</span></div><div class="actions"><Button variant="outline" class="min-h-11" href={`/requests/${item.id}`}>Detail <ArrowRight class="size-4" aria-hidden="true" /></Button></div></Card.Content>
 				</Card.Root>
@@ -92,7 +94,7 @@
 	{:else if requests.length > 0}
 		<div class="request-list">
 			{#each requests as item (item.id)}
-				<Card.Root class="request-card">
+				<Card.Root class="request-card" size="sm">
 					<Card.Header class="request-header"><div class="request-copy"><p class="request-number">{item.request_number} · {formatDate(item.submitted_at)}</p><Card.Title class="break-words text-base">{item.subject}</Card.Title><Card.Description>{item.nama_kantor} · Korwil {item.korwil}</Card.Description></div><Badge variant={item.status === 'waiting_central' ? 'secondary' : 'default'}>{statusLabels[item.status] ?? item.status}</Badge></Card.Header>
 					<Card.Content class="request-footer"><div class="metadata"><span>{item.nama_divisi ?? 'Divisi Pusat'} · {item.nama_pekerjaan ?? 'Jenis pekerjaan'}</span><span><Clock3 class="size-3.5" aria-hidden="true" />{item.status === 'waiting_central' && item.active_elapsed_seconds === null ? 'Menunggu diambil · timer belum mulai' : `Sejak diambil · ${formatElapsed(item.active_elapsed_seconds)}`}</span></div><div class="actions"><Button variant="outline" class="min-h-11" href={`/requests/${item.id}`}>Detail <ArrowRight class="size-4" aria-hidden="true" /></Button>{#if item.status === 'waiting_central'}<Button class="min-h-11" disabled={claimingId !== null} onclick={() => void claim(item)}>{#if claimingId === item.id}<LoaderCircle class="size-4 animate-spin" aria-hidden="true" />Mengambil…{:else}<Inbox class="size-4" aria-hidden="true" />Ambil pengajuan{/if}</Button>{/if}</div></Card.Content>
 				</Card.Root>
@@ -102,19 +104,23 @@
 </section>
 
 <style>
-	.request-list { display:grid; gap:.85rem; }
+	.request-list { display:grid; gap:.65rem; }
 	.view-switch { display: flex; width: max-content; max-width: 100%; gap: .2rem; border-bottom: 1px solid var(--border); }
 	.view-description { margin: -.35rem 0 0; color: var(--muted-foreground); font-size: var(--type-sm); line-height: 1.5; }
 	:global(.request-card) { min-width:0; }
-	:global(.request-header) { grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:1rem; }
-	.request-copy { min-width:0; display:grid; gap:.4rem; }
-	.request-number { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); }
-	:global(.request-footer) { flex-direction:row; align-items:center; justify-content:space-between; gap:1rem; }
-	.metadata { display:grid; gap:.45rem; color:var(--muted-foreground); font-size:var(--type-sm); }
+	:global(.request-header) { grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.65rem 1rem; }
+	.request-copy { min-width:0; display:grid; gap:.2rem; }
+	.request-number { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.35; }
+	:global(.request-footer) { flex-direction:row; align-items:center; justify-content:space-between; gap:.85rem; }
+	.metadata { display:flex; min-width:0; flex-wrap:wrap; align-items:center; gap:.35rem 1rem; color:var(--muted-foreground); font-size:var(--type-sm); }
 	.metadata span { display:flex; align-items:center; gap:.4rem; }
-	.actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.5rem; }
+	.actions { display:flex; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; gap:.4rem; }
 	:global(.empty-state) { min-height:clamp(12rem, 25vw, 18rem); align-items:center; justify-content:center; text-align:center; }
 	:global(.empty-state h2) { margin:0; font-size:var(--type-lg); }
 	:global(.empty-state p) { max-width:27rem; margin:0; color:var(--muted-foreground); line-height:1.6; }
-	@media(max-width:640px) { .view-switch { display: grid; width: 100%; grid-template-columns: 1fr 1fr; } :global(.request-header) { grid-template-columns:minmax(0,1fr); } :global(.request-footer) { flex-direction:column; align-items:stretch; } .actions { display:grid; grid-template-columns:1fr; } }
+	@media(max-width:640px) {
+		.view-switch { display:grid; width:100%; grid-template-columns:1fr 1fr; }
+		:global(.request-footer) { flex-direction:column; align-items:stretch; gap:.65rem; }
+		.actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(10rem,100%),1fr)); }
+	}
 </style>

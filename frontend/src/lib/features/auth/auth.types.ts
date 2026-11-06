@@ -14,6 +14,7 @@ export type SsoProfile = {
 export type AuthenticatedProfile = SsoProfile & {
 	sla_access: {
 		enabled: boolean;
+		can_manage_forms: boolean;
 		role:
 			| 'admin'
 			| 'branch_user'

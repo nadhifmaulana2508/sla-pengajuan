@@ -13,6 +13,7 @@
 	import * as Select from '#lib/components/ui/select/index.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
+	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { Pencil, Plus, Search, Trash2, UsersRound, X } from '@lucide/svelte';
 	import {
 		fetchAdminUsersWorkspace,
@@ -37,6 +38,7 @@
 		kode_kantor: string;
 		korwil: string;
 		divisi_id: string;
+		can_manage_forms: boolean;
 	};
 
 	type ScopeItem = { value: AdminScopeType; label: string };
@@ -148,7 +150,8 @@
 			scope_type: 'global',
 			kode_kantor: '',
 			korwil: '',
-			divisi_id: ''
+			divisi_id: '',
+			can_manage_forms: false
 		};
 	}
 
@@ -205,7 +208,8 @@
 				scope_type: assignment.scope_type,
 				kode_kantor: assignment.kode_kantor ?? '',
 				korwil: assignment.korwil ?? '',
-				divisi_id: assignment.divisi_id === null ? '' : String(assignment.divisi_id)
+				divisi_id: assignment.divisi_id === null ? '' : String(assignment.divisi_id),
+				can_manage_forms: assignment.can_manage_forms
 			}))
 			: [blankAssignment()];
 		formError = '';
@@ -220,6 +224,7 @@
 		assignment.kode_kantor = '';
 		assignment.korwil = '';
 		assignment.divisi_id = '';
+		assignment.can_manage_forms = false;
 	}
 
 	function followsSsoOffice(assignment: AssignmentForm): boolean {
@@ -279,7 +284,8 @@
 				scope_type: assignment.scope_type,
 				kode_kantor: null,
 				korwil: null,
-				divisi_id: null
+				divisi_id: null,
+				can_manage_forms: assignment.can_manage_forms
 			};
 			if (assignment.scope_type === 'office') {
 				if (followsSsoOffice(assignment)) {
@@ -373,19 +379,11 @@
 	<meta name="description" content="Aktifkan pegawai dan atur peran serta cakupan akses Sistem SLA." />
 </svelte:head>
 
-<main class="admin-page">
+<main id="main-content" class="admin-page">
 	<AppNavbar />
 
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
-		<div class="app-page-heading">
-			<div class="app-page-heading-copy">
-				<p class="app-page-kicker">Administrasi</p>
-				<div class="app-page-title-row">
-					<h1 id="page-title" class="app-page-title">Akses pegawai</h1>
-					<p class="app-page-description">Atur peran pegawai. Cakupan Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO.</p>
-				</div>
-			</div>
-		</div>
+		<AppPageHeading eyebrow="Administrasi" title="Akses pegawai" description="Atur peran pegawai. Cakupan Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO." />
 
 		{#if statusMessage}
 			<p class="save-status" role="status" aria-live="polite">{statusMessage}</p>
@@ -452,6 +450,15 @@
 							<span>Cakupan otomatis</span>
 							<strong>{scopeInfo.target}</strong>
 							<p>{scopeInfo.help}</p>
+							{#if roleCode(assignment) === 'division_staff'}
+								<div class="form-manager-permission">
+									<Checkbox id={`manage-forms-${assignment.key}`} bind:checked={assignment.can_manage_forms} class="size-5 after:-inset-y-3" />
+									<div>
+										<Label for={`manage-forms-${assignment.key}`}>Boleh mengelola dan menerbitkan form</Label>
+										<p>Izin ini hanya berlaku untuk divisi yang cocok dengan profil SSO.</p>
+									</div>
+								</div>
+							{/if}
 						</div>
 					{:else}
 						<div class="field-group">
@@ -621,7 +628,7 @@
 <style>
 	.admin-page { min-height: 100svh; background: var(--muted); color: var(--foreground); }
 	.admin-content { display: grid; align-content: start; grid-auto-rows: max-content; gap: 1rem; height: auto; min-height: 0; }
-	.admin-content > .app-page-heading { margin-bottom: 0; }
+	:global(.admin-content > .app-page-heading) { margin-bottom: 0; }
 	.users-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 	.search-field, .field-group { display: grid; min-width: 0; gap: 0.45rem; }
 	.search-field { width: min(100%, 32rem); }
@@ -666,6 +673,9 @@
 	.scope-note > strong { color: var(--foreground); font-size: var(--type-sm); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 	.scope-note > p { margin: 0; font-size: var(--type-xs); line-height: 1.4; }
 	.scope-note.scope-unmapped > strong { color: var(--destructive); }
+	.form-manager-permission { display: flex; min-width: 0; align-items: flex-start; gap: 0.6rem; margin-top: 0.45rem; padding: 0.65rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+	.form-manager-permission > div { display: grid; min-width: 0; gap: 0.15rem; }
+	.form-manager-permission p { margin: 0; font-size: var(--type-xs); line-height: 1.4; }
 	.assignment-row :global(.remove-assignment) { flex: 0 0 auto; }
 	.form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.55rem; padding-top: 0.25rem; }
 	.desktop-users { overflow-x: auto; margin-top: 0.15rem; }

@@ -7,7 +7,9 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
+	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { ArrowRight, Building2, Clock3, Inbox, LoaderCircle, RefreshCcw } from '@lucide/svelte';
 	import { fetchCurrentProfile } from '#lib/features/auth/auth.api.js';
 	import { authSession, clearAuthenticatedSession, updateProfile } from '#lib/features/auth/auth.store.js';
@@ -15,10 +17,17 @@
 	import { formatDate, formatElapsed, slaStatusLabels, statusLabels } from '#lib/features/requests/requests.api.js';
 
 	let data = $state<BranchFollowUpData | null>(null);
-	let selectedOffice = $state('');
+	let selectedOffice = $state('all');
 	let token = $state<string | null>(null);
 	let isLoading = $state(true);
 	let errorMessage = $state('');
+	let officeFilterItems = $derived([
+		{ value: 'all', label: 'Semua Cabang' },
+		...(data?.options.offices ?? []).map((office) => ({
+			value: office.kode_kantor,
+			label: `${office.kode_kantor} · ${office.nama_kantor}`
+		}))
+	]);
 
 	onMount(() => {
 		const unsubscribe = authSession.subscribe((session) => { token = session.token; });
@@ -37,7 +46,7 @@
 				await goto('/dashboard');
 				return;
 			}
-			data = (await fetchBranchFollowUp(token, selectedOffice || undefined)).data;
+			data = (await fetchBranchFollowUp(token, selectedOffice === 'all' ? undefined : selectedOffice)).data;
 		} catch (error) {
 			if (error instanceof ApiError && error.status === 401) { clearAuthenticatedSession(); await goto('/'); return; }
 			errorMessage = error instanceof ApiError ? error.message : 'Daftar tindak lanjut Cabang belum dapat dimuat.';
@@ -50,7 +59,7 @@
 	}
 
 	function clearFilter(): void {
-		selectedOffice = '';
+		selectedOffice = 'all';
 		void load();
 	}
 
@@ -59,15 +68,14 @@
 
 <svelte:head><title>Tindak Lanjut Cabang | Sistem SLA Pengajuan</title></svelte:head>
 
-<main class="follow-up-page">
+<main id="main-content" class="follow-up-page">
 	<AppNavbar />
 	<section class="app-page-shell follow-up-content" aria-labelledby="page-title">
-		<div class="app-page-heading">
-			<div class="app-page-heading-copy"><p class="app-page-kicker">Pemantauan Manajemen</p><div class="app-page-title-row"><h1 id="page-title" class="app-page-title">Tiket menunggu Cabang</h1><p class="app-page-description">Pantau kelengkapan yang diminta Korwil atau Divisi Pusat dan kondisi SLA setiap Cabang.</p></div></div>
-			{#if data}<Badge variant="outline"><Inbox class="size-3.5" aria-hidden="true" />{data.summary.total} tiket</Badge>{/if}
-		</div>
+		<AppPageHeading eyebrow="Pemantauan Manajemen" title="Tiket menunggu Cabang" description="Pantau kelengkapan yang diminta Korwil atau Divisi Pusat dan kondisi SLA setiap Cabang.">
+			{#snippet actions()}{#if data}<Badge variant="outline"><Inbox class="size-3.5" aria-hidden="true" />{data.summary.total} tiket</Badge>{/if}{/snippet}
+		</AppPageHeading>
 
-		<Card.Root class="filter-card"><Card.Header><Card.Title class="text-base">Filter Cabang</Card.Title><Card.Description>Daftar hanya berisi tiket yang sedang menunggu jawaban atau pelengkapan dari Cabang.</Card.Description></Card.Header><Card.Content><form class="filter-form" onsubmit={applyFilter}><div class="filter-field"><Label for="office-filter">Cabang</Label><select id="office-filter" class="filter-select" bind:value={selectedOffice}><option value="">Semua Cabang</option>{#each data?.options.offices ?? [] as office (office.kode_kantor)}<option value={office.kode_kantor}>{office.kode_kantor} · {office.nama_kantor}</option>{/each}</select></div><div class="filter-actions"><Button type="submit" class="min-h-11" disabled={isLoading}><RefreshCcw class="size-4" aria-hidden="true" />Terapkan</Button><Button type="button" variant="outline" class="min-h-11" onclick={clearFilter} disabled={isLoading || !selectedOffice}>Reset</Button></div></form></Card.Content></Card.Root>
+		<Card.Root class="filter-card"><Card.Header><Card.Title class="text-base">Filter Cabang</Card.Title><Card.Description>Daftar hanya berisi tiket yang sedang menunggu jawaban atau pelengkapan dari Cabang.</Card.Description></Card.Header><Card.Content><form class="filter-form" onsubmit={applyFilter}><div class="filter-field"><Label for="office-filter">Cabang</Label><Select.Root type="single" items={officeFilterItems} bind:value={selectedOffice}><Select.Trigger id="office-filter" class="min-h-11 w-full border-input"><Select.Value placeholder="Semua Cabang" /></Select.Trigger><Select.Content>{#each officeFilterItems as item (item.value)}<Select.Item value={item.value} label={item.label}>{item.label}</Select.Item>{/each}</Select.Content></Select.Root></div><div class="filter-actions"><Button type="submit" class="min-h-11" disabled={isLoading}><RefreshCcw class="size-4" aria-hidden="true" />Terapkan</Button><Button type="button" variant="outline" class="min-h-11" onclick={clearFilter} disabled={isLoading || selectedOffice === 'all'}>Reset</Button></div></form></Card.Content></Card.Root>
 
 		{#if isLoading}
 			<Card.Root role="status" aria-live="polite"><Card.Content class="loading-state"><LoaderCircle class="size-5 animate-spin" aria-hidden="true" /><p>Memuat tiket Cabang...</p></Card.Content></Card.Root>
@@ -89,8 +97,6 @@
 	:global(.filter-card) { box-shadow:none; }
 	.filter-form { display:grid; grid-template-columns:minmax(0,22rem) auto; align-items:end; gap:.75rem; }
 	.filter-field { display:grid; gap:.45rem; }
-	.filter-select { min-height:2.75rem; width:100%; border:1px solid var(--input); border-radius:.375rem; background:var(--background); color:var(--foreground); padding-inline:.65rem; font:inherit; font-size:var(--type-sm); }
-	.filter-select:focus-visible { outline:3px solid var(--ring); outline-offset:1px; }
 	.filter-actions { display:flex; flex-wrap:wrap; gap:.5rem; }
 	.sla-context { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:.85rem 1rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--background); }
 	.sla-context div { display:grid; gap:.2rem; }
@@ -109,12 +115,6 @@
 	.empty-state h2, .empty-state p, :global(.loading-state p) { margin:0; }
 	.empty-state h2 { color:var(--foreground); font-size:var(--type-lg); }
 	.empty-state p { max-width:32rem; line-height:1.55; }
-	:global(.sla-badge) { border-color:transparent; }
-	:global(.sla-badge--safe) { border-color:#8cc9a9; background:#e9f8ef; color:#166534; }
-	:global(.sla-badge--warning) { border-color:#e5c36b; background:#fff7d6; color:#854d0e; }
-	:global(.sla-badge--overdue) { border-color:color-mix(in srgb,var(--destructive) 38%,transparent); background:color-mix(in srgb,var(--destructive) 12%,transparent); color:var(--destructive); }
-	:global(.dark .sla-badge--safe) { background:color-mix(in srgb,#16794b 25%,var(--card)); color:#8be0b0; }
-	:global(.dark .sla-badge--warning) { background:color-mix(in srgb,#9a6700 25%,var(--card)); color:#f5d477; }
 	@media(max-width:52rem) { .request-row { grid-template-columns:minmax(0,1fr) auto; } .request-status { grid-column:1; } .request-row > :global(a) { grid-column:2; grid-row:1 / span 2; } }
 	@media(max-width:38rem) { .filter-form, .sla-context { grid-template-columns:1fr; } .filter-actions { display:grid; grid-template-columns:1fr 1fr; } .filter-actions :global(button) { width:100%; } .request-row { grid-template-columns:1fr; } .request-status, .request-row > :global(a) { grid-column:auto; grid-row:auto; } .request-row > :global(a) { width:100%; } :global(.list-header) { flex-direction:column; } }
 	@media(max-width:24rem) { .filter-actions { grid-template-columns:1fr; } }

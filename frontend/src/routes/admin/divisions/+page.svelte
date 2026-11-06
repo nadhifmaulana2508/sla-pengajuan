@@ -11,6 +11,7 @@
 	import { Label } from '#lib/components/ui/label/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
+	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { updateAdminDivision, fetchAdminMasterData, type AdminDivision } from '#lib/features/admin/admin.api.js';
 	import { fetchCurrentProfile } from '#lib/features/auth/auth.api.js';
 	import { authSession, clearAuthenticatedSession, updateProfile } from '#lib/features/auth/auth.store.js';
@@ -125,18 +126,10 @@
 	<meta name="description" content="Atur nama unit SSO yang dipetakan ke Divisi Pusat." />
 </svelte:head>
 
-<main class="admin-page">
+<main id="main-content" class="admin-page">
 	<AppNavbar />
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
-		<div class="app-page-heading">
-			<div class="app-page-heading-copy">
-				<p class="app-page-kicker">Administrasi</p>
-				<div class="app-page-title-row">
-					<h1 id="page-title" class="app-page-title">Divisi Pusat</h1>
-					<p class="app-page-description">Cocokkan nama unit kerja dari SSO dengan divisi agar cakupan petugas terdeteksi otomatis.</p>
-				</div>
-			</div>
-		</div>
+		<AppPageHeading eyebrow="Administrasi" title="Divisi Pusat" description="Cocokkan nama unit kerja dari SSO dengan divisi agar cakupan petugas terdeteksi otomatis." />
 
 		{#if statusMessage}
 			<p class="save-status" role="status" aria-live="polite">{statusMessage}</p>
@@ -244,7 +237,7 @@
 <style>
 	.admin-page { min-height: 100svh; background: var(--muted); color: var(--foreground); }
 	.admin-content { display: grid; align-content: start; grid-auto-rows: max-content; gap: 1rem; height: auto; min-height: 0; }
-	.admin-content > .app-page-heading { margin-bottom: 0; }
+	:global(.admin-content > .app-page-heading) { margin-bottom: 0; }
 	:global(.division-card) { min-width: 0; }
 	:global(.division-card-header) { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 	.list-heading { display: flex; min-width: 0; align-items: flex-start; gap: .7rem; }

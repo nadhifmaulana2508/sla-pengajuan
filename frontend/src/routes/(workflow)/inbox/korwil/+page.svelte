@@ -6,6 +6,7 @@
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
+	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { authSession, clearAuthenticatedSession } from '#lib/features/auth/auth.store.js';
 	import { claimRequest, fetchKorwilHistory, fetchKorwilInbox, formatDate, formatElapsed, statusLabels, type RequestSummary } from '#lib/features/requests/requests.api.js';
 	import { ArrowRight, Clock3, History, Inbox, LoaderCircle } from '@lucide/svelte';
@@ -60,7 +61,11 @@
 <svelte:head><title>Antrean Korwil | Sistem SLA</title></svelte:head>
 
 <section class="app-page-stack" aria-labelledby="page-title">
-<div class="app-page-heading app-page-heading--flush"><div class="app-page-heading-copy"><p class="app-page-kicker">Korwil</p><div class="app-page-title-row"><h1 id="page-title" class="app-page-title">Antrean pengajuan</h1><p class="app-page-description">Sesi awal mulai saat diambil; pelengkapan mulai lagi saat Cabang mengirim.</p></div></div><div class="app-page-heading-action"><Badge variant="outline"><Clock3 class="mr-1 size-3.5" aria-hidden="true" />Timer kalender</Badge></div></div>
+<AppPageHeading eyebrow="Korwil" title="Antrean pengajuan" description="Sesi awal mulai saat diambil; pelengkapan mulai lagi saat Cabang mengirim." flush>
+	{#snippet actions()}
+		<Badge variant="outline"><Clock3 class="mr-1 size-3.5" aria-hidden="true" />Timer kalender</Badge>
+	{/snippet}
+</AppPageHeading>
 	<div class="view-switch" role="group" aria-label="Tampilan pengajuan Korwil">
 		<Button variant={view === 'active' ? 'secondary' : 'ghost'} class="min-h-11" aria-pressed={view === 'active'} onclick={() => void changeView('active')}><Inbox class="size-4" aria-hidden="true" />Aktif</Button>
 		<Button variant={view === 'history' ? 'secondary' : 'ghost'} class="min-h-11" aria-pressed={view === 'history'} onclick={() => void changeView('history')}><History class="size-4" aria-hidden="true" />Riwayat</Button>

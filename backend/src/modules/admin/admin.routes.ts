@@ -51,7 +51,8 @@ const userAssignmentSchema = z.object({
 	scope_type: z.enum(['global', 'office', 'korwil', 'division']),
 	kode_kantor: z.string().length(3).nullable().default(null),
 	korwil: z.string().trim().min(1).max(20).nullable(),
-	divisi_id: z.number().int().positive().nullable()
+	divisi_id: z.number().int().positive().nullable(),
+	can_manage_forms: z.boolean().default(false)
 }).strict();
 
 const userAccessSchema = z.object({
@@ -258,6 +259,10 @@ adminRouter.post('/work-catalogs', async (request, response) => {
 		});
 		return;
 	}
+	if (parsed.data.nama_pekerjaan.toLocaleLowerCase('id-ID').startsWith('pengajuan kredit')) {
+		response.status(409).json({ status: 409, message: 'Nama Pengajuan Kredit disediakan untuk katalog routing otomatis.', data: null });
+		return;
+	}
 
 	try {
 		const [divisions] = await mysqlPool.execute<DivisionRow[]>(
@@ -321,8 +326,8 @@ adminRouter.put('/work-catalogs/:id', async (request, response) => {
 	}
 
 	try {
-		const [existing] = await mysqlPool.execute<RowDataPacket[]>(
-			'SELECT id FROM work_catalogs WHERE id = ? LIMIT 1',
+		const [existing] = await mysqlPool.execute<Array<RowDataPacket & { id: number; system_key: string | null }>>(
+			'SELECT id, system_key FROM work_catalogs WHERE id = ? LIMIT 1',
 			[id]
 		);
 		if (!existing[0]) {
@@ -340,6 +345,12 @@ adminRouter.put('/work-catalogs/:id', async (request, response) => {
 				message: 'Divisi tujuan tidak ditemukan atau sedang nonaktif.',
 				data: null
 			});
+			return;
+		}
+		const isCreditCatalog = existing[0].system_key === 'credit_application';
+		if ((!isCreditCatalog && parsed.data.nama_pekerjaan.toLocaleLowerCase('id-ID').startsWith('pengajuan kredit')) ||
+			(isCreditCatalog && (divisions[0].kode !== 'pemasaran' || !parsed.data.is_active))) {
+			response.status(409).json({ status: 409, message: 'Katalog Pengajuan Kredit harus tetap aktif di Divisi Pemasaran dan tidak dapat digandakan.', data: null });
 			return;
 		}
 
