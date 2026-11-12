@@ -21,6 +21,14 @@ import {
 const fixturePrefix = 'e2e-workflow-timer-';
 const fixtureSubject = '[FIXTURE E2E WORKFLOW TIMER]';
 
+async function defaultRejectionReasonId(): Promise<number> {
+	const [rows] = await mysqlPool.execute<Array<RowDataPacket & { id: number }>>(
+		`SELECT id FROM rejection_reasons WHERE scope_type = 'system' AND code = 'other' AND is_active = 1 LIMIT 1`
+	);
+	if (!rows[0]) throw new Error('System rejection reason fixture not found.');
+	return Number(rows[0].id);
+}
+
 const employees = {
 	branch: `${fixturePrefix}branch-001`,
 	semarang: `${fixturePrefix}korwil-semarang`,
@@ -243,7 +251,11 @@ async function run(): Promise<void> {
 	assert.equal(firstKorwilSession?.start_reason, 'claim');
 	check(firstKorwilSession?.claimed_at instanceof Date, 'Waktu Ambil Korwil harus tercatat.');
 
-	await returnKorwilRequestForDocuments(semarangId, requestId, 'Tambahkan uraian dan dokumen pendukung pada fixture.');
+	await returnKorwilRequestForDocuments(semarangId, requestId, {
+		note: 'Perbaiki uraian pengajuan pada fixture.',
+		fields: [{ kind: 'description' }],
+		documents: []
+	});
 	detail = await getRequestDetail(branchId, requestId);
 	assert.equal(detail.request.status, 'waiting_branch_revision');
 	assert.equal(detail.sessions.length, 2);
@@ -253,7 +265,11 @@ async function run(): Promise<void> {
 	assert.equal(detail.sessions[1]?.start_reason, 'sent');
 	check(detail.sessions[1]?.started_at instanceof Date, 'Timer Cabang harus mulai saat permintaan revisi dikirim.');
 
-	const revision = await submitBranchRevision(branchId, requestId, 'Pelengkapan fixture sudah dikirim kembali.');
+	const revision = await submitBranchRevision(branchId, requestId, {
+		response: 'Pelengkapan fixture sudah dikirim kembali.',
+		updates: [{ kind: 'description', value: 'Uraian fixture sudah diperbaiki.' }],
+		files: {}
+	});
 	assert.equal(revision.id, requestId, 'Pelengkapan harus memakai tiket yang sama.');
 	assert.equal(revision.status, 'in_progress_korwil');
 	assert.equal(revision.resumed_to_previous_handler, true, 'Petugas Korwil aktif harus menerima resume otomatis.');
@@ -266,7 +282,7 @@ async function run(): Promise<void> {
 	check(detail.sessions[2]?.started_at instanceof Date, 'Timer Korwil resume harus mulai saat Cabang mengirim.');
 	assert.equal(detail.sessions[2]?.claimed_at, null, 'Resume otomatis tidak boleh meminta Ambil ulang.');
 
-	await forwardKorwilRequestToCentral(semarangId, requestId, 'Pemeriksaan Korwil selesai; diteruskan ke Pemasaran.');
+	await forwardKorwilRequestToCentral(semarangId, requestId, 'Pemeriksaan Korwil selesai; diteruskan ke Pemasaran.', { approvalConfirmed: true });
 	detail = await getRequestDetail(branchId, requestId);
 	assert.equal(detail.request.request_number, requestNumber);
 	assert.equal(detail.request.status, 'waiting_central');
@@ -290,7 +306,7 @@ async function run(): Promise<void> {
 	assert.equal(centralSession?.start_reason, 'claim');
 	check(centralSession?.claimed_at instanceof Date, 'Waktu Ambil Pusat harus tercatat.');
 
-	await finishCentralRequest(pemasaranId, requestId, 'completed', 'Fixture selesai setelah pemeriksaan Pusat.');
+	await finishCentralRequest(pemasaranId, requestId, 'completed', 'Fixture selesai setelah pemeriksaan Pusat.', { approvalConfirmed: true });
 	detail = await getRequestDetail(branchId, requestId);
 	assert.equal(detail.request.status, 'completed');
 	check(detail.request.closed_at instanceof Date, 'Tiket selesai harus memiliki closed_at.');
@@ -311,7 +327,7 @@ async function run(): Promise<void> {
 		description: 'Pengajuan fixture untuk memastikan penolakan menyimpan alasan dan menutup timer.'
 	});
 	await claimKorwilRequest(semarangId, rejected.id);
-	await finishKorwilRequest(semarangId, rejected.id, 'rejected', 'Fixture ditolak untuk menguji jalur penolakan.');
+	await finishKorwilRequest(semarangId, rejected.id, 'rejected', 'Fixture ditolak untuk menguji jalur penolakan.', { rejectionReasonId: await defaultRejectionReasonId() });
 	const rejectedDetail = await getRequestDetail(branchId, rejected.id);
 	assert.equal(rejectedDetail.request.status, 'rejected');
 	check(rejectedDetail.request.closed_at instanceof Date, 'Tiket ditolak harus memiliki closed_at.');

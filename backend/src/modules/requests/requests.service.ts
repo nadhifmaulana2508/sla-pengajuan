@@ -4,10 +4,11 @@ import { notifyUnitMembers, notifyUser, type NotificationUnit } from '../notific
 import { inferKorwilFromSsoText } from '../organization/sso-scope.js';
 import { resolveSlaAccessDetails } from '../auth/access.service.js';
 import { DEFAULT_SLA_MINUTES, getSlaStatus, type SlaStatus } from '../../shared/sla.js';
-import { parseFormDefinition, validateFormAnswers, type FormDefinition } from '../forms/form-schema.js';
+import { parseFormDefinition, REPEATABLE_FORM_ANSWERS_KEY, validateFormAnswers, type FormDefinition, type ValidatedFormAnswers } from '../forms/form-schema.js';
+import { DEFAULT_CREDIT_ROUTING_CONFIG } from '../forms/form-schema.js';
+import { removePrivatePdf, storePrivatePdf, type PrivatePdfFile, type StoredPrivatePdf } from './private-attachments.js';
 
 const CREDIT_MINIMUM_AMOUNT = 250_000_000;
-const CREDIT_CENTRAL_AMOUNT = 500_000_000;
 
 export class RequestWorkflowError extends Error {
 	constructor(public readonly statusCode: number, message: string) {
@@ -36,12 +37,33 @@ type RequestRow = RowDataPacket & {
 	id: number; request_number: string; kode_kantor: string; nama_kantor: string;
 	korwil: string; authority_type: string; central_division_id: number | null;
 	nama_divisi: string | null; work_catalog_id: number | null; nama_pekerjaan: string | null;
+	inoffice_letter_number: string | null; inoffice_letter_date: string | null;
 	subject: string; description: string; status: string; current_unit_type: string;
 	current_unit_code: string; current_owner_user_id: number | null; submitted_at: Date;
 	created_by_user_id: number; created_by_name: string | null;
 	active_elapsed_seconds: number | null; active_target_sla_minutes: number | null;
 	overall_elapsed_seconds: number; closed_at: Date | null;
 	sla_target_minutes: number | null; credit_amount?: number | string | null; sla_status?: SlaStatus;
+};
+export type RevisionFieldTarget = {
+	kind: 'subject' | 'description' | 'inoffice_letter_number' | 'inoffice_letter_date' | 'form_field';
+	key?: string;
+	entry_index?: number | null;
+	label: string;
+	type?: FormDefinition['fields'][number]['type'];
+};
+export type RevisionDocumentCategory = 'inoffice_letter' | 'supporting_document';
+
+function decodeJson<T>(value: unknown, fallback: T): T {
+	if (typeof value !== 'string') return (value ?? fallback) as T;
+	try { return JSON.parse(value) as T; } catch { return fallback; }
+}
+
+const revisionMetaLabels: Record<Exclude<RevisionFieldTarget['kind'], 'form_field'>, string> = {
+	subject: 'Perihal',
+	description: 'Uraian pengajuan',
+	inoffice_letter_number: 'Nomor surat InOffice',
+	inoffice_letter_date: 'Tanggal surat InOffice'
 };
 
 async function getActiveBranch(employeeId: string, connection?: PoolConnection): Promise<UserRow> {
@@ -134,10 +156,11 @@ export async function getRequestOptions(employeeId: string) {
 	);
 	const [workCatalogs] = await mysqlPool.execute<Array<RowDataPacket & {
 		id: number; divisi_id: number; nama_pekerjaan: string; deskripsi: string | null; target_sla_minutes: number | null;
+		routing_flow: 'branch_korwil_central' | 'branch_central';
 		system_key: string | null; form_version_id: number | null; version_number: number | null; definition_json: unknown;
 	}>>(
 		`SELECT catalog.id, catalog.divisi_id, catalog.nama_pekerjaan, catalog.deskripsi,
-			catalog.system_key, current_form.id AS form_version_id, current_form.version_number,
+			catalog.routing_flow, catalog.system_key, current_form.id AS form_version_id, current_form.version_number,
 			current_form.definition_json,
 			COALESCE(catalog.target_sla_minutes, ${DEFAULT_SLA_MINUTES}) AS target_sla_minutes
 		FROM work_catalogs catalog INNER JOIN master_divisi division ON division.id = catalog.divisi_id
@@ -152,17 +175,23 @@ export async function getRequestOptions(employeeId: string) {
 	return {
 		office: { kode_kantor: branch.kode_kantor, korwil: branch.korwil },
 		divisions,
-		work_catalogs: workCatalogs.map((item) => ({
-			id: Number(item.id),
-			divisi_id: Number(item.divisi_id),
-			nama_pekerjaan: item.nama_pekerjaan,
-			deskripsi: item.deskripsi,
-			target_sla_minutes: Number(item.target_sla_minutes),
-			system_key: item.system_key,
-			form_version_id: item.form_version_id === null ? null : Number(item.form_version_id),
-			version_number: item.version_number === null ? null : Number(item.version_number),
-			form_fields: parseFormDefinition(item.definition_json).fields
-		}))
+		work_catalogs: workCatalogs.map((item) => {
+			const definition = parseFormDefinition(item.definition_json);
+			return {
+				id: Number(item.id),
+				divisi_id: Number(item.divisi_id),
+				nama_pekerjaan: item.nama_pekerjaan,
+				deskripsi: item.deskripsi,
+				routing_flow: item.routing_flow,
+				target_sla_minutes: Number(item.target_sla_minutes),
+				system_key: item.system_key,
+				form_version_id: item.form_version_id === null ? null : Number(item.form_version_id),
+				version_number: item.version_number === null ? null : Number(item.version_number),
+				form_fields: definition.fields,
+				form_repeatable: definition.repeatable ?? null,
+				form_credit_routing: definition.credit_routing ?? null
+			};
+		})
 	};
 }
 
@@ -170,8 +199,10 @@ export async function submitRequest(employeeId: string, input: {
 	authority_type: 'korwil' | 'central'; central_division_id: number | null;
 	work_catalog_id: number | null; form_version_id?: number | null;
 	form_answers?: Record<string, unknown>; subject: string; description: string;
+	inoffice_letter_number?: string | null; inoffice_letter_date?: string | null; inoffice_letter?: PrivatePdfFile | null;
 }) {
 	const connection = await mysqlPool.getConnection();
+	let storedAttachment: StoredPrivatePdf | null = null;
 	try {
 		await connection.beginTransaction();
 		const branch = await getActiveBranch(employeeId, connection);
@@ -179,20 +210,23 @@ export async function submitRequest(employeeId: string, input: {
 		let resolvedDivisionId = input.central_division_id;
 		let workCatalogId = input.work_catalog_id;
 		let formVersionId: number | null = null;
-		let formAnswers: Record<string, string | number> = {};
+		let formAnswers: ValidatedFormAnswers = {};
 		let creditAmount: number | null = null;
 		let targetSlaMinutes = DEFAULT_SLA_MINUTES;
 		let catalog: (RowDataPacket & {
 			id: number; divisi_id: number; target_sla_minutes: number | null; system_key: string | null;
+			routing_flow: 'branch_korwil_central' | 'branch_central'; division_code: string;
 			form_version_id: number | null; definition_json: unknown;
 		}) | null = null;
 
 		if (input.work_catalog_id !== null) {
 			const [catalogRows] = await connection.execute<Array<RowDataPacket & {
 				id: number; divisi_id: number; target_sla_minutes: number | null; system_key: string | null;
+				routing_flow: 'branch_korwil_central' | 'branch_central'; division_code: string;
 				form_version_id: number | null; definition_json: unknown;
 			}>>(
-				`SELECT catalog.id, catalog.divisi_id, catalog.target_sla_minutes, catalog.system_key,
+				`SELECT catalog.id, catalog.divisi_id, division.kode AS division_code,
+					catalog.target_sla_minutes, catalog.routing_flow, catalog.system_key,
 					current_form.id AS form_version_id, current_form.definition_json
 				FROM work_catalogs catalog
 				INNER JOIN master_divisi division ON division.id = catalog.divisi_id AND division.is_active = 1
@@ -211,21 +245,32 @@ export async function submitRequest(employeeId: string, input: {
 
 		const isCreditApplication = catalog?.system_key === 'credit_application';
 		if (catalog && isCreditApplication) {
+			const validDestination = input.authority_type === 'central'
+				? input.central_division_id === Number(catalog.divisi_id)
+				: input.central_division_id === null;
+			if (catalog.division_code !== 'pemasaran' || !validDestination) {
+				throw new RequestWorkflowError(400, 'Pilih form Pengajuan Kredit dari Pemasaran. Divisi tujuan hanya diisi jika kewenangan Pusat dipilih.');
+			}
 			if (catalog.form_version_id === null) throw new RequestWorkflowError(409, 'Form pengajuan kredit belum diterbitkan. Hubungi Admin atau Divisi Pemasaran.');
 			if (input.form_version_id !== Number(catalog.form_version_id)) throw new RequestWorkflowError(409, 'Form kredit sudah diperbarui. Muat ulang halaman lalu isi kembali.');
 			const definition = parseFormDefinition(catalog.definition_json);
+			let validatedAnswers: ValidatedFormAnswers;
 			try {
-				formAnswers = validateFormAnswers(definition, input.form_answers ?? {});
+				validatedAnswers = validateFormAnswers(definition, input.form_answers ?? {});
 			} catch (error) {
 				throw new RequestWorkflowError(400, error instanceof Error ? error.message : 'Periksa kembali isian form kredit.');
 			}
-			const amount = formAnswers.credit_amount;
+			if (REPEATABLE_FORM_ANSWERS_KEY in validatedAnswers) {
+				throw new RequestWorkflowError(409, 'Form Pengajuan Kredit tidak dapat berisi beberapa kelompok data. Muat ulang form.');
+			}
+			formAnswers = validatedAnswers;
+			const amount = validatedAnswers.credit_amount;
 			if (typeof amount !== 'number' || amount < CREDIT_MINIMUM_AMOUNT) {
 				throw new RequestWorkflowError(400, 'Pengajuan kredit harus bernilai minimal Rp250.000.000.');
 			}
 			creditAmount = amount;
-			resolvedAuthority = amount >= CREDIT_CENTRAL_AMOUNT ? 'central' : 'korwil';
-			resolvedDivisionId = resolvedAuthority === 'central' ? Number(catalog.divisi_id) : null;
+			resolvedAuthority = input.authority_type;
+			resolvedDivisionId = input.authority_type === 'central' ? Number(catalog.divisi_id) : null;
 			workCatalogId = Number(catalog.id);
 			formVersionId = Number(catalog.form_version_id);
 		} else if (input.authority_type === 'korwil') {
@@ -255,46 +300,67 @@ export async function submitRequest(employeeId: string, input: {
 			}
 		}
 
+		const initialUnitType = resolvedAuthority === 'central' && catalog?.routing_flow === 'branch_central'
+			? 'central'
+			: 'korwil';
+		const initialUnitCode = initialUnitType === 'central' ? catalog?.division_code : branch.korwil;
+		if (!initialUnitCode) throw new RequestWorkflowError(409, 'Unit tujuan pekerjaan belum dapat ditentukan. Hubungi Admin Sistem SLA.');
+		const initialStatus = initialUnitType === 'central' ? 'waiting_central' : 'waiting_korwil';
+
 		const [insert] = await connection.execute<ResultSetHeader>(
 			`INSERT INTO service_requests
 			(created_by_user_id, kode_kantor, korwil, authority_type, central_division_id, work_catalog_id,
-			 form_version_id, form_answers_json, credit_amount, subject, description, status, current_unit_type, current_unit_code)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting_korwil', 'korwil', ?)`,
+			 form_version_id, form_answers_json, credit_amount, inoffice_letter_number, inoffice_letter_date,
+			 subject, description, status, current_unit_type, current_unit_code)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[branch.id, branch.kode_kantor, branch.korwil, resolvedAuthority,
 				resolvedDivisionId, workCatalogId, formVersionId, formVersionId === null ? null : JSON.stringify(formAnswers),
-				creditAmount, input.subject, input.description, branch.korwil]
+				creditAmount, input.inoffice_letter_number || null, input.inoffice_letter_date || null,
+				input.subject, input.description, initialStatus, initialUnitType, initialUnitCode]
 		);
 		const requestId = insert.insertId;
 		const requestNumber = `SLA-${String(requestId).padStart(8, '0')}`;
 		await connection.execute('UPDATE service_requests SET request_number = ? WHERE id = ?', [requestNumber, requestId]);
+		if (input.inoffice_letter) {
+			storedAttachment = await storePrivatePdf(input.inoffice_letter);
+			await connection.execute(
+				`INSERT INTO request_attachments
+				(request_id, category, storage_key, original_filename, mime_type, size_bytes, sha256, uploaded_by_user_id)
+				VALUES (?, 'inoffice_letter', ?, ?, ?, ?, ?, ?)`,
+				[requestId, storedAttachment.storageKey, storedAttachment.originalFilename, storedAttachment.mimeType,
+					storedAttachment.sizeBytes, storedAttachment.sha256, branch.id]
+			);
+		}
 		await connection.execute(
-			`INSERT INTO request_assignments (request_id, unit_type, unit_code) VALUES (?, 'korwil', ?)`,
-			[requestId, branch.korwil]
+			`INSERT INTO request_assignments (request_id, unit_type, unit_code) VALUES (?, ?, ?)`,
+			[requestId, initialUnitType, initialUnitCode]
 		);
 		await connection.execute(
 			`INSERT INTO request_sla_sessions (request_id, unit_type, unit_code, started_at, start_reason, target_sla_minutes)
-			VALUES (?, 'korwil', ?, NULL, NULL, ?)`,
-			[requestId, branch.korwil, targetSlaMinutes]
+			VALUES (?, ?, ?, NULL, NULL, ?)`,
+			[requestId, initialUnitType, initialUnitCode, targetSlaMinutes]
 		);
 		const [history] = await connection.execute<ResultSetHeader>(
 			`INSERT INTO request_status_histories
 			(request_id, actor_user_id, action_name, status_from, status_to, unit_to_type, unit_to_code)
-			VALUES (?, ?, 'submitted', NULL, 'waiting_korwil', 'korwil', ?)`,
-			[requestId, branch.id, branch.korwil]
+			VALUES (?, ?, 'submitted', NULL, ?, ?, ?)`,
+			[requestId, branch.id, initialStatus, initialUnitType, initialUnitCode]
 		);
 		await notifyUnitMembers(connection, {
 			requestId,
 			historyId: history.insertId,
-			unitType: 'korwil',
-			unitCode: branch.korwil!,
+			unitType: initialUnitType,
+			unitCode: initialUnitCode,
 			eventType: 'request_received',
-			title: 'Pengajuan baru masuk ke Korwil',
+			title: initialUnitType === 'central' ? 'Pengajuan baru masuk ke Divisi Pusat' : 'Pengajuan baru masuk ke Korwil',
 			body: `${requestNumber} · ${input.subject}`
 		});
 		await connection.commit();
-		return { id: requestId, request_number: requestNumber };
+		storedAttachment = null;
+		return { id: requestId, request_number: requestNumber, routed_to: initialUnitType, unit_code: initialUnitCode };
 	} catch (error) {
-		await connection.rollback();
+		await connection.rollback().catch(() => undefined);
+		if (storedAttachment) await removePrivatePdf(storedAttachment.storageKey).catch(() => undefined);
 		throw error;
 	} finally {
 		connection.release();
@@ -303,7 +369,9 @@ export async function submitRequest(employeeId: string, input: {
 
 const requestSelect = `SELECT request.id, request.request_number, request.kode_kantor, office.nama_kantor,
 	request.korwil, request.authority_type, request.central_division_id, division.nama_divisi,
-	request.work_catalog_id, catalog.nama_pekerjaan, request.subject, request.description,
+	request.work_catalog_id, catalog.nama_pekerjaan, request.inoffice_letter_number,
+	DATE_FORMAT(request.inoffice_letter_date, '%Y-%m-%d') AS inoffice_letter_date,
+	request.subject, request.description,
 	request.status, request.current_unit_type, request.current_unit_code, request.current_owner_user_id,
 	request.submitted_at, request.created_by_user_id, creator.full_name AS created_by_name, request.closed_at,
 	COALESCE(catalog.target_sla_minutes, ${DEFAULT_SLA_MINUTES}) AS sla_target_minutes,
@@ -435,12 +503,26 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 	const answerValues = storedAnswers && typeof storedAnswers === 'object' && !Array.isArray(storedAnswers)
 		? storedAnswers as Record<string, unknown>
 		: {};
-	const formAnswers = parseFormDefinition(formRows[0]?.definition_json).fields.flatMap((field) => {
+	const formDefinition = parseFormDefinition(formRows[0]?.definition_json);
+	const formAnswers = formDefinition.fields.flatMap((field) => {
 		const value = answerValues[field.key];
 		return typeof value === 'string' || typeof value === 'number'
 			? [{ key: field.key, label: field.label, type: field.type, value }]
 			: [];
 	});
+	const storedEntries = answerValues[REPEATABLE_FORM_ANSWERS_KEY];
+	const formAnswerGroups = formDefinition.repeatable && Array.isArray(storedEntries)
+		? storedEntries.flatMap((entry, index) => {
+			if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+			const answers = formDefinition.fields.flatMap((field) => {
+				const value = (entry as Record<string, unknown>)[field.key];
+				return typeof value === 'string' || typeof value === 'number'
+					? [{ key: field.key, label: field.label, type: field.type, value }]
+					: [];
+			});
+			return answers.length > 0 ? [{ label: `${formDefinition.repeatable!.label} ${index + 1}`, answers }] : [];
+		})
+		: [];
 	const [sessions] = await mysqlPool.execute<Array<RowDataPacket & {
 		id: number; unit_type: string; unit_code: string; started_at: Date | null; start_reason: string | null; claimed_at: Date | null;
 		ended_at: Date | null; created_at: Date; target_sla_minutes: number | null; outcome: string | null; duration_seconds: number | null;
@@ -459,6 +541,56 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 		history.reason, history.created_at, actor.full_name AS actor_name
 		FROM request_status_histories history INNER JOIN users actor ON actor.id = history.actor_user_id
 		WHERE history.request_id = ? ORDER BY history.created_at, history.id`, [requestId]
+	);
+	const [attachmentRows] = await mysqlPool.execute<Array<RowDataPacket & {
+		id: number; category: string; revision_id: number | null; original_filename: string; mime_type: string;
+		size_bytes: number; created_at: Date;
+	}>>(
+		`SELECT id, category, revision_id, original_filename, mime_type, size_bytes, created_at
+		FROM request_attachments WHERE request_id = ? ORDER BY created_at, id`, [requestId]
+	);
+	const [revisionRows] = await mysqlPool.execute<Array<RowDataPacket & {
+		id: number; revision_number: number; request_note: string; requested_fields_json: unknown;
+		requested_documents_json: unknown; requested_at: Date;
+	}>>(
+		`SELECT id, revision_number, request_note, requested_fields_json, requested_documents_json, requested_at
+		FROM request_revisions WHERE request_id = ? AND status = 'requested' ORDER BY id DESC LIMIT 1`, [requestId]
+	);
+	const revisionRequest = revisionRows[0] ? {
+		id: Number(revisionRows[0].id),
+		revision_number: Number(revisionRows[0].revision_number),
+		note: revisionRows[0].request_note,
+		fields: decodeJson<RevisionFieldTarget[]>(revisionRows[0].requested_fields_json, []),
+		documents: decodeJson<RevisionDocumentCategory[]>(revisionRows[0].requested_documents_json, []),
+		requested_at: revisionRows[0].requested_at
+	} : null;
+	const [revisionHistoryRows] = await mysqlPool.execute<Array<RowDataPacket & {
+		id: number; revision_number: number; requested_by_name: string | null; response_by_name: string | null;
+		request_note: string; requested_fields_json: unknown; requested_documents_json: unknown;
+		snapshot_before_json: unknown; snapshot_after_json: unknown; response_note: string | null;
+		status: string; requested_at: Date; submitted_at: Date | null;
+	}>>(
+		`SELECT revision.id, revision.revision_number, revision.request_note, revision.requested_fields_json,
+			revision.requested_documents_json, revision.snapshot_before_json, revision.snapshot_after_json,
+			revision.response_note, revision.status, revision.requested_at, revision.submitted_at,
+			requester.full_name AS requested_by_name, responder.full_name AS response_by_name
+		FROM request_revisions revision
+		LEFT JOIN users requester ON requester.id = revision.requested_by_user_id
+		LEFT JOIN users responder ON responder.id = revision.response_by_user_id
+		WHERE revision.request_id = ? ORDER BY revision.revision_number`, [requestId]
+	);
+	const [decisionRows] = await mysqlPool.execute<Array<RowDataPacket & {
+		id: number; unit_type: string; unit_code: string; decision_type: string; reason_label_snapshot: string | null;
+		note: string; confirmation_text: string | null; attachment_id: number | null;
+		created_at: Date; actor_name: string | null; attachment_filename: string | null;
+	}>>(
+		`SELECT decision.id, decision.unit_type, decision.unit_code, decision.decision_type, decision.reason_label_snapshot,
+			decision.note, decision.confirmation_text, decision.attachment_id, decision.created_at,
+			actor.full_name AS actor_name, attachment.original_filename AS attachment_filename
+		FROM request_decisions decision
+		INNER JOIN users actor ON actor.id = decision.actor_user_id
+		LEFT JOIN request_attachments attachment ON attachment.id = decision.attachment_id
+		WHERE decision.request_id = ? ORDER BY decision.created_at, decision.id`, [requestId]
 	);
 	const capabilities = {
 		can_submit_revision: false,
@@ -504,7 +636,69 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 			if (!(error instanceof RequestWorkflowError && error.statusCode === 403)) throw error;
 		}
 	}
-	return { request: decorateRequest(request), form_answers: formAnswers, sessions, timeline, capabilities };
+	return {
+		request: decorateRequest(request),
+		form_fields: formDefinition.fields,
+		form_repeatable: formDefinition.repeatable ?? null,
+		form_answers: formAnswers,
+		form_answer_groups: formAnswerGroups,
+		revision_request: revisionRequest,
+		revision_history: revisionHistoryRows.map((row) => ({
+			id: Number(row.id), revision_number: Number(row.revision_number), request_note: row.request_note,
+			requested_by_name: row.requested_by_name, response_by_name: row.response_by_name,
+			fields: decodeJson<RevisionFieldTarget[]>(row.requested_fields_json, []),
+			documents: decodeJson<RevisionDocumentCategory[]>(row.requested_documents_json, []),
+			snapshot_before: decodeJson<Record<string, unknown>>(row.snapshot_before_json, {}),
+			snapshot_after: row.snapshot_after_json === null ? null : decodeJson<Record<string, unknown>>(row.snapshot_after_json, {}),
+			response_note: row.response_note, status: row.status, requested_at: row.requested_at, submitted_at: row.submitted_at
+		})),
+		decisions: decisionRows,
+		attachments: attachmentRows.map((attachment) => ({
+			...attachment,
+			id: Number(attachment.id),
+			revision_id: attachment.revision_id === null ? null : Number(attachment.revision_id),
+			size_bytes: Number(attachment.size_bytes)
+		})),
+		sessions,
+		timeline,
+		capabilities
+	};
+}
+
+export async function getRequestAttachmentForDownload(employeeId: string, requestId: number, attachmentId: number) {
+	await getRequestDetail(employeeId, requestId);
+	const [rows] = await mysqlPool.execute<Array<RowDataPacket & {
+		id: number; storage_key: string; original_filename: string;
+	}>>(
+		`SELECT id, storage_key, original_filename FROM request_attachments
+		WHERE request_id = ? AND id = ? LIMIT 1`,
+		[requestId, attachmentId]
+	);
+	const attachment = rows[0];
+	if (!attachment) throw new RequestWorkflowError(404, 'Lampiran tidak ditemukan.');
+	return { ...attachment, id: Number(attachment.id) };
+}
+
+export async function listRequestRejectionReasons(employeeId: string, requestId: number) {
+	const detail = await getRequestDetail(employeeId, requestId);
+	let reasonDivisionId = detail.request.central_division_id;
+	if (reasonDivisionId === null && detail.request.work_catalog_id !== null) {
+		const [catalogRows] = await mysqlPool.execute<Array<RowDataPacket & { divisi_id: number }>>(
+			'SELECT divisi_id FROM work_catalogs WHERE id = ? LIMIT 1', [detail.request.work_catalog_id]
+		);
+		reasonDivisionId = catalogRows[0] ? Number(catalogRows[0].divisi_id) : null;
+	}
+	const [rows] = await mysqlPool.execute<Array<RowDataPacket & { id: number; code: string; label: string; scope_type: string }>>(
+		`SELECT id, code, label, scope_type FROM rejection_reasons
+		WHERE is_active = 1 AND (
+			scope_type = 'system'
+			OR (scope_type = 'division' AND division_id = ?)
+			OR (scope_type = 'catalog' AND division_id = ? AND work_catalog_id = ?)
+		)
+		ORDER BY sort_order, label`,
+		[reasonDivisionId, reasonDivisionId, detail.request.work_catalog_id]
+	);
+	return rows.map((row) => ({ id: Number(row.id), code: row.code, label: row.label, scope_type: row.scope_type }));
 }
 
 export async function claimKorwilRequest(employeeId: string, requestId: number) {
@@ -568,14 +762,18 @@ export async function claimKorwilRequest(employeeId: string, requestId: number) 
 
 type LockedRequest = RowDataPacket & {
 	id: number; request_number: string; subject: string; kode_kantor: string; korwil: string; authority_type: string;
-	central_division_id: number | null; status: string; current_unit_type: string; current_unit_code: string;
+	central_division_id: number | null; catalog_division_id: number | null; work_catalog_id: number | null; inoffice_letter_number: string | null; inoffice_letter_date: string | null;
+	status: string; current_unit_type: string; current_unit_code: string;
 	current_owner_user_id: number | null; sla_target_minutes: number | null;
 };
 
 async function lockRequest(connection: PoolConnection, requestId: number): Promise<LockedRequest> {
 	const [rows] = await connection.execute<LockedRequest[]>(
 		`SELECT request.id, request.request_number, request.subject, request.kode_kantor, request.korwil,
-			request.authority_type, request.central_division_id, request.status, request.current_unit_type,
+			request.authority_type, request.central_division_id, request.work_catalog_id, request.inoffice_letter_number,
+			catalog.divisi_id AS catalog_division_id,
+			DATE_FORMAT(request.inoffice_letter_date, '%Y-%m-%d') AS inoffice_letter_date,
+			request.status, request.current_unit_type,
 			request.current_unit_code, request.current_owner_user_id,
 			COALESCE(catalog.target_sla_minutes, ${DEFAULT_SLA_MINUTES}) AS sla_target_minutes
 		FROM service_requests request
@@ -663,7 +861,137 @@ async function notifyRequestUnit(connection: PoolConnection, request: {
 	});
 }
 
-export async function returnKorwilRequestForDocuments(employeeId: string, requestId: number, reason: string) {
+async function resolveRejectionReason(connection: PoolConnection, request: LockedRequest, reasonId: number) {
+	const reasonDivisionId = request.central_division_id ?? request.catalog_division_id;
+	const [rows] = await connection.execute<Array<RowDataPacket & { id: number; scope_type: string; code: string; label: string }>>(
+		`SELECT id, scope_type, code, label FROM rejection_reasons
+		WHERE id = ? AND is_active = 1 AND (
+			scope_type = 'system'
+			OR (scope_type = 'division' AND division_id = ?)
+			OR (scope_type = 'catalog' AND division_id = ? AND work_catalog_id = ?)
+		) LIMIT 1`,
+		[reasonId, reasonDivisionId, reasonDivisionId, request.work_catalog_id]
+	);
+	if (!rows[0]) throw new RequestWorkflowError(400, 'Pilih alasan penolakan yang masih aktif untuk Divisi atau jenis pekerjaan ini.');
+	return rows[0];
+}
+
+async function storeRequestAttachment(connection: PoolConnection, requestId: number, actorId: number,
+	category: string, file: PrivatePdfFile): Promise<{ id: number; stored: StoredPrivatePdf }> {
+	const stored = await storePrivatePdf(file);
+	try {
+		const [result] = await connection.execute<ResultSetHeader>(
+			`INSERT INTO request_attachments
+				(request_id, category, storage_key, original_filename, mime_type, size_bytes, sha256, uploaded_by_user_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			[requestId, category, stored.storageKey, stored.originalFilename, stored.mimeType, stored.sizeBytes, stored.sha256, actorId]
+		);
+		return { id: Number(result.insertId), stored };
+	} catch (error) {
+		await removePrivatePdf(stored.storageKey).catch(() => undefined);
+		throw error;
+	}
+}
+
+async function addDecision(connection: PoolConnection, input: {
+	requestId: number; historyId: number; actorId: number; unitType: 'korwil' | 'central'; unitCode: string;
+	decisionType: 'forwarded' | 'approved' | 'rejected'; note: string; confirmationText?: string | null;
+	reason?: { id: number; code: string; label: string } | null; attachmentId?: number | null;
+}): Promise<void> {
+	await connection.execute(
+		`INSERT INTO request_decisions
+			(request_id, history_id, actor_user_id, unit_type, unit_code, decision_type, rejection_reason_id,
+			 reason_code_snapshot, reason_label_snapshot, note, confirmation_text, attachment_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		[input.requestId, input.historyId, input.actorId, input.unitType, input.unitCode, input.decisionType,
+			input.reason?.id ?? null, input.reason?.code ?? null, input.reason?.label ?? null,
+			input.note, input.confirmationText ?? null, input.attachmentId ?? null]
+	);
+}
+
+function approvalConfirmation(request: LockedRequest, decisionType: 'forwarded' | 'approved' = 'approved'): string {
+	if (decisionType === 'forwarded') return `Saya telah memeriksa dan menyetujui penerusan pengajuan ${request.request_number} ke Divisi Pusat.`;
+	const letter = request.inoffice_letter_number
+		? ` atas surat InOffice nomor ${request.inoffice_letter_number}${request.inoffice_letter_date ? ` tanggal ${request.inoffice_letter_date}` : ''}`
+		: '';
+	return `Saya menyetujui pengajuan ${request.request_number}${letter}.`;
+}
+
+async function createRevisionRequest(connection: PoolConnection, requestId: number, actorId: number,
+	unitType: 'korwil' | 'central', unitCode: string, note: string,
+	inputFields: Array<{ kind: string; key?: string; entry_index?: number | null }>,
+	documents: RevisionDocumentCategory[]): Promise<number> {
+	if (inputFields.length + documents.length === 0) throw new RequestWorkflowError(400, 'Pilih setidaknya satu kolom atau dokumen yang perlu dilengkapi.');
+	if (new Set(documents).size !== documents.length) throw new RequestWorkflowError(400, 'Jenis dokumen pada daftar revisi tidak boleh berulang.');
+	const [rows] = await connection.execute<Array<RowDataPacket & {
+		form_version_id: number | null; form_answers_json: unknown; subject: string; description: string;
+		inoffice_letter_number: string | null; inoffice_letter_date: string | null; definition_json: unknown;
+	}>>(
+		`SELECT request.form_version_id, request.form_answers_json, request.subject, request.description,
+			request.inoffice_letter_number, DATE_FORMAT(request.inoffice_letter_date, '%Y-%m-%d') AS inoffice_letter_date,
+			form_version.definition_json
+		FROM service_requests request
+	LEFT JOIN work_catalog_form_versions form_version ON form_version.id = request.form_version_id
+		WHERE request.id = ? LIMIT 1`, [requestId]
+	);
+	const current = rows[0];
+	if (!current) throw new RequestWorkflowError(404, 'Pengajuan tidak ditemukan.');
+	const definition = parseFormDefinition(current.definition_json);
+	const answers = decodeJson<Record<string, unknown>>(current.form_answers_json, {});
+	const entryCount = Array.isArray(answers[REPEATABLE_FORM_ANSWERS_KEY])
+		? (answers[REPEATABLE_FORM_ANSWERS_KEY] as unknown[]).length : 0;
+	const fields: RevisionFieldTarget[] = [];
+	const duplicateSet = new Set<string>();
+	for (const item of inputFields) {
+		if (item.kind !== 'form_field') {
+			if (!(item.kind in revisionMetaLabels)) throw new RequestWorkflowError(400, 'Kolom revisi tidak dikenal.');
+			const kind = item.kind as Exclude<RevisionFieldTarget['kind'], 'form_field'>;
+			const signature = `${kind}:`;
+			if (duplicateSet.has(signature)) throw new RequestWorkflowError(400, 'Kolom revisi tidak boleh dipilih berulang.');
+			duplicateSet.add(signature);
+			fields.push({ kind, label: revisionMetaLabels[kind] });
+			continue;
+		}
+		const field = definition.fields.find((candidate) => candidate.key === item.key);
+		if (!field) throw new RequestWorkflowError(400, 'Kolom form yang dipilih sudah tidak tersedia.');
+		const entryIndex = definition.repeatable ? item.entry_index : null;
+		if (definition.repeatable && (!Number.isInteger(entryIndex) || entryIndex! < 0 || entryIndex! >= entryCount)) {
+			throw new RequestWorkflowError(400, 'Baris data yang dipilih untuk revisi tidak valid.');
+		}
+		if (!definition.repeatable && item.entry_index !== undefined && item.entry_index !== null) {
+			throw new RequestWorkflowError(400, 'Kolom form ini tidak memiliki baris berulang.');
+		}
+		const signature = `form_field:${field.key}:${entryIndex ?? 'single'}`;
+		if (duplicateSet.has(signature)) throw new RequestWorkflowError(400, 'Kolom revisi tidak boleh dipilih berulang.');
+		duplicateSet.add(signature);
+		fields.push({ kind: 'form_field', key: field.key, entry_index: entryIndex, label: field.label, type: field.type });
+	}
+	const [numbers] = await connection.execute<Array<RowDataPacket & { next_number: number }>>(
+		'SELECT COALESCE(MAX(revision_number), 0) + 1 AS next_number FROM request_revisions WHERE request_id = ?', [requestId]
+	);
+	const snapshotBefore = {
+		form_version_id: current.form_version_id === null ? null : Number(current.form_version_id),
+		form_answers: answers,
+		subject: current.subject,
+		description: current.description,
+		inoffice_letter_number: current.inoffice_letter_number,
+		inoffice_letter_date: current.inoffice_letter_date
+	};
+	const [insert] = await connection.execute<ResultSetHeader>(
+		`INSERT INTO request_revisions
+			(request_id, revision_number, requested_by_user_id, requesting_unit_type, requesting_unit_code,
+			 request_note, requested_fields_json, requested_documents_json, snapshot_before_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		[requestId, Number(numbers[0]?.next_number ?? 1), actorId, unitType, unitCode, note,
+			JSON.stringify(fields), JSON.stringify(documents), JSON.stringify(snapshotBefore)]
+	);
+	return Number(insert.insertId);
+}
+
+export async function returnKorwilRequestForDocuments(employeeId: string, requestId: number, input: {
+	note: string; fields: Array<{ kind: string; key?: string; entry_index?: number | null }>;
+	documents: RevisionDocumentCategory[];
+}) {
 	const connection = await mysqlPool.getConnection();
 	try {
 		await connection.beginTransaction();
@@ -672,6 +1000,7 @@ export async function returnKorwilRequestForDocuments(employeeId: string, reques
 		if (request.status !== 'in_progress_korwil' || request.current_unit_type !== 'korwil' || request.current_owner_user_id !== actor.id) {
 			throw new RequestWorkflowError(409, 'Ambil dan miliki pengajuan ini sebelum meminta kelengkapan.');
 		}
+		await createRevisionRequest(connection, requestId, actor.id, 'korwil', request.korwil, input.note, input.fields, input.documents);
 		await closeActiveSession(connection, requestId, 'requested_documents');
 		await releaseActiveAssignment(connection, requestId);
 		await connection.execute(
@@ -690,7 +1019,7 @@ export async function returnKorwilRequestForDocuments(employeeId: string, reques
 		const historyId = await addHistory(connection, {
 			requestId, actorId: actor.id, action: 'request_documents', statusFrom: 'in_progress_korwil',
 			statusTo: 'waiting_branch_revision', fromType: 'korwil', fromCode: request.korwil,
-			toType: 'branch', toCode: request.kode_kantor, reason
+			toType: 'branch', toCode: request.kode_kantor, reason: input.note
 		});
 		await notifyRequestUnit(connection, request, historyId, 'branch', request.kode_kantor,
 			'documents_requested', 'Kelengkapan diminta');
@@ -702,8 +1031,11 @@ export async function returnKorwilRequestForDocuments(employeeId: string, reques
 	} finally { connection.release(); }
 }
 
-export async function forwardKorwilRequestToCentral(employeeId: string, requestId: number, reason: string) {
+export async function forwardKorwilRequestToCentral(employeeId: string, requestId: number, reason: string, options: {
+	approvalConfirmed: boolean; beritaAcara?: PrivatePdfFile | null;
+} = { approvalConfirmed: false }) {
 	const connection = await mysqlPool.getConnection();
+	let storedAttachment: StoredPrivatePdf | null = null;
 	try {
 		await connection.beginTransaction();
 		const request = await lockRequest(connection, requestId);
@@ -714,11 +1046,18 @@ export async function forwardKorwilRequestToCentral(employeeId: string, requestI
 		if (request.status !== 'in_progress_korwil' || request.current_unit_type !== 'korwil' || request.current_owner_user_id !== actor.id) {
 			throw new RequestWorkflowError(409, 'Ambil dan miliki pengajuan ini sebelum meneruskannya.');
 		}
+		if (!options.approvalConfirmed) throw new RequestWorkflowError(400, 'Konfirmasikan pemeriksaan sebelum meneruskan pengajuan ke Divisi Pusat.');
 		const [divisions] = await connection.execute<Array<RowDataPacket & { kode: string }>>(
 			'SELECT kode FROM master_divisi WHERE id = ? AND is_active = 1 LIMIT 1', [request.central_division_id]
 		);
 		const divisionCode = divisions[0]?.kode;
 		if (!divisionCode) throw new RequestWorkflowError(409, 'Divisi tujuan tidak aktif. Hubungi Admin Sistem SLA.');
+		let attachmentId: number | null = null;
+		if (options.beritaAcara) {
+			const attachment = await storeRequestAttachment(connection, requestId, actor.id, 'berita_acara', options.beritaAcara);
+			attachmentId = attachment.id;
+			storedAttachment = attachment.stored;
+		}
 		await closeActiveSession(connection, requestId, 'forwarded');
 		await releaseActiveAssignment(connection, requestId);
 		await connection.execute(
@@ -737,20 +1076,29 @@ export async function forwardKorwilRequestToCentral(employeeId: string, requestI
 			statusTo: 'waiting_central', fromType: 'korwil', fromCode: request.korwil,
 			toType: 'central', toCode: divisionCode, reason
 		});
+		await addDecision(connection, {
+			requestId, historyId, actorId: actor.id, unitType: 'korwil', unitCode: request.korwil, decisionType: 'forwarded', note: reason,
+			confirmationText: approvalConfirmation(request, 'forwarded'), attachmentId
+		});
 		await notifyRequestUnit(connection, request, historyId, 'central', divisionCode,
 			'request_forwarded', 'Pengajuan masuk ke Divisi Pusat');
 		await notifyRequestUnit(connection, request, historyId, 'branch', request.kode_kantor,
 			'request_forwarded', 'Pengajuan diteruskan ke Divisi Pusat');
 		await connection.commit();
+		storedAttachment = null;
 		return { id: requestId, status: 'waiting_central' };
 	} catch (error) {
-		await connection.rollback();
+		await connection.rollback().catch(() => undefined);
+		if (storedAttachment) await removePrivatePdf(storedAttachment.storageKey).catch(() => undefined);
 		throw error;
 	} finally { connection.release(); }
 }
 
-export async function finishKorwilRequest(employeeId: string, requestId: number, outcome: 'completed' | 'rejected', reason: string) {
+export async function finishKorwilRequest(employeeId: string, requestId: number, outcome: 'completed' | 'rejected', reason: string, options: {
+	approvalConfirmed?: boolean; rejectionReasonId?: number; beritaAcara?: PrivatePdfFile | null;
+} = {}) {
 	const connection = await mysqlPool.getConnection();
+	let storedAttachment: StoredPrivatePdf | null = null;
 	try {
 		await connection.beginTransaction();
 		const request = await lockRequest(connection, requestId);
@@ -761,6 +1109,17 @@ export async function finishKorwilRequest(employeeId: string, requestId: number,
 		if (outcome === 'completed' && request.authority_type === 'central') {
 			throw new RequestWorkflowError(409, 'Pengajuan dengan tujuan Pusat harus diteruskan ke Divisi yang dipilih.');
 		}
+		if (outcome === 'completed' && !options.approvalConfirmed) throw new RequestWorkflowError(400, 'Konfirmasikan persetujuan sebelum menyelesaikan pengajuan.');
+		const rejectionReason = outcome === 'rejected'
+			? options.rejectionReasonId ? await resolveRejectionReason(connection, request, options.rejectionReasonId) : null
+			: null;
+		if (outcome === 'rejected' && !rejectionReason) throw new RequestWorkflowError(400, 'Pilih alasan penolakan dari daftar.');
+		let attachmentId: number | null = null;
+		if (outcome === 'completed' && options.beritaAcara) {
+			const attachment = await storeRequestAttachment(connection, requestId, actor.id, 'berita_acara', options.beritaAcara);
+			attachmentId = attachment.id;
+			storedAttachment = attachment.stored;
+		}
 		await closeActiveSession(connection, requestId, outcome);
 		await releaseActiveAssignment(connection, requestId);
 		await connection.execute(
@@ -769,15 +1128,25 @@ export async function finishKorwilRequest(employeeId: string, requestId: number,
 		);
 		const historyId = await addHistory(connection, {
 			requestId, actorId: actor.id, action: outcome, statusFrom: 'in_progress_korwil', statusTo: outcome,
-			fromType: 'korwil', fromCode: request.korwil, toType: 'korwil', toCode: request.korwil, reason
+			fromType: 'korwil', fromCode: request.korwil, toType: 'korwil', toCode: request.korwil,
+			reason
+		});
+		await addDecision(connection, {
+			requestId, historyId, actorId: actor.id, unitType: 'korwil', unitCode: request.korwil,
+			decisionType: outcome === 'completed' ? 'approved' : 'rejected', note: reason,
+			confirmationText: outcome === 'completed' ? approvalConfirmation(request) : null,
+			reason: rejectionReason ? { id: Number(rejectionReason.id), code: rejectionReason.code, label: rejectionReason.label } : null,
+			attachmentId
 		});
 		await notifyRequestUnit(connection, request, historyId, 'branch', request.kode_kantor,
 			outcome === 'completed' ? 'request_completed' : 'request_rejected',
 			outcome === 'completed' ? 'Pengajuan selesai' : 'Pengajuan ditolak');
 		await connection.commit();
+		storedAttachment = null;
 		return { id: requestId, status: outcome };
 	} catch (error) {
-		await connection.rollback();
+		await connection.rollback().catch(() => undefined);
+		if (storedAttachment) await removePrivatePdf(storedAttachment.storageKey).catch(() => undefined);
 		throw error;
 	} finally { connection.release(); }
 }
@@ -830,7 +1199,10 @@ export async function claimCentralRequest(employeeId: string, requestId: number)
 	} finally { connection.release(); }
 }
 
-export async function returnCentralRequestForDocuments(employeeId: string, requestId: number, reason: string) {
+export async function returnCentralRequestForDocuments(employeeId: string, requestId: number, input: {
+	note: string; fields: Array<{ kind: string; key?: string; entry_index?: number | null }>;
+	documents: RevisionDocumentCategory[];
+}) {
 	const connection = await mysqlPool.getConnection();
 	try {
 		await connection.beginTransaction();
@@ -845,6 +1217,7 @@ export async function returnCentralRequestForDocuments(employeeId: string, reque
 			request.current_unit_code !== divisionCode || request.current_owner_user_id !== actor.id) {
 			throw new RequestWorkflowError(409, 'Ambil dan miliki pengajuan ini sebelum meminta kelengkapan.');
 		}
+		await createRevisionRequest(connection, requestId, actor.id, 'central', divisionCode!, input.note, input.fields, input.documents);
 		await closeActiveSession(connection, requestId, 'requested_documents');
 		await releaseActiveAssignment(connection, requestId);
 		await connection.execute(
@@ -862,7 +1235,7 @@ export async function returnCentralRequestForDocuments(employeeId: string, reque
 		const historyId = await addHistory(connection, {
 			requestId, actorId: actor.id, action: 'request_documents', statusFrom: 'in_progress_central',
 			statusTo: 'waiting_branch_revision', fromType: 'central', fromCode: divisionCode!,
-			toType: 'branch', toCode: request.kode_kantor, reason
+			toType: 'branch', toCode: request.kode_kantor, reason: input.note
 		});
 		await notifyRequestUnit(connection, request, historyId, 'branch', request.kode_kantor,
 			'documents_requested', 'Kelengkapan diminta');
@@ -874,8 +1247,11 @@ export async function returnCentralRequestForDocuments(employeeId: string, reque
 	} finally { connection.release(); }
 }
 
-export async function finishCentralRequest(employeeId: string, requestId: number, outcome: 'completed' | 'rejected', reason: string) {
+export async function finishCentralRequest(employeeId: string, requestId: number, outcome: 'completed' | 'rejected', reason: string, options: {
+	approvalConfirmed?: boolean; rejectionReasonId?: number; beritaAcara?: PrivatePdfFile | null;
+} = {}) {
 	const connection = await mysqlPool.getConnection();
+	let storedAttachment: StoredPrivatePdf | null = null;
 	try {
 		await connection.beginTransaction();
 		const request = await lockRequest(connection, requestId);
@@ -889,6 +1265,17 @@ export async function finishCentralRequest(employeeId: string, requestId: number
 			request.current_unit_code !== divisionCode || request.current_owner_user_id !== actor.id) {
 			throw new RequestWorkflowError(409, 'Ambil dan miliki pengajuan ini sebelum menutupnya.');
 		}
+		if (outcome === 'completed' && !options.approvalConfirmed) throw new RequestWorkflowError(400, 'Konfirmasikan persetujuan sebelum menyelesaikan pengajuan.');
+		const rejectionReason = outcome === 'rejected'
+			? options.rejectionReasonId ? await resolveRejectionReason(connection, request, options.rejectionReasonId) : null
+			: null;
+		if (outcome === 'rejected' && !rejectionReason) throw new RequestWorkflowError(400, 'Pilih alasan penolakan dari daftar.');
+		let attachmentId: number | null = null;
+		if (outcome === 'completed' && options.beritaAcara) {
+			const attachment = await storeRequestAttachment(connection, requestId, actor.id, 'berita_acara', options.beritaAcara);
+			attachmentId = attachment.id;
+			storedAttachment = attachment.stored;
+		}
 		await closeActiveSession(connection, requestId, outcome);
 		await releaseActiveAssignment(connection, requestId);
 		await connection.execute(
@@ -897,20 +1284,30 @@ export async function finishCentralRequest(employeeId: string, requestId: number
 		);
 		const historyId = await addHistory(connection, {
 			requestId, actorId: actor.id, action: outcome, statusFrom: 'in_progress_central', statusTo: outcome,
-			fromType: 'central', fromCode: divisionCode!, toType: 'central', toCode: divisionCode!, reason
+			fromType: 'central', fromCode: divisionCode!, toType: 'central', toCode: divisionCode!,
+			reason
+		});
+		await addDecision(connection, {
+			requestId, historyId, actorId: actor.id, unitType: 'central', unitCode: divisionCode!,
+			decisionType: outcome === 'completed' ? 'approved' : 'rejected', note: reason,
+			confirmationText: outcome === 'completed' ? approvalConfirmation(request) : null,
+			reason: rejectionReason ? { id: Number(rejectionReason.id), code: rejectionReason.code, label: rejectionReason.label } : null,
+			attachmentId
 		});
 		await notifyRequestUnit(connection, request, historyId, 'branch', request.kode_kantor,
 			outcome === 'completed' ? 'request_completed' : 'request_rejected',
 			outcome === 'completed' ? 'Pengajuan selesai' : 'Pengajuan ditolak');
 		await connection.commit();
+		storedAttachment = null;
 		return { id: requestId, status: outcome };
 	} catch (error) {
-		await connection.rollback();
+		await connection.rollback().catch(() => undefined);
+		if (storedAttachment) await removePrivatePdf(storedAttachment.storageKey).catch(() => undefined);
 		throw error;
 	} finally { connection.release(); }
 }
 
-export async function submitBranchRevision(employeeId: string, requestId: number, responseText: string) {
+async function submitBranchRevisionTextOnly(employeeId: string, requestId: number, responseText: string) {
 	const connection = await mysqlPool.getConnection();
 	try {
 		await connection.beginTransaction();
@@ -985,9 +1382,217 @@ export async function submitBranchRevision(employeeId: string, requestId: number
 				'revision_submitted', 'Kelengkapan masuk ke antrean unit');
 		}
 		await connection.commit();
-		return { id: requestId, status: nextStatus, resumed_to_previous_handler: resumedHandlerId !== null };
+		return { id: requestId, status: nextStatus, resumed_to_previous_handler: resumedHandlerId !== null, returned_to_korwil: false };
 	} catch (error) {
 		await connection.rollback();
+		throw error;
+	} finally { connection.release(); }
+}
+
+export async function submitBranchRevision(employeeId: string, requestId: number, input: {
+	response: string;
+	updates: Array<{ kind: string; key?: string; entry_index?: number | null; value: unknown }>;
+	files: Partial<Record<RevisionDocumentCategory, PrivatePdfFile>>;
+}) {
+	const [pendingRows] = await mysqlPool.execute<Array<RowDataPacket & { id: number }>>(
+		`SELECT id FROM request_revisions WHERE request_id = ? AND status = 'requested' ORDER BY id DESC LIMIT 1`, [requestId]
+	);
+	if (!pendingRows[0]) {
+		if (input.updates.length || Object.keys(input.files).length) throw new RequestWorkflowError(409, 'Permintaan revisi terstruktur tidak ditemukan.');
+		return submitBranchRevisionTextOnly(employeeId, requestId, input.response);
+	}
+	const connection = await mysqlPool.getConnection();
+	const storedAttachments: StoredPrivatePdf[] = [];
+	try {
+		await connection.beginTransaction();
+		const request = await lockRequest(connection, requestId);
+		const branch = await getActiveBranch(employeeId, connection);
+		if (request.status !== 'waiting_branch_revision' || request.current_unit_type !== 'branch' ||
+			request.kode_kantor !== branch.kode_kantor || request.current_unit_code !== branch.kode_kantor) {
+			throw new RequestWorkflowError(409, 'Pengajuan ini tidak sedang menunggu kelengkapan dari kantor Cabang kamu.');
+		}
+		const [revisionRows] = await connection.execute<Array<RowDataPacket & {
+			id: number; requested_by_user_id: number; requesting_unit_type: string; requesting_unit_code: string;
+			requested_fields_json: unknown; requested_documents_json: unknown;
+		}>>(
+			`SELECT id, requested_by_user_id, requesting_unit_type, requesting_unit_code,
+				requested_fields_json, requested_documents_json
+			FROM request_revisions WHERE request_id = ? AND status = 'requested' ORDER BY id DESC LIMIT 1 FOR UPDATE`, [requestId]
+		);
+		const revision = revisionRows[0];
+		if (!revision || !['korwil', 'central'].includes(revision.requesting_unit_type)) throw new RequestWorkflowError(409, 'Permintaan revisi sudah berubah. Muat ulang tiket.');
+		const [currentRows] = await connection.execute<Array<RowDataPacket & {
+			form_version_id: number | null; form_answers_json: unknown; subject: string; description: string;
+			inoffice_letter_number: string | null; inoffice_letter_date: string | null; definition_json: unknown;
+		}>>(
+			`SELECT request.form_version_id, request.form_answers_json, request.subject, request.description,
+				request.inoffice_letter_number, DATE_FORMAT(request.inoffice_letter_date, '%Y-%m-%d') AS inoffice_letter_date,
+				form_version.definition_json
+			FROM service_requests request
+			LEFT JOIN work_catalog_form_versions form_version ON form_version.id = request.form_version_id
+			WHERE request.id = ? LIMIT 1`, [requestId]
+		);
+		const current = currentRows[0];
+		if (!current) throw new RequestWorkflowError(404, 'Pengajuan tidak ditemukan.');
+		const definition = parseFormDefinition(current.definition_json);
+		const previousAnswers = decodeJson<Record<string, unknown>>(current.form_answers_json, {});
+		let nextAnswers = JSON.parse(JSON.stringify(previousAnswers)) as Record<string, unknown>;
+		let nextSubject = current.subject;
+		let nextDescription = current.description;
+		let nextLetterNumber = current.inoffice_letter_number;
+		let nextLetterDate = current.inoffice_letter_date;
+		const requestedFields = decodeJson<RevisionFieldTarget[]>(revision.requested_fields_json, []);
+		const requestedDocuments = decodeJson<RevisionDocumentCategory[]>(revision.requested_documents_json, []);
+		const allowed = new Map(requestedFields.map((field) => [
+			`${field.kind}:${field.key ?? ''}:${field.entry_index ?? 'single'}`, field
+		]));
+		const received = new Set<string>();
+		let substantiveChange = false;
+		for (const update of input.updates) {
+			const signature = `${update.kind}:${update.key ?? ''}:${update.entry_index ?? 'single'}`;
+			const target = allowed.get(signature);
+			if (!target || received.has(signature)) throw new RequestWorkflowError(400, 'Isian revisi memuat kolom yang tidak diminta atau berulang.');
+			received.add(signature);
+			if (target.kind === 'subject') {
+				if (typeof update.value !== 'string' || update.value.trim().length < 3 || update.value.trim().length > 200) throw new RequestWorkflowError(400, 'Perihal harus berisi 3 sampai 200 karakter.');
+				const normalized = update.value.trim();
+				if (normalized !== current.subject) substantiveChange = true;
+				nextSubject = normalized;
+			} else if (target.kind === 'description') {
+				if (typeof update.value !== 'string' || update.value.trim().length < 3 || update.value.trim().length > 5000) throw new RequestWorkflowError(400, 'Uraian harus berisi 3 sampai 5.000 karakter.');
+				const normalized = update.value.trim();
+				if (normalized !== current.description) substantiveChange = true;
+				nextDescription = normalized;
+			} else if (target.kind === 'inoffice_letter_number') {
+				if (typeof update.value !== 'string' || update.value.trim().length < 1 || update.value.trim().length > 100) throw new RequestWorkflowError(400, 'Nomor surat InOffice harus diisi dan maksimal 100 karakter.');
+				nextLetterNumber = update.value.trim();
+			} else if (target.kind === 'inoffice_letter_date') {
+				if (typeof update.value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(update.value)) throw new RequestWorkflowError(400, 'Tanggal surat InOffice belum valid.');
+				const [year, month, day] = update.value.split('-').map(Number);
+				const parsedDate = new Date(Date.UTC(year!, month! - 1, day!));
+				if (parsedDate.getUTCFullYear() !== year || parsedDate.getUTCMonth() !== month! - 1 || parsedDate.getUTCDate() !== day) throw new RequestWorkflowError(400, 'Tanggal surat InOffice belum valid.');
+				nextLetterDate = update.value;
+			} else if (target.kind === 'form_field') {
+				const field = definition.fields.find((candidate) => candidate.key === target.key);
+				if (!field) throw new RequestWorkflowError(409, 'Kolom form pada tiket tidak ditemukan.');
+				let previousValue: unknown;
+				if (definition.repeatable) {
+					const entries = Array.isArray(nextAnswers[REPEATABLE_FORM_ANSWERS_KEY])
+						? [...nextAnswers[REPEATABLE_FORM_ANSWERS_KEY] as Record<string, unknown>[]] : [];
+					const entryIndex = target.entry_index;
+					if (!Number.isInteger(entryIndex) || entryIndex! < 0 || entryIndex! >= entries.length) throw new RequestWorkflowError(409, 'Baris data yang diminta untuk revisi sudah tidak tersedia.');
+					previousValue = entries[entryIndex!]?.[field.key];
+					entries[entryIndex!] = { ...(entries[entryIndex!] ?? {}), [field.key]: update.value };
+					nextAnswers[REPEATABLE_FORM_ANSWERS_KEY] = entries;
+				} else {
+					previousValue = previousAnswers[field.key];
+					nextAnswers[field.key] = update.value;
+				}
+				const normalizeComparable = (value: unknown): string => value === undefined || value === null ? '' : String(value).trim();
+				const nextComparable = normalizeComparable(update.value);
+				const previousComparable = normalizeComparable(previousValue);
+				const changed = field.type === 'number' || field.type === 'currency'
+					? (nextComparable === '' || previousComparable === ''
+						? nextComparable !== previousComparable
+						: Number(nextComparable) !== Number(previousComparable))
+					: nextComparable !== previousComparable;
+				if (changed && (field.requires_korwil_review || field.key === 'credit_amount')) substantiveChange = true;
+			} else throw new RequestWorkflowError(400, 'Jenis kolom revisi tidak dikenal.');
+		}
+		if (received.size !== allowed.size) throw new RequestWorkflowError(400, 'Lengkapi semua kolom yang diminta sebelum mengirim revisi.');
+		for (const category of requestedDocuments) {
+			if (!input.files[category]) throw new RequestWorkflowError(400, `Unggah dokumen ${category === 'inoffice_letter' ? 'surat InOffice' : 'pendukung'} yang diminta.`);
+		}
+		for (const category of Object.keys(input.files)) {
+			if (!requestedDocuments.includes(category as RevisionDocumentCategory)) throw new RequestWorkflowError(400, 'Ada dokumen yang tidak diminta pada putaran revisi ini.');
+		}
+		try { nextAnswers = validateFormAnswers(definition, nextAnswers) as Record<string, unknown>; }
+		catch (error) { throw new RequestWorkflowError(400, error instanceof Error ? error.message : 'Periksa kembali isian form.'); }
+		const targetType = substantiveChange ? 'korwil' : revision.requesting_unit_type as 'korwil' | 'central';
+		let targetCode = substantiveChange ? request.korwil : revision.requesting_unit_code;
+		if (targetType === 'central') {
+			const [divisions] = await connection.execute<Array<RowDataPacket & { kode: string }>>(
+				'SELECT kode FROM master_divisi WHERE id = ? AND is_active = 1 LIMIT 1', [request.central_division_id]
+			);
+			if (!divisions[0] || divisions[0].kode !== targetCode) throw new RequestWorkflowError(409, 'Divisi yang meminta kelengkapan tidak lagi cocok dengan tujuan pengajuan.');
+			targetCode = divisions[0].kode;
+		}
+		let previousHandlerId: number | null = Number(revision.requested_by_user_id);
+		if (substantiveChange) {
+			const [assignments] = await connection.execute<Array<RowDataPacket & { assigned_user_id: number | null }>>(
+				`SELECT assigned_user_id FROM request_assignments WHERE request_id = ? AND unit_type = 'korwil'
+					AND released_at IS NOT NULL AND assigned_user_id IS NOT NULL ORDER BY id DESC LIMIT 1`, [requestId]
+			);
+			previousHandlerId = assignments[0]?.assigned_user_id ?? null;
+		}
+		const resumedHandlerId = previousHandlerId === null ? null : await findResumableHandler(
+			connection, requestId, targetType, targetCode, previousHandlerId, request.central_division_id
+		);
+		for (const category of Object.keys(input.files) as RevisionDocumentCategory[]) {
+			const file = input.files[category];
+			if (!file) continue;
+			const stored = await storePrivatePdf(file);
+			storedAttachments.push(stored);
+			await connection.execute(
+				`INSERT INTO request_attachments
+					(request_id, revision_id, category, storage_key, original_filename, mime_type, size_bytes, sha256, uploaded_by_user_id)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				[requestId, revision.id, category, stored.storageKey, stored.originalFilename, stored.mimeType, stored.sizeBytes, stored.sha256, branch.id]
+			);
+		}
+		const snapshotAfter = {
+			form_version_id: current.form_version_id === null ? null : Number(current.form_version_id), form_answers: nextAnswers,
+			subject: nextSubject, description: nextDescription, inoffice_letter_number: nextLetterNumber,
+			inoffice_letter_date: nextLetterDate
+		};
+		await connection.execute(
+			`UPDATE service_requests SET form_answers_json = ?, subject = ?, description = ?,
+				inoffice_letter_number = ?, inoffice_letter_date = ?,
+				credit_amount = CASE WHEN ? IS NULL THEN credit_amount ELSE ? END WHERE id = ?`,
+			[JSON.stringify(nextAnswers), nextSubject, nextDescription, nextLetterNumber, nextLetterDate,
+				substantiveChange ? Number(nextAnswers.credit_amount) : null,
+				substantiveChange ? Number(nextAnswers.credit_amount) : null, requestId]
+		);
+		await connection.execute(
+			`UPDATE request_revisions SET status = 'submitted', response_note = ?, response_by_user_id = ?,
+				snapshot_after_json = ?, submitted_at = CURRENT_TIMESTAMP(3) WHERE id = ? AND status = 'requested'`,
+			[input.response, branch.id, JSON.stringify(snapshotAfter), revision.id]
+		);
+		await closeActiveSession(connection, requestId, 'documents_submitted');
+		await releaseActiveAssignment(connection, requestId);
+		const nextStatus = targetType === 'korwil'
+			? resumedHandlerId === null ? 'waiting_korwil' : 'in_progress_korwil'
+			: resumedHandlerId === null ? 'waiting_central' : 'in_progress_central';
+		await connection.execute(
+			`UPDATE service_requests SET status = ?, current_unit_type = ?, current_unit_code = ?, current_owner_user_id = ?, closed_at = NULL WHERE id = ?`,
+			[nextStatus, targetType, targetCode, resumedHandlerId, requestId]
+		);
+		await connection.execute(
+			`INSERT INTO request_assignments (request_id, unit_type, unit_code, assigned_user_id) VALUES (?, ?, ?, ?)`,
+			[requestId, targetType, targetCode, resumedHandlerId]
+		);
+		await connection.execute(
+			`INSERT INTO request_sla_sessions (request_id, unit_type, unit_code, started_at, start_reason, target_sla_minutes)
+			VALUES (?, ?, ?, CURRENT_TIMESTAMP(3), 'sent', ?)`, [requestId, targetType, targetCode,
+				targetType === 'central' ? request.sla_target_minutes ?? DEFAULT_SLA_MINUTES : DEFAULT_SLA_MINUTES]
+		);
+		const historyId = await addHistory(connection, {
+			requestId, actorId: branch.id, action: substantiveChange ? 'branch_substantive_revision_submitted' : 'branch_revision_submitted',
+			statusFrom: 'waiting_branch_revision', statusTo: nextStatus, fromType: 'branch', fromCode: branch.kode_kantor,
+			toType: targetType, toCode: targetCode, reason: input.response
+		});
+		if (resumedHandlerId !== null) await notifyUser(connection, {
+			recipientUserId: resumedHandlerId, requestId: request.id, historyId, eventType: 'revision_submitted',
+			title: substantiveChange ? 'Perubahan substansi perlu diperiksa Korwil' : 'Kelengkapan dikirim kembali',
+			body: `${request.request_number} Â· ${request.subject}`
+		});
+		else await notifyRequestUnit(connection, request, historyId, targetType, targetCode, 'revision_submitted',
+			substantiveChange ? 'Perubahan substansi masuk ke antrean Korwil' : 'Kelengkapan masuk ke antrean unit');
+		await connection.commit();
+		return { id: requestId, status: nextStatus, resumed_to_previous_handler: resumedHandlerId !== null, returned_to_korwil: substantiveChange };
+	} catch (error) {
+		await connection.rollback().catch(() => undefined);
+		for (const attachment of storedAttachments) await removePrivatePdf(attachment.storageKey).catch(() => undefined);
 		throw error;
 	} finally { connection.release(); }
 }

@@ -14,6 +14,7 @@ const envSchema = z.object({
 	SSO_BASE_URL: z.string().url(),
 	SSO_APP_CODE: z.string().min(1),
 	SSO_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+	PRIVATE_UPLOAD_DIR: z.string().trim().min(1).default('./private-uploads'),
 	SSO_CONNECT_IP: z.preprocess(
 		(value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
 		z.string().trim()
@@ -21,7 +22,16 @@ const envSchema = z.object({
 			.refine((value) => value.split('.').every((part) => Number(part) <= 255), 'must be a valid IPv4 address')
 			.optional()
 	),
-	SLA_INITIAL_ADMIN_EMPLOYEE_ID: z.string().trim().default('')
+	SLA_INITIAL_ADMIN_EMPLOYEE_ID: z.string().trim().default(''),
+	DUMMY_AUTH_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true')
+}).superRefine((config, context) => {
+	if (config.NODE_ENV === 'production' && config.DUMMY_AUTH_ENABLED) {
+		context.addIssue({
+			code: 'custom',
+			path: ['DUMMY_AUTH_ENABLED'],
+			message: 'Dummy authentication is only available outside production.'
+		});
+	}
 });
 
 const result = envSchema.safeParse(process.env);

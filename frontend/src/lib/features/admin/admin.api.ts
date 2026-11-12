@@ -17,13 +17,19 @@ export type WorkCatalog = {
 	nama_pekerjaan: string;
 	deskripsi: string | null;
 	target_sla_minutes: number | null;
+	routing_flow: 'branch_korwil_central' | 'branch_central';
 	is_active: boolean;
 	updated_at: string;
 	system_key?: string | null;
 	form_version_id?: number | null;
 	version_number?: number | null;
 	form_fields?: WorkFormField[];
+	form_repeatable?: RepeatableFormConfig | null;
+	form_credit_routing?: CreditRoutingConfig | null;
 };
+
+export type RepeatableFormConfig = { label: string; max_entries: number };
+export type CreditRoutingConfig = { marketing_threshold_amount: number };
 
 export type WorkFormField = {
 	key: string;
@@ -34,6 +40,7 @@ export type WorkFormField = {
 	min_value?: number;
 	max_value?: number;
 	system?: boolean;
+	requires_korwil_review?: boolean;
 };
 
 export type WorkFormFieldInput = Omit<WorkFormField, 'key' | 'system'>;
@@ -43,6 +50,7 @@ export type WorkCatalogInput = {
 	nama_pekerjaan: string;
 	deskripsi: string | null;
 	target_sla_minutes: number | null;
+	routing_flow: 'branch_korwil_central' | 'branch_central';
 	is_active: boolean;
 };
 
@@ -122,6 +130,10 @@ type PublishFormResponse = {
 	message: string;
 	data: { id: number; version_number: number };
 };
+export type ManagedRejectionReason = {
+	id: number; scope_type: 'system' | 'division' | 'catalog'; division_id: number | null; work_catalog_id: number | null;
+	code: string; label: string; is_active: boolean; sort_order: number;
+};
 
 type AdminUsersResponse = {
 	status: number;
@@ -189,11 +201,35 @@ export async function fetchFormManagementWorkspace(token: string) {
 	return apiRequest<FormManagementResponse>('forms/manage', { token });
 }
 
-export async function publishWorkForm(token: string, catalogId: number, fields: WorkFormFieldInput[]) {
+export async function publishWorkForm(
+	token: string,
+	catalogId: number,
+	fields: WorkFormFieldInput[],
+	repeatable: RepeatableFormConfig | null,
+	creditRouting: CreditRoutingConfig | null
+) {
 	return apiRequest<PublishFormResponse>(`forms/manage/${catalogId}/publish`, {
 		method: 'POST',
 		token,
-		body: { fields }
+		body: { fields, repeatable, credit_routing: creditRouting }
+	});
+}
+
+export async function fetchManagedRejectionReasons(token: string, catalogId: number) {
+	return apiRequest<{ status: number; message: string; data: { can_manage_system: boolean; reasons: ManagedRejectionReason[] } }>(
+		`forms/manage/rejection-reasons?catalog_id=${catalogId}`, { token }
+	);
+}
+
+export async function createManagedRejectionReason(token: string, catalogId: number, scopeType: 'system' | 'division' | 'catalog', label: string) {
+	return apiRequest<MutationResponse>('forms/manage/rejection-reasons', {
+		method: 'POST', token, body: { catalog_id: catalogId, scope_type: scopeType, label }
+	});
+}
+
+export async function setManagedRejectionReasonActive(token: string, reasonId: number, isActive: boolean) {
+	return apiRequest<MutationResponse>(`forms/manage/rejection-reasons/${reasonId}`, {
+		method: 'PATCH', token, body: { is_active: isActive }
 	});
 }
 

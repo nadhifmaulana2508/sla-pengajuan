@@ -1,35 +1,20 @@
-# Frontend design direction
+# Arah UI Sistem SLA
 
 ## Design Read
 
-Reading this as an internal SLA workflow and monitoring application for branch employees, Korwil staff, central divisions, supervisors, and management, in a Vercel-inspired high-contrast product UI, dial ENERGY 2 / RHYTHM 2 / MOTION 1.
+Sistem SLA adalah aplikasi kerja internal untuk mengirim dan menindaklanjuti tiket antar Cabang, Korwil, dan Divisi Pusat. UI mengutamakan tugas yang sering dilakukan dengan satu tangan di ponsel: melihat status, membuka tiket, memberi tindak lanjut, dan menyelesaikan form.
 
-## Identity
+- **Arah:** aplikasi operasional mobile-first dengan navigasi bawah untuk tujuan utama dan menu tambahan berbentuk sheet.
+- **Karakter:** tenang, jelas, dan terasa siap kerja. Isi tiket lebih menonjol daripada dekorasi.
+- **Palet:** permukaan netral dan hitam; aksen hijau neon muncul pada outline, fokus, teks navigasi aktif, dan pilihan tujuan terpilih. Badge status berbentuk kapsul penuh dengan fill tipis serta border/teks emerald, oranye, atau merah yang jelas. Hindari bidang neon besar.
+- **Tipografi:** Inter yang sudah dipakai, dengan skala cair dan ukuran input yang nyaman disentuh.
+- **Motif:** garis progres tipis yang menandai perpindahan tiket antar unit; dipakai hanya untuk konteks alur dan SLA.
+- **ENERGY / RHYTHM / MOTION:** 2 / 2 / 1. Hirarki cukup tegas untuk membedakan status dan tindakan, ritme mengikuti kelompok tugas, gerakan singkat hanya untuk membuka atau menutup panel.
 
-- Character: precise, calm, accountable, and focused on the next action.
-- Product name: “SLA Pengajuan”; keep SLA as the established Service Level Agreement term. Descriptor: “Pelacakan pengajuan Cabang, Korwil, dan Pusat.”
-- Mark: a compact dark-green tile with one continuous route through three checkpoint nodes, representing Cabang → Korwil → Pusat. Keep the wordmark in editable text in the application and provide the complete SVG lockup as a standalone asset.
-- Palette: warm-neutral canvas and white surfaces, near-black text, dark green as the single brand accent, and semantic green/amber/red for SLA state only.
-- Typography: Inter Variable is retained because its compact forms remain legible in dense Indonesian labels, ticket references, and operational tables. Ticket identifiers may use the system monospace stack as data, not as display typography.
-- Motif: a fine connected rule appears only where it explains workflow sequence or timeline. Ticket number and current owner remain easy to scan.
-- Surfaces: mostly flat; borders distinguish data groups and controls. Use elevation only for dialogs and floating menus.
-- Radius: restrained variation. Inputs and buttons use a small radius, cards use a medium radius, and status badges remain compact rather than pill-shaped.
-- Motion: short opacity fades for overlays, without scale or slide movement; short hover/focus transitions only. Reserve the document scrollbar gutter so overlay scroll locking does not shift the page. Respect `prefers-reduced-motion`; loading animation is limited to the active loading state.
+## Pola lintas perangkat
 
-## Composition
-
-- Desktop navigation stays compact and horizontal. Tablet and mobile use an explicit labeled menu.
-- Dashboard hierarchy prioritizes SLA summary, filters, and the ticket list.
-- Dense work queues and ticket details use compact shadcn card sizing; metadata stays grouped with the ticket and does not stretch into empty rows.
-- Inbox prioritizes claimable work and current ownership.
-- Request forms keep routing context next to the fields that affect routing.
-- Admin screens use data tables on wide screens and readable records on narrow screens.
-- Manajemen and Supervisor details remain read-only.
-
-## Component rules
-
-- Use the installed shadcn-svelte components for buttons, cards, fields, dialogs, alerts, badges, and selects.
-- Keep native scrollbars thin, visible, and theme-aware through the shared base stylesheet so page and nested scrolling areas match.
-- Keep visual tokens in `frontend/src/routes/layout.css`; avoid one-off colors and decorative effects in route styles.
-- Keep visible field labels, explicit empty/loading/error messages, and keyboard-visible focus states.
-- Do not add mock numbers, sample people, placeholder charts, or links to unbuilt pages.
+- Ponsel dan tablet memakai app bar ringkas serta tab bawah untuk tujuan utama; menu tambahan membuka sheet yang dapat digulir.
+- Lebar besar mempertahankan navigasi desktop di header dan memberi ruang baca lebih lebar.
+- Halaman mengalir satu kolom saat ruang sempit. Kartu tiket menjadi ringkas, form mengisi lebar konten, dan tabel memakai daftar kartu atau area gulir yang tetap dapat dijangkau.
+- Tab bawah dan dialog menghormati safe area perangkat. Konten menyediakan ruang gulir di bawah tab agar baris terakhir dan tombol tetap bisa dijangkau.
+- Target sentuh sekurangnya 44 px; status, label field, fokus keyboard, dan tema terang/gelap tetap jelas.

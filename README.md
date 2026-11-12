@@ -1,40 +1,41 @@
 # Sistem SLA Pengajuan
 
-Aplikasi internal untuk mencatat, meneruskan, dan memantau pengajuan dari Cabang melalui Korwil sampai Divisi Pusat.
+Aplikasi internal untuk mencatat, meneruskan, dan memantau pengajuan Cabang melalui jalur kerja yang ditetapkan per pekerjaan.
 
 ## Status saat ini
 
-Workflow utama Cabang -> Korwil -> Divisi Pusat, autentikasi SSO, pembatasan akses berdasarkan assignment lokal, notifikasi aplikasi, dashboard operasional, SLA default 7 hari, serta halaman pemantauan tiket yang menunggu Cabang sudah tersedia.
+Workflow Cabang -> Korwil -> Divisi Pusat atau Cabang -> Divisi Pusat langsung dapat dipilih per pekerjaan; autentikasi SSO, pembatasan akses berdasarkan assignment lokal, notifikasi, dashboard operasional, SLA default 7 hari, serta pemantauan Manajemen untuk semua status tiket sudah tersedia.
 
 | Area | Kondisi |
 |---|---|
 | Backend | Express 5 + TypeScript, REST API, validasi akses server-side, dan health check tersedia |
 | Frontend | SvelteKit + Svelte 5, dashboard, login, inbox, detail tiket, master data, tema, dan layout responsif tersedia |
 | Database | MySQL dengan migrasi bernomor dan seed master kantor |
-| Login | Express meneruskan login dan whoami ke API SSO; profil disimpan tanpa password atau token |
+| Login | Express meneruskan login dan whoami ke API SSO; profil disimpan tanpa password atau token. Akun dummy tersedia hanya untuk pengembangan lokal |
 | Workflow | Submit, claim, minta kelengkapan, jawab revisi, forward ke Pusat, selesai, tolak, timeline, dan riwayat tersedia |
 | SLA | Umur total tiket, sesi Cabang/Korwil/Divisi, waktu tunggu, badge SLA, dan akumulasi waktu unit tersedia |
-| Manajemen | Detail tiket baca-saja, filter Korwil/Divisi pada dashboard, serta daftar tiket yang menunggu tindak lanjut Cabang tersedia |
-| Form dinamis | Form kredit berbasis nominal dan form per katalog dapat diterbitkan sebagai versi baru; jawaban tampil pada detail tiket |
-| Belum tersedia | Lampiran privat dan notifikasi otomatis peringatan SLA |
+| Manajemen | Detail tiket baca-saja, filter Korwil/Divisi pada dashboard, serta daftar semua tiket dengan filter status dan organisasi tersedia |
+| Form dinamis | Form kredit berbasis nominal dan form per katalog dapat diterbitkan sebagai versi baru; kelompok data opsional dapat diulang; jawaban tampil pada detail tiket |
+| Tersedia | Nomor/tanggal surat InOffice dan upload PDF privat opsional (maksimal 10 MB) pada form pengajuan |
 
 Catatan progres dan keputusan terbuka ada di PROJECT_STATUS.md. Kebutuhan bisnis lengkap ada di prd.md.
 
 ## Fitur utama
 
 - Pengajuan Cabang terikat pada kantor, bukan pada pembuat personal.
-- Routing awal otomatis ke Korwil sesuai mapping kantor Cabang.
-- Pengajuan tujuan Pusat selalu melewati Korwil terlebih dahulu.
+- Setiap katalog pekerjaan Pusat dapat diatur Admin ke jalur Cabang → Korwil → Pusat atau Cabang → Pusat langsung.
 - Korwil dan Divisi Pusat memiliki antrean aktif, claim, riwayat, detail, dan timeline sesuai scope.
 - Revisi dikirim pada nomor tiket yang sama. Jika petugas peminta masih aktif dan scope-nya cocok, tiket kembali langsung kepadanya.
 - Perubahan substansi yang memengaruhi kewenangan, tujuan, nilai, jenis pekerjaan, atau keputusan bisnis harus diperiksa Korwil lagi.
 - Role Manajemen, Supervisor, dan Admin dapat membuka detail tiket global secara baca-saja tanpa tombol tindakan workflow.
 - Dashboard global dapat difilter berdasarkan tanggal, Korwil, dan Divisi Pusat.
-- Halaman /management/branch-follow-up menampilkan tiket yang sedang menunggu jawaban Cabang dan menyediakan filter Cabang.
+- Halaman /management/branch-follow-up menampilkan semua status tiket, lokasi penanganan terbaru, umur, SLA, filter status/Cabang/Korwil/Divisi, dan pagination.
 - Notifikasi aplikasi mencatat event workflow, unread count, dan tindakan tandai sudah dibaca.
-- Pengajuan kredit memakai nilai minimum Rp250 juta; jalur Rp250 juta sampai di bawah Rp500 juta ditangani Korwil, sedangkan mulai Rp500 juta diteruskan Korwil ke Pemasaran.
+- Pengajuan kredit di bawah Rp250 juta ditolak. Untuk nilai yang memenuhi batas, Cabang dapat memakai form Pemasaran dengan tujuan Korwil atau Pusat; pilihan tujuan menentukan penanganan dan ambang form (default Rp500 juta) hanya menjadi panduan nilai.
 - Admin global dapat menerbitkan semua form. Petugas Divisi hanya dapat menerbitkan form divisinya jika Admin mengaktifkan izin kelola form pada assignment.
 - Setiap penerbitan membuat versi form baru; tiket mempertahankan jawaban dari versi saat diajukan.
+- Pengelola form dapat membuat semua kolom tambahan menjadi satu kelompok berulang, dengan batas 2–20 kelompok per pengajuan.
+- Admin memilih alur pada menu **Master pekerjaan**. Katalog lama memakai jalur melalui Korwil sampai Admin mengubah pengaturannya.
 
 ## Role dan cakupan akses
 
@@ -54,24 +55,16 @@ Identitas SSO saja tidak memberi akses. Akun harus aktif dan memiliki assignment
 
     Cabang membuat pengajuan
             |
-            v
-    Antrean Korwil -- claim --> Proses Korwil
-            |                         |
-            | minta kelengkapan       | tujuan Korwil: selesai/tolak
-            v                         |
-    Cabang melengkapi ---------------+
+            +-- katalog: Korwil lalu Pusat --> Antrean Korwil --> Antrean Divisi Pusat
             |
-            | tujuan Pusat
-            v
-    Antrean Divisi Pusat -- claim --> Proses Divisi
-            |                              |
-            | minta kelengkapan            | selesai/tolak
-            v                              v
-    Cabang melengkapi -------------> Divisi yang meminta
+            +-- katalog: Pusat langsung ----> Antrean Divisi Pusat
+
+    Kedua jalur berakhir pada Divisi Pusat; permintaan kelengkapan kembali ke Cabang
+    dan jawaban Cabang dikirim ke unit yang meminta.
 
 - Pengajuan kredit di bawah Rp250 juta ditolak tanpa membuat tiket.
-- Nilai Rp250 juta sampai kurang dari Rp500 juta ditangani Korwil.
-- Nilai Rp500 juta atau lebih diperiksa Korwil lalu diteruskan ke Pemasaran.
+- Dengan form Pengajuan Kredit, nilai minimal Rp250 juta dapat dikirim ke Korwil untuk ditangani sampai selesai.
+- Jika Cabang memilih tujuan Pusat, tiket menuju Pemasaran langsung atau melalui Korwil sesuai routing katalog, terlepas dari ambang panduan form.
 - Penolakan dan penyelesaian memerlukan alasan atau ringkasan hasil.
 - Seluruh handoff, revisi, claim, dan keputusan tercatat dalam timeline.
 
@@ -144,6 +137,7 @@ Edit backend/.env. Konfigurasi penting:
     SSO_TIMEOUT_MS=10000
     SSO_CONNECT_IP=
     SLA_INITIAL_ADMIN_EMPLOYEE_ID=
+DUMMY_AUTH_ENABLED=false
 
 Untuk jaringan lokal yang memerlukan pin koneksi, isi SSO_CONNECT_IP=10.0.2.2. Hostname pada SSO_BASE_URL tetap dipakai untuk SNI dan validasi sertifikat TLS.
 
@@ -151,9 +145,17 @@ Untuk jaringan lokal yang memerlukan pin koneksi, isi SSO_CONNECT_IP=10.0.2.2. H
 
     Set-Location backend
     npm.cmd install
-    npm.cmd run db:migrate
+    npm.cmd run db:upgrade
 
-Setelah migrasi selesai, jalankan seed awal backend/src/db/seeders/001_seed_master_kantor.sql pada database sla_pengajuan melalui phpMyAdmin atau MySQL client. Seed berisi 29 kantor: kode 001 sampai 028 untuk Cabang dan kode 000 untuk Pusat.
+Perintah `db:upgrade` menerapkan migrasi yang belum berjalan lalu memasukkan seed kantor dasar (29 kantor: kode 001 sampai 028 untuk Cabang dan kode 000 untuk Pusat). Aman diulang pada database aplikasi yang sudah dibuat; tidak menghapus atau menyalin tiket, pengguna, assignment, maupun lampiran.
+
+Untuk membuat snapshot database lokal ke staging, ikuti [panduan database staging](docs/DATABASE_STAGING.md). Jangan memakai dump lokal untuk menimpa database production.
+
+Untuk mencoba seluruh role tanpa akun SSO, aktifkan `DUMMY_AUTH_ENABLED=true` di `backend/.env` dengan `NODE_ENV=development`, lalu jalankan:
+
+    npm.cmd run db:seed-dummy-users
+
+Restart backend. Halaman login akan menampilkan pilihan akun uji untuk role Admin, Pengguna Cabang, Petugas Korwil, Penyetuju Korwil, Petugas Divisi Pusat, Supervisor, dan Manajemen. Sembilan akun Petugas Divisi tersedia, satu per divisi; semuanya diberi izin kelola form pada divisinya untuk mencoba menu tersebut. Akun ini memakai data sintetis tanpa password; aksesnya tetap diperiksa melalui assignment lokal. Seed ditolak selain pada mode development, dan backend menolak konfigurasi dummy auth di production. Matikan kembali dengan `DUMMY_AUTH_ENABLED=false` jika pengujian selesai.
 
 Isi SLA_INITIAL_ADMIN_EMPLOYEE_ID di backend/.env, kemudian jalankan sekali per database:
 
@@ -194,6 +196,7 @@ Semua endpoint berikut berada di bawah http://127.0.0.1:3000/api/v1 dan endpoint
 - POST /auth/login - login melalui SSO.
 - GET /auth/whoami - membaca profil SSO dan akses lokal aktif.
 - GET /dashboard - dashboard sesuai role, termasuk filter global Korwil dan Divisi.
+- GET /dashboard/management-requests - daftar semua tiket untuk assignment global Manajemen, Supervisor, dan Admin; mendukung filter organisasi/status dan pagination.
 - GET /dashboard/branch-follow-up - tiket yang menunggu tindak lanjut Cabang.
 - GET /requests dan GET /requests/:id - daftar dan detail pengajuan sesuai scope.
 - POST /requests/:id/revision - mengirim jawaban revisi pada tiket yang sama.
@@ -236,7 +239,7 @@ Frontend production memakai `@sveltejs/adapter-node` dan dapat dijalankan sebaga
 - Profil SSO disimpan di tabel users tanpa password atau token.
 - Role dan scope runtime berasal dari assignment MySQL. Profil SSO yang belum dapat dipetakan ditolak aksesnya.
 - kode_kantor disimpan sebagai teks agar nol di depan tetap terjaga.
-- Lampiran, bila ditambahkan nanti, harus disimpan privat dan hanya dapat diunduh setelah pemeriksaan scope.
+- Lampiran surat InOffice berformat PDF, maksimal 10 MB, disimpan pada `PRIVATE_UPLOAD_DIR` di backend dan hanya dapat diunduh setelah pemeriksaan akses tiket.
 - SSO_APP_CODE=simpeg adalah konfigurasi sementara dan harus mudah diganti setelah app code Sistem SLA resmi tersedia.
 
 ## Struktur folder
@@ -265,7 +268,7 @@ Frontend production memakai `@sveltejs/adapter-node` dan dapat dijalankan sebaga
 
 1. Pengelola Divisi menetapkan field wajib untuk form Keringanan bunga dan katalog pekerjaan lainnya.
 2. Sahkan target SLA per jenis pekerjaan dan kebijakan notifikasi peringatan.
-3. Tetapkan kebijakan serta storage lampiran privat.
+3. Tetapkan retensi, backup, dan pemulihan untuk storage privat surat InOffice sebelum produksi.
 4. Selesaikan verifikasi visual/click-through lintas role, viewport, tema, dan browser.
 5. Tinjau kontrak SSO, lifetime token, logging, backup, monitoring, dan kesiapan pilot.
 

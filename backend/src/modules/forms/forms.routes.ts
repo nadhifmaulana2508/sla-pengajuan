@@ -3,7 +3,10 @@ import { z } from 'zod';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { mysqlPool } from '../../db/client.js';
 import { requireRequestIdentity } from '../auth/request-auth.middleware.js';
-import { formDefinitionSchema, parseFormDefinition, type FormFieldDefinition } from './form-schema.js';
+import {
+	DEFAULT_CREDIT_ROUTING_CONFIG, creditRoutingSchema, formDefinitionSchema, parseFormDefinition,
+	repeatableFormSchema, type FormFieldDefinition
+} from './form-schema.js';
 
 type ManagerAccess = { userId: number; divisionId: number | null; isAdmin: boolean };
 
@@ -20,7 +23,8 @@ const editorFieldSchema = z.object({
 	required: z.boolean(),
 	options: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
 	min_value: z.number().finite().optional(),
-	max_value: z.number().finite().optional()
+	max_value: z.number().finite().optional(),
+	requires_korwil_review: z.boolean().default(false)
 }).strict().superRefine((field, context) => {
 	if (field.type === 'select' && !field.options?.length) {
 		context.addIssue({ code: 'custom', message: 'Tambahkan pilihan untuk field bertipe pilihan.', path: ['options'] });
@@ -31,9 +35,33 @@ const editorFieldSchema = z.object({
 	if (field.min_value !== undefined && field.max_value !== undefined && field.min_value > field.max_value) {
 		context.addIssue({ code: 'custom', message: 'Nilai minimum tidak boleh lebih besar dari maksimum.', path: ['min_value'] });
 	}
+	if (field.type === 'select' && field.options) {
+		const normalizedOptions = field.options.map((option) => option.toLocaleLowerCase('id-ID'));
+		if (new Set(normalizedOptions).size !== normalizedOptions.length) {
+			context.addIssue({ code: 'custom', message: 'Opsi dalam satu field pilihan tidak boleh sama.', path: ['options'] });
+		}
+	}
 });
 
-const publishSchema = z.object({ fields: z.array(editorFieldSchema).max(39) }).strict();
+const publishSchema = z.object({
+	fields: z.array(editorFieldSchema).max(40, 'Form hanya dapat memuat maksimal 40 kolom tambahan.'),
+	repeatable: repeatableFormSchema.nullable().optional(),
+	credit_routing: creditRoutingSchema.nullable().optional()
+}).strict();
+const rejectionReasonCreateSchema = z.object({
+	catalog_id: z.number().int().positive(),
+	scope_type: z.enum(['system', 'division', 'catalog']),
+	label: z.string().trim().min(3).max(160)
+}).strict();
+const rejectionReasonActiveSchema = z.object({ is_active: z.boolean() }).strict();
+
+function validationIssueMessage(error: z.ZodError, fieldOffset = 0): string {
+	const issue = error.issues[0];
+	if (!issue) return 'Periksa kembali field form yang akan diterbitkan.';
+	const fieldIndex = issue.path[0] === 'fields' ? issue.path[1] : undefined;
+	if (typeof fieldIndex === 'number') return `Kolom ${Math.max(1, fieldIndex + 1 - fieldOffset)}: ${issue.message}`;
+	return issue.message;
+}
 
 async function getManagerAccess(employeeId: string): Promise<ManagerAccess> {
 	const [rows] = await mysqlPool.execute<Array<RowDataPacket & {
@@ -97,7 +125,8 @@ function normalizePublisherFields(fields: z.infer<typeof publishSchema>['fields'
 		type: 'currency',
 		required: true,
 		min_value: 250000000,
-		system: true
+		system: true,
+		requires_korwil_review: true
 	}, ...customFields];
 }
 
@@ -110,11 +139,12 @@ formsRouter.get('/manage', async (_request, response) => {
 		const [rows] = await mysqlPool.execute<Array<RowDataPacket & {
 			id: number; divisi_id: number; kode_divisi: string; nama_divisi: string;
 			nama_pekerjaan: string; deskripsi: string | null; target_sla_minutes: number | null;
+			routing_flow: 'branch_korwil_central' | 'branch_central';
 			is_active: number; system_key: string | null; form_version_id: number | null;
 			version_number: number | null; definition_json: unknown;
 		}>>(
 			`SELECT catalog.id, catalog.divisi_id, division.kode AS kode_divisi, division.nama_divisi,
-				catalog.nama_pekerjaan, catalog.deskripsi, catalog.target_sla_minutes, catalog.is_active,
+				catalog.nama_pekerjaan, catalog.deskripsi, catalog.target_sla_minutes, catalog.routing_flow, catalog.is_active,
 				catalog.system_key, current_form.id AS form_version_id,
 				current_form.version_number, current_form.definition_json
 			FROM work_catalogs catalog
@@ -134,14 +164,19 @@ formsRouter.get('/manage', async (_request, response) => {
 			data: {
 				can_manage_all: manager.isAdmin,
 				division_id: manager.divisionId,
-				work_catalogs: rows.map((row) => ({
-					...row,
-					is_active: Number(row.is_active) === 1,
-					target_sla_minutes: row.target_sla_minutes === null ? null : Number(row.target_sla_minutes),
-					form_version_id: row.form_version_id === null ? null : Number(row.form_version_id),
-					version_number: row.version_number === null ? null : Number(row.version_number),
-					form_fields: parseFormDefinition(row.definition_json).fields
-				}))
+				work_catalogs: rows.map((row) => {
+					const definition = parseFormDefinition(row.definition_json);
+					return {
+						...row,
+						is_active: Number(row.is_active) === 1,
+						target_sla_minutes: row.target_sla_minutes === null ? null : Number(row.target_sla_minutes),
+						form_version_id: row.form_version_id === null ? null : Number(row.form_version_id),
+						version_number: row.version_number === null ? null : Number(row.version_number),
+						form_fields: definition.fields,
+						form_repeatable: definition.repeatable ?? null,
+						form_credit_routing: definition.credit_routing ?? null
+					};
+				})
 			}
 		});
 	} catch (error) {
@@ -154,11 +189,108 @@ formsRouter.get('/manage', async (_request, response) => {
 	}
 });
 
+formsRouter.get('/manage/rejection-reasons', async (request, response) => {
+	const catalogId = Number(request.query.catalog_id);
+	if (!Number.isSafeInteger(catalogId) || catalogId < 1) {
+		response.status(400).json({ status: 400, message: 'Pilih jenis pekerjaan untuk mengelola alasan penolakan.', data: null });
+		return;
+	}
+	try {
+		const manager = await getManagerAccess(response.locals.slaEmployeeId);
+		const [catalogRows] = await mysqlPool.execute<Array<RowDataPacket & { id: number; divisi_id: number }>>(
+			'SELECT id, divisi_id FROM work_catalogs WHERE id = ? LIMIT 1', [catalogId]
+		);
+		const catalog = catalogRows[0];
+		if (!catalog) throw new FormManagementError(404, 'Jenis pekerjaan tidak ditemukan.');
+		if (!manager.isAdmin && Number(catalog.divisi_id) !== manager.divisionId) throw new FormManagementError(403, 'Kamu hanya dapat mengelola alasan untuk divisi pada profil SSO kamu.');
+		const [reasons] = await mysqlPool.execute<Array<RowDataPacket & {
+			id: number; scope_type: string; division_id: number | null; work_catalog_id: number | null;
+			code: string; label: string; is_active: number; sort_order: number;
+		}>>(
+			`SELECT id, scope_type, division_id, work_catalog_id, code, label, is_active, sort_order
+			FROM rejection_reasons
+			WHERE scope_type = 'system' OR (scope_type = 'division' AND division_id = ?)
+				OR (scope_type = 'catalog' AND division_id = ? AND work_catalog_id = ?)
+			ORDER BY FIELD(scope_type, 'system', 'division', 'catalog'), sort_order, label`,
+			[catalog.divisi_id, catalog.divisi_id, catalogId]
+		);
+		response.status(200).json({ status: 200, message: 'Pengaturan alasan penolakan berhasil dimuat.', data: {
+			can_manage_system: manager.isAdmin,
+			reasons: reasons.map((reason) => ({ ...reason, id: Number(reason.id), is_active: Number(reason.is_active) === 1 }))
+		} });
+	} catch (error) {
+		const status = error instanceof FormManagementError ? error.statusCode : 500;
+		response.status(status).json({ status, message: error instanceof FormManagementError ? error.message : 'Pengaturan alasan belum dapat dimuat. Coba lagi.', data: null });
+	}
+});
+
+formsRouter.post('/manage/rejection-reasons', async (request, response) => {
+	const parsed = rejectionReasonCreateSchema.safeParse(request.body);
+	if (!parsed.success) { response.status(400).json({ status: 400, message: 'Periksa jenis alasan dan nama yang dimasukkan.', data: null }); return; }
+	try {
+		const manager = await getManagerAccess(response.locals.slaEmployeeId);
+		const [catalogRows] = await mysqlPool.execute<Array<RowDataPacket & { id: number; divisi_id: number }>>(
+			'SELECT id, divisi_id FROM work_catalogs WHERE id = ? LIMIT 1', [parsed.data.catalog_id]
+		);
+		const catalog = catalogRows[0];
+		if (!catalog) throw new FormManagementError(404, 'Jenis pekerjaan tidak ditemukan.');
+		if (parsed.data.scope_type === 'system' && !manager.isAdmin) throw new FormManagementError(403, 'Hanya Admin global yang dapat mengelola alasan sistem.');
+		if (parsed.data.scope_type !== 'system' && !manager.isAdmin && Number(catalog.divisi_id) !== manager.divisionId) {
+			throw new FormManagementError(403, 'Kamu hanya dapat menambahkan alasan untuk divisi pada profil SSO kamu.');
+		}
+		const scope = parsed.data.scope_type;
+		const divisionId = scope === 'system' ? null : Number(catalog.divisi_id);
+		const workCatalogId = scope === 'catalog' ? parsed.data.catalog_id : null;
+		const [duplicates] = await mysqlPool.execute<RowDataPacket[]>(
+			`SELECT id FROM rejection_reasons WHERE scope_type = ? AND division_id <=> ? AND work_catalog_id <=> ?
+				AND LOWER(label) = LOWER(?) LIMIT 1`, [scope, divisionId, workCatalogId, parsed.data.label]
+		);
+		if (duplicates.length) throw new FormManagementError(409, 'Alasan dengan nama yang sama sudah ada pada cakupan ini.');
+		const code = parsed.data.label.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+			.toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 90) || 'custom_reason';
+		const [result] = await mysqlPool.execute<ResultSetHeader>(
+			`INSERT INTO rejection_reasons (scope_type, division_id, work_catalog_id, code, label, sort_order, created_by_user_id)
+			VALUES (?, ?, ?, ?, ?, 200, ?)`,
+			[scope, divisionId, workCatalogId, code, parsed.data.label, manager.userId]
+		);
+		response.status(201).json({ status: 201, message: 'Alasan penolakan berhasil ditambahkan.', data: { id: Number(result.insertId) } });
+	} catch (error) {
+		const status = error instanceof FormManagementError ? error.statusCode : 500;
+		response.status(status).json({ status, message: error instanceof FormManagementError ? error.message : 'Alasan penolakan belum dapat ditambahkan. Coba lagi.', data: null });
+	}
+});
+
+formsRouter.patch('/manage/rejection-reasons/:reasonId', async (request, response) => {
+	const reasonId = Number(request.params.reasonId);
+	const parsed = rejectionReasonActiveSchema.safeParse(request.body);
+	if (!Number.isSafeInteger(reasonId) || reasonId < 1 || !parsed.success) { response.status(400).json({ status: 400, message: 'Perubahan status alasan tidak valid.', data: null }); return; }
+	try {
+		const manager = await getManagerAccess(response.locals.slaEmployeeId);
+		const [reasonRows] = await mysqlPool.execute<Array<RowDataPacket & {
+			id: number; scope_type: string; division_id: number | null; work_catalog_id: number | null;
+		}>>('SELECT id, scope_type, division_id, work_catalog_id FROM rejection_reasons WHERE id = ? LIMIT 1', [reasonId]);
+		const reason = reasonRows[0];
+		if (!reason) throw new FormManagementError(404, 'Alasan penolakan tidak ditemukan.');
+		if (reason.scope_type === 'system' ? !manager.isAdmin : !manager.isAdmin && Number(reason.division_id) !== manager.divisionId) {
+			throw new FormManagementError(403, 'Kamu tidak dapat mengubah alasan pada cakupan ini.');
+		}
+		await mysqlPool.execute('UPDATE rejection_reasons SET is_active = ? WHERE id = ?', [parsed.data.is_active ? 1 : 0, reasonId]);
+		response.status(200).json({ status: 200, message: parsed.data.is_active ? 'Alasan penolakan diaktifkan.' : 'Alasan penolakan dinonaktifkan.', data: { id: reasonId } });
+	} catch (error) {
+		const status = error instanceof FormManagementError ? error.statusCode : 500;
+		response.status(status).json({ status, message: error instanceof FormManagementError ? error.message : 'Status alasan belum dapat diperbarui. Coba lagi.', data: null });
+	}
+});
+
 formsRouter.post('/manage/:catalogId/publish', async (request, response) => {
 	const catalogId = Number(request.params.catalogId);
 	const parsed = publishSchema.safeParse(request.body);
-	if (!Number.isSafeInteger(catalogId) || catalogId < 1 || !parsed.success) {
-		response.status(400).json({ status: 400, message: 'Periksa kembali field form yang akan diterbitkan.', data: null });
+	if (!Number.isSafeInteger(catalogId) || catalogId < 1) {
+		response.status(400).json({ status: 400, message: 'Jenis pekerjaan tidak valid.', data: null });
+		return;
+	}
+	if (!parsed.success) {
+		response.status(400).json({ status: 400, message: validationIssueMessage(parsed.error), data: null });
 		return;
 	}
 
@@ -180,8 +312,27 @@ formsRouter.post('/manage/:catalogId/publish', async (request, response) => {
 		if (!manager.isAdmin && Number(catalog.divisi_id) !== manager.divisionId) {
 			throw new FormManagementError(403, 'Kamu hanya dapat menerbitkan form untuk divisi pada profil SSO kamu.');
 		}
+		const isCredit = catalog.system_key === 'credit_application';
+		if (!isCredit && parsed.data.credit_routing) {
+			throw new FormManagementError(400, 'Pengaturan ambang kredit hanya berlaku untuk katalog Pengajuan Kredit.');
+		}
+		const maxCustomFields = catalog.system_key === 'credit_application' ? 39 : 40;
+		if (parsed.data.fields.length > maxCustomFields) {
+			throw new FormManagementError(400, `Form ini maksimal memiliki ${maxCustomFields} kolom tambahan${catalog.system_key === 'credit_application' ? ' karena nilai kredit dihitung sebagai kolom sistem' : ''}.`);
+		}
+		if (catalog.system_key === 'credit_application' && parsed.data.repeatable) {
+			throw new FormManagementError(400, 'Form Pengajuan Kredit tidak dapat diatur sebagai data berulang.');
+		}
 
-		const definition = formDefinitionSchema.parse({ fields: normalizePublisherFields(parsed.data.fields, catalog.system_key === 'credit_application') });
+		const parsedDefinition = formDefinitionSchema.safeParse({
+			fields: normalizePublisherFields(parsed.data.fields, catalog.system_key === 'credit_application'),
+			...(parsed.data.repeatable ? { repeatable: parsed.data.repeatable } : {}),
+			...(isCredit ? { credit_routing: parsed.data.credit_routing ?? DEFAULT_CREDIT_ROUTING_CONFIG } : {})
+		});
+		if (!parsedDefinition.success) {
+			throw new FormManagementError(400, validationIssueMessage(parsedDefinition.error, catalog.system_key === 'credit_application' ? 1 : 0));
+		}
+		const definition = parsedDefinition.data;
 		const [versionRows] = await connection.execute<Array<RowDataPacket & { next_version: number }>>(
 			'SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version FROM work_catalog_form_versions WHERE work_catalog_id = ?',
 			[catalogId]

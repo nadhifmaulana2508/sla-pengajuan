@@ -10,7 +10,8 @@
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
-	import * as Select from '#lib/components/ui/select/index.js';
+	import * as Table from '#lib/components/ui/table/index.js';
+	import SearchableSelect from '#lib/components/SearchableSelect.svelte';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
 	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
@@ -435,14 +436,7 @@
 								<div class="assignment-row" class:automatic-assignment={usesAutomaticScope(assignment)}>
 									<div class="field-group">
 										<Label for={`role-${assignment.key}`}>Peran</Label>
-										<Select.Root type="single" items={roleItems} bind:value={assignment.role_id} onValueChange={(value) => changeRole(assignment, value)}>
-											<Select.Trigger id={`role-${assignment.key}`} class="min-h-11 w-full border-input"><Select.Value placeholder="Pilih peran" /></Select.Trigger>
-											<Select.Content>
-												{#each roleItems as role (role.value)}
-													<Select.Item value={role.value} label={role.label}>{role.label}</Select.Item>
-												{/each}
-											</Select.Content>
-										</Select.Root>
+						<SearchableSelect id={`role-${assignment.key}`} label="Peran" options={roleItems} value={assignment.role_id} onValueChange={(value) => changeRole(assignment, value)} placeholder="Pilih peran" searchPlaceholder="Cari peran..." />
 									</div>
 					{#if usesAutomaticScope(assignment)}
 						{@const scopeInfo = automaticScopeInfo(assignment)}
@@ -463,52 +457,24 @@
 					{:else}
 						<div class="field-group">
 							<Label for={`scope-${assignment.key}`}>Cakupan</Label>
-							<Select.Root type="single" items={availableScopes(assignment)} bind:value={assignment.scope_type} onValueChange={(value) => changeScope(assignment, value as AdminScopeType)}>
-								<Select.Trigger id={`scope-${assignment.key}`} class="min-h-11 w-full border-input"><Select.Value placeholder="Pilih cakupan" /></Select.Trigger>
-								<Select.Content>
-									{#each availableScopes(assignment) as scope (scope.value)}
-										<Select.Item value={scope.value} label={scope.label}>{scope.label}</Select.Item>
-									{/each}
-								</Select.Content>
-							</Select.Root>
+							<SearchableSelect id={`scope-${assignment.key}`} label="Cakupan" options={availableScopes(assignment)} value={assignment.scope_type} onValueChange={(value) => changeScope(assignment, value as AdminScopeType)} placeholder="Pilih cakupan" searchPlaceholder="Cari cakupan..." />
 						</div>
 					{/if}
 
 					{#if !usesAutomaticScope(assignment) && assignment.scope_type === 'office'}
 										<div class="field-group target-field">
 											<Label for={`office-${assignment.key}`}>Kantor</Label>
-											<Select.Root type="single" items={officeItems(assignment)} bind:value={assignment.kode_kantor}>
-												<Select.Trigger id={`office-${assignment.key}`} class="min-h-11 w-full border-input"><Select.Value placeholder="Pilih kantor" /></Select.Trigger>
-												<Select.Content>
-													{#each officeItems(assignment) as office (office.value)}
-														<Select.Item value={office.value} label={office.label}>{office.label}</Select.Item>
-													{/each}
-												</Select.Content>
-											</Select.Root>
+							<SearchableSelect id={`office-${assignment.key}`} label="Kantor" options={officeItems(assignment)} value={assignment.kode_kantor} onValueChange={(value) => (assignment.kode_kantor = value)} placeholder="Pilih kantor" searchPlaceholder="Cari kode atau nama kantor..." />
 										</div>
 					{:else if !usesAutomaticScope(assignment) && assignment.scope_type === 'korwil'}
 										<div class="field-group target-field">
 											<Label for={`korwil-${assignment.key}`}>Korwil</Label>
-											<Select.Root type="single" items={korwils.map((value) => ({ value, label: korwilLabels[value] ?? value }))} bind:value={assignment.korwil}>
-												<Select.Trigger id={`korwil-${assignment.key}`} class="min-h-11 w-full border-input"><Select.Value placeholder="Pilih Korwil" /></Select.Trigger>
-												<Select.Content>
-													{#each korwils as korwil (korwil)}
-														<Select.Item value={korwil} label={korwilLabels[korwil] ?? korwil}>{korwilLabels[korwil] ?? korwil}</Select.Item>
-													{/each}
-												</Select.Content>
-											</Select.Root>
+							<SearchableSelect id={`korwil-${assignment.key}`} label="Korwil" options={korwils.map((value) => ({ value, label: korwilLabels[value] ?? value }))} value={assignment.korwil} onValueChange={(value) => (assignment.korwil = value)} placeholder="Pilih Korwil" searchPlaceholder="Cari Korwil..." />
 										</div>
 					{:else if !usesAutomaticScope(assignment) && assignment.scope_type === 'division'}
 										<div class="field-group target-field">
 											<Label for={`division-${assignment.key}`}>Divisi Pusat</Label>
-											<Select.Root type="single" items={divisions.map((division) => ({ value: String(division.id), label: division.nama_divisi }))} bind:value={assignment.divisi_id}>
-												<Select.Trigger id={`division-${assignment.key}`} class="min-h-11 w-full border-input"><Select.Value placeholder="Pilih divisi" /></Select.Trigger>
-												<Select.Content>
-													{#each divisions as division (division.id)}
-														<Select.Item value={String(division.id)} label={division.nama_divisi}>{division.nama_divisi}</Select.Item>
-													{/each}
-												</Select.Content>
-											</Select.Root>
+							<SearchableSelect id={`division-${assignment.key}`} label="Divisi Pusat" options={divisions.map((division) => ({ value: String(division.id), label: division.nama_divisi }))} value={assignment.divisi_id} onValueChange={(value) => (assignment.divisi_id = value)} placeholder="Pilih divisi" searchPlaceholder="Cari divisi..." />
 										</div>
 									{/if}
 
@@ -578,7 +544,7 @@
 					</div>
 				{:else}
 					<div class="desktop-users">
-						<table>
+						<Table.Root label="Daftar pegawai dan akses" tableClass="min-w-[58rem]">
 							<caption class="sr-only">Status akun dan akses Sistem SLA per pegawai</caption>
 							<thead><tr><th scope="col">Pegawai</th><th scope="col">Unit</th><th scope="col">Akses</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Tindakan</span></th></tr></thead>
 							<tbody>
@@ -587,7 +553,7 @@
 										<th scope="row"><strong>{user.full_name || 'Nama belum tersinkron'}</strong><small>{user.employee_id}</small></th>
 										<td>{user.nama_kantor || user.branch_name || 'Kantor belum terpetakan'}<small>{user.unit_kerja || 'Unit kerja belum tercantum'}</small></td>
 						<td>{#if user.assignments.length}<div class="assignment-summary">{#each user.assignments as assignment (assignment.id)}<span>{assignment.role_name} · {scopeSummary(assignment, user)}</span>{/each}</div>{:else}<span class="muted-value">Belum diberi peran</span>{/if}</td>
-										<td><Badge variant={user.is_active ? 'secondary' : 'outline'}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge></td>
+										<td><Badge variant={user.is_active ? 'secondary' : 'outline'} class={user.is_active ? 'status-badge status-badge--success' : ''}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge></td>
 						<td class="action-cell">
 							{#if user.employee_id === currentEmployeeId}
 								<Badge variant="outline">Sesi admin ini</Badge>
@@ -598,7 +564,7 @@
 									</tr>
 								{/each}
 							</tbody>
-						</table>
+						</Table.Root>
 					</div>
 					<div class="mobile-users">
 						{#each filteredUsers as user (user.id)}
@@ -606,7 +572,7 @@
 								<Card.Content class="user-record-content">
 								<div class="user-record-heading">
 									<div><h3 id={`user-record-${user.id}`}>{user.full_name || 'Nama belum tersinkron'}</h3><p>{user.employee_id}</p></div>
-									<Badge variant={user.is_active ? 'secondary' : 'outline'}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
+									<Badge variant={user.is_active ? 'secondary' : 'outline'} class={user.is_active ? 'status-badge status-badge--success' : ''}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
 								</div>
 								<p class="user-unit">{user.nama_kantor || user.branch_name || 'Kantor belum terpetakan'} · {user.unit_kerja || 'Unit kerja belum tercantum'}</p>
 				<div class="assignment-summary">{#if user.assignments.length}{#each user.assignments as assignment (assignment.id)}<span>{assignment.role_name} · {scopeSummary(assignment, user)}</span>{/each}{:else}<span class="muted-value">Belum diberi peran</span>{/if}</div>
@@ -678,8 +644,8 @@
 	.form-manager-permission p { margin: 0; font-size: var(--type-xs); line-height: 1.4; }
 	.assignment-row :global(.remove-assignment) { flex: 0 0 auto; }
 	.form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.55rem; padding-top: 0.25rem; }
-	.desktop-users { overflow-x: auto; margin-top: 0.15rem; }
-	table { width: 100%; border-collapse: collapse; text-align: left; font-size: var(--type-sm); }
+	.desktop-users { min-width: 0; margin-top: 0.15rem; }
+	:global([data-slot='table']) { width: 100%; border-collapse: collapse; text-align: left; font-size: var(--type-sm); }
 	thead { background: var(--muted); color: var(--muted-foreground); font-size: var(--type-xs); }
 	thead th { font-weight: 600; }
 	th, td { padding: 0.72rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }

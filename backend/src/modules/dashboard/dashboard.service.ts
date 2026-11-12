@@ -25,6 +25,22 @@ type DashboardAccess = {
 
 type DashboardFilters = { from: string | null; to: string | null; korwil: string | null; divisionId: number | null };
 export type BranchFollowUpFilters = { kodeKantor: string | null };
+export const MANAGEMENT_REQUEST_STATUSES = [
+	'waiting_korwil', 'in_progress_korwil', 'waiting_central', 'in_progress_central',
+	'waiting_branch_revision', 'waiting_korwil_revision', 'completed', 'rejected'
+] as const;
+export type ManagementRequestStatus = typeof MANAGEMENT_REQUEST_STATUSES[number];
+export type ManagementRequestFilters = {
+	kodeKantor: string | null;
+	korwil: string | null;
+	divisionId: number | null;
+	status: ManagementRequestStatus | null;
+	slaStatus: SlaStatus | null;
+	from: string | null;
+	to: string | null;
+	page: number;
+	pageSize: number;
+};
 type DbParam = string | number | null;
 type NumberRow = RowDataPacket & { value: number | string | null };
 type RequestRow = RowDataPacket & {
@@ -241,7 +257,7 @@ function latestDocumentsCondition(unitType: 'korwil' | 'central', unitCode: stri
 	};
 }
 
-async function getRequests(where: { sql: string; params: DbParam[] }) {
+async function getRequests(where: { sql: string; params: DbParam[] }, limit = 100, offset = 0) {
 	const [rows] = await mysqlPool.execute<RequestRow[]>(
 		`SELECT request.id, request.request_number, request.kode_kantor, office.nama_kantor,
 			request.korwil, request.authority_type, division.nama_divisi, catalog.nama_pekerjaan,
@@ -254,14 +270,14 @@ async function getRequests(where: { sql: string; params: DbParam[] }) {
 				WHERE timer.request_id = request.id AND timer.ended_at IS NULL AND timer.started_at IS NOT NULL
 				ORDER BY timer.id DESC LIMIT 1) AS active_elapsed_seconds,
 			(SELECT COUNT(*) FROM request_status_histories revision
-				WHERE revision.request_id = request.id AND revision.action_name = 'branch_revision_submitted') AS revision_count
+			WHERE revision.request_id = request.id AND revision.action_name = 'branch_revision_submitted') AS revision_count
 		FROM service_requests request
 		INNER JOIN master_kantor office ON office.kode_kantor = request.kode_kantor
 		LEFT JOIN master_divisi division ON division.id = request.central_division_id
 		LEFT JOIN work_catalogs catalog ON catalog.id = request.work_catalog_id
 		${where.sql}
-		ORDER BY request.updated_at DESC, request.id DESC LIMIT 100`,
-		where.params
+		ORDER BY request.updated_at DESC, request.id DESC LIMIT ? OFFSET ?`,
+		[...where.params, limit, offset]
 	);
 	return rows.map((row) => ({
 		...row,
@@ -471,6 +487,126 @@ export function parseBranchFollowUpFilters(kodeKantor: unknown): BranchFollowUpF
 		throw new DashboardError(400, 'Kode Cabang harus terdiri dari tiga angka.');
 	}
 	return { kodeKantor: value };
+}
+
+function parsePositiveInteger(value: unknown, fallback: number, label: string, maximum = Number.MAX_SAFE_INTEGER): number {
+	const raw = queryValue(value);
+	if (raw === null) return fallback;
+	if (!/^\d+$/.test(raw)) throw new DashboardError(400, `${label} harus berupa bilangan bulat positif.`);
+	const parsed = Number(raw);
+	if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum) {
+		throw new DashboardError(400, `${label} tidak valid.`);
+	}
+	return parsed;
+}
+
+export function parseManagementRequestFilters(
+	kodeKantor: unknown, korwil: unknown, divisionId: unknown, status: unknown,
+	from: unknown, to: unknown, slaStatus: unknown, page: unknown, pageSize: unknown
+): ManagementRequestFilters {
+	const office = parseBranchFollowUpFilters(kodeKantor).kodeKantor;
+	const korwilValue = queryValue(korwil);
+	const divisionValue = queryValue(divisionId);
+	const statusValue = queryValue(status);
+	const fromValue = queryValue(from);
+	const toValue = queryValue(to);
+	const slaValue = queryValue(slaStatus);
+	for (const value of [fromValue, toValue]) {
+		if (value !== null && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+			throw new DashboardError(400, 'Format tanggal harus YYYY-MM-DD.');
+		}
+		if (value !== null) {
+			const parsed = new Date(`${value}T00:00:00.000Z`);
+			if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+				throw new DashboardError(400, 'Tanggal tidak valid.');
+			}
+		}
+	}
+	if (fromValue && toValue && fromValue > toValue) {
+		throw new DashboardError(400, 'Tanggal mulai tidak boleh setelah tanggal akhir.');
+	}
+	let parsedDivisionId: number | null = null;
+	if (divisionValue !== null) {
+		parsedDivisionId = Number(divisionValue);
+		if (!Number.isSafeInteger(parsedDivisionId) || parsedDivisionId < 1) {
+			throw new DashboardError(400, 'Divisi tidak valid.');
+		}
+	}
+	if (statusValue !== null && statusValue !== 'all' && !MANAGEMENT_REQUEST_STATUSES.includes(statusValue as ManagementRequestStatus)) {
+		throw new DashboardError(400, 'Status tiket tidak valid.');
+	}
+	if (slaValue !== null && slaValue !== 'all' && !['safe', 'warning', 'overdue'].includes(slaValue)) {
+		throw new DashboardError(400, 'Kondisi SLA tidak valid.');
+	}
+	const parsedPage = parsePositiveInteger(page, 1, 'Halaman');
+	const parsedPageSize = parsePositiveInteger(pageSize, 25, 'Jumlah tiket per halaman', 100);
+	if (!Number.isSafeInteger((parsedPage - 1) * parsedPageSize)) {
+		throw new DashboardError(400, 'Halaman tidak valid.');
+	}
+	return {
+		kodeKantor: office,
+		korwil: korwilValue === 'all' ? null : korwilValue,
+		divisionId: parsedDivisionId,
+		status: statusValue && statusValue !== 'all' ? statusValue as ManagementRequestStatus : null,
+		slaStatus: slaValue && slaValue !== 'all' ? slaValue as SlaStatus : null,
+		from: fromValue,
+		to: toValue,
+		page: parsedPage,
+		pageSize: parsedPageSize
+	};
+}
+
+export async function getManagementRequests(employeeId: string, filters: ManagementRequestFilters) {
+	const access = await getDashboardAccess(employeeId);
+	if (access.view !== 'admin') {
+		throw new DashboardError(403, 'Pemantauan semua tiket hanya tersedia untuk Manajemen, Supervisor, atau Admin global.');
+	}
+	let baseWhere = buildScopeWhere(access, { from: filters.from, to: filters.to, korwil: filters.korwil, divisionId: filters.divisionId });
+	if (filters.kodeKantor) baseWhere = appendCondition(baseWhere, 'request.kode_kantor = ?', [filters.kodeKantor]);
+	let where = filters.status ? appendCondition(baseWhere, 'request.status = ?', [filters.status]) : baseWhere;
+	if (filters.slaStatus) {
+		const elapsed = 'TIMESTAMPDIFF(SECOND, request.submitted_at, COALESCE(request.closed_at, CURRENT_TIMESTAMP(3)))';
+		const target = `(COALESCE((SELECT sla_filter_catalog.target_sla_minutes FROM work_catalogs sla_filter_catalog WHERE sla_filter_catalog.id = request.work_catalog_id LIMIT 1), ${DEFAULT_SLA_MINUTES}) * 60)`;
+		const warning = `LEAST(${SLA_WARNING_MINUTES * 60}, ${target})`;
+		const condition = filters.slaStatus === 'safe'
+			? `${elapsed} < ${warning}`
+			: filters.slaStatus === 'warning'
+				? `${elapsed} >= ${warning} AND ${elapsed} <= ${target}`
+				: `${elapsed} > ${target}`;
+		where = appendCondition(where, condition);
+	}
+	const offset = (filters.page - 1) * filters.pageSize;
+	const [total, statusCounts, requests, sla, offices, managementOptions] = await Promise.all([
+		countRequests(where),
+		getStatusCounts(baseWhere),
+		getRequests(where, filters.pageSize, offset),
+		getSlaCounts(where),
+		getBranchFilterOptions(),
+		getManagementFilterOptions()
+	]);
+	return {
+		filters: {
+			kode_kantor: filters.kodeKantor,
+			korwil: filters.korwil,
+			division_id: filters.divisionId,
+			status: filters.status,
+			sla_status: filters.slaStatus,
+			from: filters.from,
+			to: filters.to,
+			page: filters.page,
+			page_size: filters.pageSize
+		},
+		options: { offices, korwils: managementOptions.korwils, divisions: managementOptions.divisions },
+		sla,
+		summary: { total },
+		status_counts: statusCounts,
+		pagination: {
+			page: filters.page,
+			page_size: filters.pageSize,
+			total_pages: Math.ceil(total / filters.pageSize)
+		},
+		requests
+	};
 }
 
 export async function getBranchFollowUp(employeeId: string, filters: BranchFollowUpFilters) {

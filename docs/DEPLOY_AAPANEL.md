@@ -130,16 +130,19 @@ SSO_APP_CODE=simpeg
 SSO_TIMEOUT_MS=10000
 SSO_CONNECT_IP=
 
+PRIVATE_UPLOAD_DIR=/www/private/sla-pengajuan/uploads
+
 SLA_INITIAL_ADMIN_EMPLOYEE_ID=
 ```
 
 `SSO_CONNECT_IP=10.0.2.2` adalah pola untuk environment lokal yang membutuhkan pemetaan host. Di production, kosongkan kecuali jaringan VPS memang secara resmi membutuhkan IP tersebut dan sudah diuji. Hostname SSO tetap digunakan untuk SNI dan validasi sertifikat.
+`PRIVATE_UPLOAD_DIR` harus menunjuk ke direktori persisten di luar document root frontend/Nginx. Buat direktori tersebut dan beri hak tulis hanya kepada user proses backend; sertakan direktori ini dalam backup terenkripsi bersama database. File di dalamnya tidak boleh disajikan langsung oleh web server.
 
 Setelah itu jalankan:
 
 ```bash
 npm ci
-npm run db:migrate
+npm run db:upgrade
 npm run build
 ```
 
@@ -275,7 +278,7 @@ git pull --ff-only origin main
 
 cd backend
 npm ci
-npm run db:migrate
+npm run db:upgrade
 npm run build
 
 cd ../frontend
@@ -284,6 +287,8 @@ npm run build
 ```
 
 Restart kedua project dari aaPanel/PM2 setelah build selesai. Backup database dilakukan sebelum migrasi yang mengubah schema. Migrations pada repository tidak memiliki rollback otomatis, sehingga rollback release dan rollback data harus diperlakukan sebagai dua langkah terpisah.
+
+Untuk membuat database staging dari snapshot lokal satu kali, gunakan [panduan database staging](DATABASE_STAGING.md). Release rutin tetap memakai `npm run db:upgrade`; jangan restore dump lokal ke production.
 
 ## 9. Backup dan keamanan minimum
 

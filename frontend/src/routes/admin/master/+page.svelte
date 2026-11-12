@@ -8,13 +8,14 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Table from '#lib/components/ui/table/index.js';
 	import { Separator } from '#lib/components/ui/separator/index.js';
 	import * as Checkbox from '#lib/components/ui/checkbox/index.js';
-	import * as Select from '#lib/components/ui/select/index.js';
+	import SearchableSelect from '#lib/components/SearchableSelect.svelte';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
 	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
-	import { BriefcaseBusiness, Plus, Search } from '@lucide/svelte';
+	import { BriefcaseBusiness, ChevronDown, ListFilter, Plus, Search } from '@lucide/svelte';
 	import {
 		createWorkCatalog,
 		fetchAdminMasterData,
@@ -35,8 +36,14 @@
 		nama_pekerjaan: string;
 		deskripsi: string;
 		target_sla_hours: string;
+		routing_flow: 'branch_korwil_central' | 'branch_central';
 		is_active: boolean;
 	};
+
+	const routingFlowItems = [
+		{ value: 'branch_korwil_central', label: 'Cabang → Korwil → Pusat' },
+		{ value: 'branch_central', label: 'Cabang → Pusat langsung' }
+	];
 
 	function emptyForm(): CatalogForm {
 		return {
@@ -44,6 +51,7 @@
 			nama_pekerjaan: '',
 			deskripsi: '',
 			target_sla_hours: '',
+			routing_flow: 'branch_korwil_central',
 			is_active: true
 		};
 	}
@@ -60,6 +68,7 @@
 	let form = $state<CatalogForm>(emptyForm());
 	let divisionFilter = $state('all');
 	let searchQuery = $state('');
+	let isFiltersOpen = $state(false);
 	let divisionFilterItems = $derived.by(() => [
 		{ value: 'all', label: 'Semua divisi' },
 		...divisions.map((division) => ({ value: String(division.id), label: division.nama_divisi }))
@@ -162,6 +171,7 @@
 			nama_pekerjaan: item.nama_pekerjaan,
 			deskripsi: item.deskripsi ?? '',
 			target_sla_hours: item.target_sla_minutes === null ? '' : String(item.target_sla_minutes / 60),
+			routing_flow: item.routing_flow,
 			is_active: item.is_active
 		};
 		formError = '';
@@ -202,6 +212,7 @@
 			nama_pekerjaan: form.nama_pekerjaan.trim(),
 			deskripsi: form.deskripsi.trim() || null,
 			target_sla_minutes: targetHours === null ? null : Math.round(targetHours * 60),
+			routing_flow: form.routing_flow,
 			is_active: form.is_active
 		};
 
@@ -230,18 +241,22 @@
 		return `${hours} jam`;
 	}
 
+	function formatRoutingFlow(flow: WorkCatalog['routing_flow']): string {
+		return flow === 'branch_central' ? 'Cabang → Pusat langsung' : 'Cabang → Korwil → Pusat';
+	}
+
 </script>
 
 <svelte:head>
 	<title>Master SLA | Sistem SLA Pengajuan</title>
-	<meta name="description" content="Kelola katalog pekerjaan dan target SLA untuk setiap divisi pusat." />
+	<meta name="description" content="Kelola katalog pekerjaan, jalur pengajuan, dan target SLA untuk setiap divisi pusat." />
 </svelte:head>
 
 <main id="main-content" class="admin-page">
 	<AppNavbar />
 
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
-		<AppPageHeading eyebrow="Administrasi" title="Master pekerjaan" description="Atur jenis pekerjaan per divisi pusat. Target SLA dapat dikosongkan sampai disahkan." />
+		<AppPageHeading eyebrow="Administrasi" title="Master pekerjaan" description="Atur jalur pengajuan dan target SLA untuk setiap jenis pekerjaan di Divisi Pusat." />
 
 		{#if statusMessage}
 			<p class="save-status" role="status" aria-live="polite">{statusMessage}</p>
@@ -258,16 +273,7 @@
 						<form class="catalog-form" onsubmit={saveWorkCatalog}>
 							<div class="field-group">
 								<Label for="work-division">Divisi tujuan</Label>
-								<Select.Root type="single" items={activeDivisionItems} bind:value={form.divisi_id}>
-									<Select.Trigger id="work-division" class="min-h-11 w-full border-input" aria-required="true">
-										<Select.Value placeholder="Pilih divisi" />
-									</Select.Trigger>
-									<Select.Content>
-										{#each activeDivisionItems as division (division.value)}
-											<Select.Item value={division.value} label={division.label}>{division.label}</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
+								<SearchableSelect id="work-division" label="Divisi tujuan" options={activeDivisionItems} value={form.divisi_id} onValueChange={(value) => (form.divisi_id = value)} placeholder="Pilih divisi" searchPlaceholder="Cari divisi..." />
 							</div>
 							<div class="field-group">
 								<Label for="work-name">Nama pekerjaan</Label>
@@ -276,6 +282,14 @@
 							<div class="field-group">
 								<Label for="work-description">Keterangan <span class="optional-label">Opsional</span></Label>
 								<Textarea id="work-description" bind:value={form.deskripsi} maxlength={500} rows={3} class="min-h-24 border-input" placeholder="Jelaskan singkat ruang lingkup pekerjaan" />
+							</div>
+							<div class="field-group">
+								<Label for="work-routing">Alur pengajuan</Label>
+								<SearchableSelect id="work-routing" label="Alur pengajuan" options={routingFlowItems} value={form.routing_flow} onValueChange={(value) => (form.routing_flow = value as CatalogForm['routing_flow'])} placeholder="Pilih alur" searchPlaceholder="Cari alur..." />
+								<p id="routing-help" class="field-help">Tentukan apakah tiket diperiksa Korwil sebelum masuk ke divisi tujuan.</p>
+								{#if workCatalogs.find((item) => item.id === editingId)?.system_key === 'credit_application'}
+									<p class="field-help">Untuk kredit, nilai Rp250 juta sampai di bawah Rp500 juta tetap ditangani Korwil. Pilihan ini berlaku untuk nilai mulai Rp500 juta.</p>
+								{/if}
 							</div>
 							<div class="field-group">
 								<Label for="work-sla">Target SLA (jam) <span class="optional-label">Opsional</span></Label>
@@ -323,25 +337,19 @@
 							</Card.Description>
 						</div>
 					</div>
-					{#if !isLoading && !loadError}
-						<Badge variant="secondary">{workCatalogs.filter((item) => item.is_active).length} aktif</Badge>
-					{/if}
+					<div class="catalog-header-actions">
+						{#if !isLoading && !loadError}<Badge variant="secondary">{workCatalogs.filter((item) => item.is_active).length} aktif</Badge>{/if}
+						<Button type="button" variant={isFiltersOpen ? 'secondary' : 'outline'} class="filter-toggle min-h-11" aria-expanded={isFiltersOpen} aria-controls="work-catalog-filters" onclick={() => (isFiltersOpen = !isFiltersOpen)}>
+							<ListFilter class="size-4" aria-hidden="true" />{isFiltersOpen ? 'Tutup filter' : 'Buka filter'}<ChevronDown class={isFiltersOpen ? 'filter-chevron size-4 filter-chevron--open' : 'filter-chevron size-4'} aria-hidden="true" />
+						</Button>
+					</div>
 				</Card.Header>
 				<Card.Content class="catalog-content">
 					<div class="catalog-toolbar">
-						<div class="filters">
+						<div id="work-catalog-filters" class="filters" hidden={!isFiltersOpen}>
 							<div class="filter-field">
 								<Label for="division-filter">Divisi</Label>
-								<Select.Root type="single" items={divisionFilterItems} bind:value={divisionFilter}>
-									<Select.Trigger id="division-filter" class="min-h-11 w-full border-input">
-										<Select.Value placeholder="Semua divisi" />
-									</Select.Trigger>
-									<Select.Content>
-										{#each divisionFilterItems as division (division.value)}
-											<Select.Item value={division.value} label={division.label}>{division.label}</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
+								<SearchableSelect id="division-filter" label="Divisi" options={divisionFilterItems} value={divisionFilter} onValueChange={(value) => (divisionFilter = value)} placeholder="Semua divisi" searchPlaceholder="Cari divisi..." />
 							</div>
 							<div class="filter-field search-field">
 								<Label for="catalog-search" class="sr-only">Cari pekerjaan</Label>
@@ -373,12 +381,13 @@
 						</div>
 					{:else}
 						<div class="desktop-catalog">
-							<table>
-								<caption class="sr-only">Master pekerjaan dan target SLA per divisi</caption>
+							<Table.Root label="Daftar pekerjaan" tableClass="min-w-[58rem]">
+								<caption class="sr-only">Master pekerjaan, alur pengajuan, dan target SLA per divisi</caption>
 								<thead>
 									<tr>
 										<th scope="col">Pekerjaan</th>
 										<th scope="col">Divisi</th>
+										<th scope="col">Alur</th>
 										<th scope="col">Target SLA</th>
 										<th scope="col">Status</th>
 										<th scope="col"><span class="sr-only">Tindakan</span></th>
@@ -392,15 +401,16 @@
 												{#if item.deskripsi}<small>{item.deskripsi}</small>{/if}
 											</th>
 											<td>{item.nama_divisi}</td>
+										<td>{formatRoutingFlow(item.routing_flow)}</td>
 											<td>{formatTarget(item.target_sla_minutes)}</td>
-											<td><Badge variant={item.is_active ? 'secondary' : 'outline'}>{item.is_active ? 'Aktif' : 'Nonaktif'}</Badge></td>
+										<td><Badge variant={item.is_active ? 'secondary' : 'outline'} class={item.is_active ? 'status-badge status-badge--success' : ''}>{item.is_active ? 'Aktif' : 'Nonaktif'}</Badge></td>
 											<td class="action-cell">
 												<Button variant="outline" size="sm" class="min-h-11 border-input" onclick={() => editWorkCatalog(item)}>Ubah</Button>
 											</td>
 										</tr>
 									{/each}
 								</tbody>
-							</table>
+							</Table.Root>
 						</div>
 						<div class="mobile-catalog">
 							{#each filteredCatalogs as item (item.id)}
@@ -411,10 +421,11 @@
 											<h3 id={`work-record-${item.id}`}>{item.nama_pekerjaan}</h3>
 											<p>{item.nama_divisi}</p>
 										</div>
-										<Badge variant={item.is_active ? 'secondary' : 'outline'}>{item.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
+										<Badge variant={item.is_active ? 'secondary' : 'outline'} class={item.is_active ? 'status-badge status-badge--success' : ''}>{item.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
 									</div>
 									{#if item.deskripsi}<p class="record-description">{item.deskripsi}</p>{/if}
 									<div class="record-meta"><span>Target SLA</span><strong>{formatTarget(item.target_sla_minutes)}</strong></div>
+									<div class="record-meta"><span>Alur</span><strong>{formatRoutingFlow(item.routing_flow)}</strong></div>
 									<Button variant="outline" size="lg" class="min-h-11 border-input record-edit" onclick={() => editWorkCatalog(item)}>Ubah pekerjaan</Button>
 									</Card.Content>
 								</Card.Root>
@@ -530,6 +541,28 @@
 		justify-content: space-between;
 		gap: 0.75rem 1rem;
 		padding-bottom: 0;
+	}
+
+	.catalog-header-actions {
+		display: flex;
+		min-width: 0;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.5rem;
+	}
+
+	:global(.filter-toggle) {
+		gap: 0.45rem;
+		white-space: nowrap;
+	}
+
+	:global(.filter-chevron) {
+		transition: transform 150ms ease;
+	}
+
+	:global(.filter-chevron--open) {
+		transform: rotate(180deg);
 	}
 
 	.catalog-heading {
@@ -654,10 +687,9 @@
 
 	.desktop-catalog {
 		margin-top: 0.15rem;
-		overflow-x: auto;
 	}
 
-	table {
+	:global([data-slot='table']) {
 		width: 100%;
 		border-collapse: collapse;
 		text-align: left;
@@ -779,6 +811,11 @@
 
 		:global(.catalog-header) {
 			align-items: flex-start;
+		}
+
+		.catalog-header-actions {
+			width: 100%;
+			justify-content: space-between;
 		}
 
 	}

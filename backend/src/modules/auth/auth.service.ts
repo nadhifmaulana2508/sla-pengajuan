@@ -36,7 +36,7 @@ export type SsoProfile = z.infer<typeof profileSchema>;
 
 export class SsoAuthError extends Error {
 	constructor(
-		public readonly statusCode: 401 | 502,
+		public readonly statusCode: 401 | 403 | 502,
 		message: string
 	) {
 		super(message);

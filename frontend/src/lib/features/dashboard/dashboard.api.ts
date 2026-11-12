@@ -72,6 +72,57 @@ export async function fetchDashboard(token: string, filters: DashboardFilters = 
 	return apiRequest<ApiEnvelope<DashboardData>>(`dashboard${query ? `?${query}` : ''}`, { token });
 }
 
+export type ManagementRequestFilters = {
+	kode_kantor?: string;
+	korwil?: string;
+	division_id?: number;
+	status?: string;
+	sla_status?: SlaStatus;
+	from?: string;
+	to?: string;
+	page?: number;
+	page_size?: number;
+};
+
+export type ManagementRequestsData = {
+	filters: {
+		kode_kantor: string | null;
+		korwil: string | null;
+		division_id: number | null;
+		status: string | null;
+		sla_status: SlaStatus | null;
+		from: string | null;
+		to: string | null;
+		page: number;
+		page_size: number;
+	};
+	options: {
+		offices: Array<{ kode_kantor: string; nama_kantor: string; korwil: string }>;
+		korwils: string[];
+		divisions: Array<{ id: number; nama_divisi: string }>;
+	};
+	sla: DashboardSla;
+	summary: { total: number };
+	status_counts: Array<{ status: string; count: number }>;
+	pagination: { page: number; page_size: number; total_pages: number };
+	requests: DashboardRequest[];
+};
+
+export async function fetchManagementRequests(token: string, filters: ManagementRequestFilters = {}) {
+	const params = new URLSearchParams();
+	if (filters.kode_kantor) params.set('kode_kantor', filters.kode_kantor);
+	if (filters.korwil) params.set('korwil', filters.korwil);
+	if (filters.division_id) params.set('division_id', String(filters.division_id));
+	if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+	if (filters.sla_status) params.set('sla_status', filters.sla_status);
+	if (filters.from) params.set('from', filters.from);
+	if (filters.to) params.set('to', filters.to);
+	if (filters.page) params.set('page', String(filters.page));
+	if (filters.page_size) params.set('page_size', String(filters.page_size));
+	const query = params.toString();
+	return apiRequest<ApiEnvelope<ManagementRequestsData>>(`dashboard/management-requests${query ? `?${query}` : ''}`, { token });
+}
+
 export type BranchFollowUpData = {
 	filters: { kodeKantor: string | null };
 	options: { offices: Array<{ kode_kantor: string; nama_kantor: string; korwil: string }> };

@@ -64,7 +64,7 @@
 <svelte:head><title>Antrean Divisi Pusat | Sistem SLA</title></svelte:head>
 
 <section class="app-page-stack" aria-labelledby="page-title">
-	<AppPageHeading eyebrow="Divisi Pusat" title="Antrean pengajuan" description="Pengajuan yang diteruskan Korwil ke divisi sesuai profil SSO kamu." flush>
+	<AppPageHeading eyebrow="Divisi Pusat" title="Antrean pengajuan" description="Pengajuan untuk divisi sesuai profil SSO, dikirim langsung Cabang atau diteruskan Korwil." flush>
 		{#snippet actions()}
 			<Badge variant="outline"><Clock3 class="mr-1 size-3.5" aria-hidden="true" />SLA sejak diambil</Badge>
 		{/snippet}
@@ -81,7 +81,7 @@
 	{:else if !errorMessage && requests.length === 0 && view === 'history'}
 		<Card.Root><Card.Content class="empty-state"><History class="size-5 text-muted-foreground" aria-hidden="true" /><h2>Belum ada riwayat divisi</h2><p>Tiket yang pernah masuk ke Divisi Pusat akan tampil setelah berpindah ke unit lain atau ditutup.</p></Card.Content></Card.Root>
 	{:else if !errorMessage && requests.length === 0}
-		<Card.Root><Card.Content class="empty-state"><Landmark class="size-5 text-muted-foreground" aria-hidden="true" /><h2>Antrean sedang kosong</h2><p>Pengajuan untuk divisi kamu akan muncul setelah diteruskan oleh Korwil.</p></Card.Content></Card.Root>
+		<Card.Root><Card.Content class="empty-state"><Landmark class="size-5 text-muted-foreground" aria-hidden="true" /><h2>Antrean sedang kosong</h2><p>Pengajuan untuk divisi kamu akan muncul setelah dikirim langsung oleh Cabang atau diteruskan oleh Korwil.</p></Card.Content></Card.Root>
 	{:else if requests.length > 0 && view === 'history'}
 		<div class="request-list">
 			{#each requests as item (item.id)}
@@ -107,15 +107,15 @@
 	.request-list { display:grid; gap:.65rem; }
 	.view-switch { display: flex; width: max-content; max-width: 100%; gap: .2rem; border-bottom: 1px solid var(--border); }
 	.view-description { margin: -.35rem 0 0; color: var(--muted-foreground); font-size: var(--type-sm); line-height: 1.5; }
-	:global(.request-card) { min-width:0; }
-	:global(.request-header) { grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.65rem 1rem; }
+	:global(.request-card) { --card-spacing: .75rem; min-width:0; }
+	:global(.request-header) { grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.5rem 1rem; padding: .75rem .9rem .25rem; }
 	.request-copy { min-width:0; display:grid; gap:.2rem; }
 	.request-number { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.35; }
-	:global(.request-footer) { flex-direction:row; align-items:center; justify-content:space-between; gap:.85rem; }
+	:global(.request-footer) { flex-direction:row; align-items:center; justify-content:space-between; gap:.75rem; padding: .25rem .9rem .75rem; }
 	.metadata { display:flex; min-width:0; flex-wrap:wrap; align-items:center; gap:.35rem 1rem; color:var(--muted-foreground); font-size:var(--type-sm); }
 	.metadata span { display:flex; align-items:center; gap:.4rem; }
 	.actions { display:flex; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; gap:.4rem; }
-	:global(.empty-state) { min-height:clamp(12rem, 25vw, 18rem); align-items:center; justify-content:center; text-align:center; }
+	:global(.empty-state) { min-height:clamp(9rem, 16vw, 13rem); align-items:center; justify-content:center; gap:.5rem; text-align:center; }
 	:global(.empty-state h2) { margin:0; font-size:var(--type-lg); }
 	:global(.empty-state p) { max-width:27rem; margin:0; color:var(--muted-foreground); line-height:1.6; }
 	@media(max-width:640px) {

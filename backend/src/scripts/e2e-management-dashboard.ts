@@ -129,7 +129,11 @@ async function run(): Promise<void> {
 		check(filtered.requests.some((item) => item.id === created.id), 'Filter Korwil dan Divisi harus mempertahankan tiket yang cocok.');
 
 		await claimKorwilRequest(fixture.korwil, created.id);
-		await returnKorwilRequestForDocuments(fixture.korwil, created.id, 'Fixture meminta kelengkapan Cabang.');
+		await returnKorwilRequestForDocuments(fixture.korwil, created.id, {
+			note: 'Perbaiki uraian fixture sebelum dikirim ulang.',
+			fields: [{ kind: 'description' }],
+			documents: []
+		});
 		const followUp = await getBranchFollowUp(fixture.management, { kodeKantor: '001' });
 		check(followUp.requests.some((item) => item.id === created.id), 'Halaman tindak lanjut harus menampilkan tiket menunggu Cabang.');
 		const otherBranch = await getBranchFollowUp(fixture.management, { kodeKantor: '002' });

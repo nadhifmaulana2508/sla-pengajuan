@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { env } from '../../config/env.js';
-import { resolveSlaAccess, syncSsoProfile } from './access.service.js';
-import { createSsoClient, SsoAuthError } from './auth.service.js';
+import { resolveSlaAccess } from './access.service.js';
+import { SsoAuthError } from './auth.service.js';
+import { isDummyAuthAvailable, listDummyUsers, loginAsDummy, loginWithSso, resolveBearerIdentity } from './identity.service.js';
 
 export const authRouter = Router();
 
@@ -10,16 +10,9 @@ const loginSchema = z.object({
 	id_peg: z.string().trim().min(1).max(80),
 	password: z.string().min(1).max(256)
 });
+const dummyLoginSchema = z.object({ employee_id: z.string().trim().min(1).max(80) });
 
-const sso = createSsoClient({
-	baseUrl: env.SSO_BASE_URL,
-	appCode: env.SSO_APP_CODE,
-	timeoutMs: env.SSO_TIMEOUT_MS,
-	connectIp: env.SSO_CONNECT_IP
-});
-
-async function addSlaAccess(profile: Awaited<ReturnType<typeof sso.whoami>>) {
-	await syncSsoProfile(profile);
+async function addSlaAccess(profile: Awaited<ReturnType<typeof resolveBearerIdentity>>) {
 	return {
 		...profile,
 		sla_access: await resolveSlaAccess(profile.employee_id)
@@ -60,13 +53,43 @@ authRouter.post('/login', async (request, response) => {
 	}
 
 	try {
-		const result = await sso.login(parsed.data.id_peg, parsed.data.password);
+		const result = await loginWithSso(parsed.data.id_peg, parsed.data.password);
 		const profile = await addSlaAccess(result.profile);
 		response.status(200).json({
 			status: 200,
 			message: 'Login berhasil.',
 			data: { ...result, profile }
 		});
+	} catch (error) {
+		sendAuthError(error, response);
+	}
+});
+
+authRouter.get('/dummy-users', async (_request, response) => {
+	if (!isDummyAuthAvailable()) {
+		response.status(404).json({ status: 404, message: 'Route not found', data: null });
+		return;
+	}
+	try {
+		response.status(200).json({ status: 200, message: 'OK', data: await listDummyUsers() });
+	} catch {
+		response.status(500).json({ status: 500, message: 'Daftar akun dummy belum dapat dimuat.', data: null });
+	}
+});
+
+authRouter.post('/dummy-login', async (request, response) => {
+	if (!isDummyAuthAvailable()) {
+		response.status(404).json({ status: 404, message: 'Route not found', data: null });
+		return;
+	}
+	const parsed = dummyLoginSchema.safeParse(request.body);
+	if (!parsed.success) {
+		response.status(400).json({ status: 400, message: 'Pilih akun dummy yang tersedia.', data: null });
+		return;
+	}
+	try {
+		const result = await loginAsDummy(parsed.data.employee_id);
+		response.status(200).json({ status: 200, message: 'Login akun dummy berhasil.', data: result });
 	} catch (error) {
 		sendAuthError(error, response);
 	}
@@ -84,7 +107,7 @@ authRouter.get('/whoami', async (request, response) => {
 	}
 
 	try {
-		const profile = await sso.whoami(token);
+		const profile = await resolveBearerIdentity(token);
 		response.status(200).json({ status: 200, message: 'OK', data: await addSlaAccess(profile) });
 	} catch (error) {
 		sendAuthError(error, response);

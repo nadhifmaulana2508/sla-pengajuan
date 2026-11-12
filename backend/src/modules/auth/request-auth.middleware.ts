@@ -1,14 +1,6 @@
 import type { RequestHandler } from 'express';
-import { env } from '../../config/env.js';
-import { syncSsoProfile } from './access.service.js';
-import { createSsoClient, SsoAuthError } from './auth.service.js';
-
-const sso = createSsoClient({
-	baseUrl: env.SSO_BASE_URL,
-	appCode: env.SSO_APP_CODE,
-	timeoutMs: env.SSO_TIMEOUT_MS,
-	connectIp: env.SSO_CONNECT_IP
-});
+import { SsoAuthError } from './auth.service.js';
+import { resolveBearerIdentity } from './identity.service.js';
 
 function getBearerToken(header: string | undefined): string | null {
 	const match = header?.match(/^Bearer\s+([^\s]+)$/i);
@@ -27,8 +19,7 @@ export const requireRequestIdentity: RequestHandler = async (request, response, 
 	}
 
 	try {
-		const profile = await sso.whoami(token);
-		await syncSsoProfile(profile);
+		const profile = await resolveBearerIdentity(token);
 		response.locals.slaEmployeeId = profile.employee_id;
 		next();
 	} catch (error) {

@@ -13,12 +13,39 @@ type WhoamiResponse = {
 	data: AuthenticatedProfile;
 };
 
+export type DummyUserOption = {
+	employee_id: string;
+	label: string;
+	role_code: string;
+	role_name: string;
+	scope_label: string;
+};
+
+type DummyUsersResponse = {
+	status: number;
+	message: string;
+	data: DummyUserOption[];
+};
+
 let pendingProfileRequest: { token: string; promise: Promise<AuthenticatedProfile> } | null = null;
 
 export async function loginWithSso(idPeg: string, password: string) {
 	const response = await apiRequest<LoginResponse>('auth/login', {
 		method: 'POST',
 		body: { id_peg: idPeg, password }
+	});
+	return response.data;
+}
+
+export async function fetchDummyUsers(): Promise<DummyUserOption[]> {
+	const response = await apiRequest<DummyUsersResponse>('auth/dummy-users');
+	return response.data;
+}
+
+export async function loginWithDummy(employeeId: string) {
+	const response = await apiRequest<LoginResponse>('auth/dummy-login', {
+		method: 'POST',
+		body: { employee_id: employeeId }
 	});
 	return response.data;
 }

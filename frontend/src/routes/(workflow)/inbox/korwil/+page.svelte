@@ -61,7 +61,7 @@
 <svelte:head><title>Antrean Korwil | Sistem SLA</title></svelte:head>
 
 <section class="app-page-stack" aria-labelledby="page-title">
-<AppPageHeading eyebrow="Korwil" title="Antrean pengajuan" description="Sesi awal mulai saat diambil; pelengkapan mulai lagi saat Cabang mengirim." flush>
+<AppPageHeading eyebrow="Korwil" title="Antrean pengajuan" description="Sesi awal mulai saat diambil; pelengkapan mulai lagi saat Cabang mengirim." descriptionBelow flush>
 	{#snippet actions()}
 		<Badge variant="outline"><Clock3 class="mr-1 size-3.5" aria-hidden="true" />Timer kalender</Badge>
 	{/snippet}
@@ -82,7 +82,7 @@
 	{:else if requests.length > 0 && view === 'history'}
 		<div class="request-list">
 			{#each requests as item (item.id)}
-				<Card.Root class="request-card"><Card.Header class="request-header"><div class="request-copy"><p class="request-number">{item.request_number} · {formatDate(item.submitted_at)}</p><Card.Title class="break-words text-base">{item.subject}</Card.Title><Card.Description>{item.nama_kantor} · kode {item.kode_kantor}</Card.Description></div><Badge variant="outline">{statusLabels[item.status] ?? item.status}</Badge></Card.Header>
+				<Card.Root class="request-card" size="sm"><Card.Header class="request-header"><div class="request-copy"><p class="request-number">{item.request_number} · {formatDate(item.submitted_at)}</p><Card.Title class="break-words text-base">{item.subject}</Card.Title><Card.Description>{item.nama_kantor} · kode {item.kode_kantor}</Card.Description></div><Badge variant="outline">{statusLabels[item.status] ?? item.status}</Badge></Card.Header>
 					<Card.Content class="request-footer"><div class="metadata"><span>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : 'Kewenangan Korwil'}</span><span><Clock3 class="size-3.5" aria-hidden="true" />Umur total · {formatElapsed(Number(item.overall_elapsed_seconds))}</span><span>Lokasi sekarang · {item.current_unit_type === 'central' ? item.nama_divisi ?? 'Divisi Pusat' : item.current_unit_type === 'korwil' ? `Korwil ${item.current_unit_code}` : `Cabang ${item.nama_kantor}`}</span></div><div class="actions"><Button variant="outline" class="min-h-11" href={`/requests/${item.id}`}>Detail <ArrowRight class="size-4" aria-hidden="true" /></Button></div></Card.Content>
 				</Card.Root>
 			{/each}
@@ -90,7 +90,7 @@
 	{:else if requests.length > 0}
 		<div class="request-list">
 			{#each requests as item (item.id)}
-				<Card.Root class="request-card"><Card.Header class="request-header"><div class="request-copy"><p class="request-number">{item.request_number} <span>·</span> {formatDate(item.submitted_at)}</p><Card.Title class="break-words text-base">{item.subject}</Card.Title><Card.Description>{item.nama_kantor} · kode {item.kode_kantor}</Card.Description></div><Badge variant={item.status === 'waiting_korwil' ? 'secondary' : 'default'}>{statusLabels[item.status] ?? item.status}</Badge></Card.Header>
+				<Card.Root class="request-card" size="sm"><Card.Header class="request-header"><div class="request-copy"><p class="request-number">{item.request_number} <span>·</span> {formatDate(item.submitted_at)}</p><Card.Title class="break-words text-base">{item.subject}</Card.Title><Card.Description>{item.nama_kantor} · kode {item.kode_kantor}</Card.Description></div><Badge variant={item.status === 'waiting_korwil' ? 'secondary' : 'default'}>{statusLabels[item.status] ?? item.status}</Badge></Card.Header>
 					<Card.Content class="request-footer"><div class="metadata"><span>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : 'Kewenangan Korwil'}</span><span><Clock3 class="size-3.5" aria-hidden="true" />{item.status === 'waiting_korwil' && item.active_elapsed_seconds === null ? 'Menunggu diambil · timer belum mulai' : `Korwil · ${formatElapsed(item.active_elapsed_seconds)}`}{item.active_target_sla_minutes === null ? ' · target belum ditetapkan' : ''}</span></div><div class="actions"><Button variant="outline" class="min-h-11" href={`/requests/${item.id}`}>Detail <ArrowRight class="size-4" aria-hidden="true" /></Button>{#if item.status === 'waiting_korwil'}<Button class="min-h-11" disabled={claimingId !== null} onclick={() => void claim(item)}>{#if claimingId === item.id}<LoaderCircle class="size-4 animate-spin" aria-hidden="true" />Mengambil…{:else}<Inbox class="size-4" aria-hidden="true" />Ambil pengajuan{/if}</Button>{/if}</div></Card.Content>
 				</Card.Root>
 			{/each}
@@ -99,19 +99,20 @@
 </section>
 
 <style>
-	.request-list { display:grid; gap:.85rem; }
+	.request-list { display:grid; gap:.65rem; }
 	.view-switch { display: flex; width: max-content; max-width: 100%; gap: .2rem; border-bottom: 1px solid var(--border); }
 	.view-description { margin: -.35rem 0 0; color: var(--muted-foreground); font-size: var(--type-sm); line-height: 1.5; }
-	:global(.request-header) { grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:1rem; }
-	.request-copy { min-width:0; display:grid; gap:.4rem; }
-	.request-number { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); }
+	:global(.request-card) { --card-spacing: .75rem; min-width:0; }
+	:global(.request-header) { grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.5rem 1rem; padding: .75rem .9rem .25rem; }
+	.request-copy { min-width:0; display:grid; gap:.2rem; }
+	.request-number { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.35; }
 	.request-number span { padding:0 .2rem; }
-	:global(.request-footer) { flex-direction:row; align-items:center; justify-content:space-between; gap:1rem; }
-	.metadata { display:grid; gap:.45rem; color:var(--muted-foreground); font-size:var(--type-sm); }
+	:global(.request-footer) { flex-direction:row; align-items:center; justify-content:space-between; gap:.75rem; padding: .25rem .9rem .75rem; }
+	.metadata { display:flex; min-width:0; flex-wrap:wrap; align-items:center; gap:.35rem 1rem; color:var(--muted-foreground); font-size:var(--type-sm); }
 	.metadata span { display:flex; align-items:center; gap:.4rem; }
 	.actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.5rem; }
-	:global(.empty-state) { min-height:clamp(12rem, 25vw, 18rem); align-items:center; justify-content:center; text-align:center; }
+	:global(.empty-state) { min-height:clamp(9rem, 16vw, 13rem); align-items:center; justify-content:center; gap:.5rem; text-align:center; }
 	:global(.empty-state h2) { margin:0; font-size:var(--type-lg); }
 	:global(.empty-state p) { max-width:27rem; margin:0; color:var(--muted-foreground); line-height:1.6; }
-	@media(max-width:640px) { .view-switch { display: grid; width: 100%; grid-template-columns: 1fr 1fr; } :global(.request-header) { grid-template-columns:minmax(0,1fr); } :global(.request-footer) { flex-direction:column; align-items:stretch; } .actions { display:grid; grid-template-columns:1fr; } }
+	@media(max-width:640px) { .view-switch { display: grid; width: 100%; grid-template-columns: 1fr 1fr; } :global(.request-header) { grid-template-columns:minmax(0,1fr); align-items:start; } :global(.request-footer) { flex-direction:column; align-items:stretch; } .metadata { align-items:flex-start; flex-direction:column; gap:.45rem; } .actions { display:grid; grid-template-columns:1fr; } }
 </style>

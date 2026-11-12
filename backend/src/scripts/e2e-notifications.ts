@@ -16,6 +16,14 @@ import {
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from '../modules/notifications/notifications.service.js';
 
 const fixturePrefix = 'e2e-notification-';
+
+async function defaultRejectionReasonId(): Promise<number> {
+	const [rows] = await mysqlPool.execute<Array<RowDataPacket & { id: number }>>(
+		`SELECT id FROM rejection_reasons WHERE scope_type = 'system' AND code = 'other' AND is_active = 1 LIMIT 1`
+	);
+	if (!rows[0]) throw new Error('System rejection reason fixture not found.');
+	return Number(rows[0].id);
+}
 const employees = {
 	branch: `${fixturePrefix}branch-001`,
 	korwil: `${fixturePrefix}korwil-semarang`,
@@ -173,20 +181,26 @@ async function run(): Promise<void> {
 
 		await claimKorwilRequest(korwil, central.id);
 		check((await eventTypes(branch)).includes('request_claimed'), 'Cabang harus menerima notifikasi Ambil Korwil.');
-		await forwardKorwilRequestToCentral(korwil, central.id, 'Fixture diteruskan.');
+		await forwardKorwilRequestToCentral(korwil, central.id, 'Fixture diteruskan.', { approvalConfirmed: true });
 		check((await eventTypes(division)).includes('request_forwarded'), 'Divisi tujuan harus menerima notifikasi penerusan.');
 		check((await eventTypes(branch)).includes('request_forwarded'), 'Cabang harus menerima perubahan penerusan.');
 		check(!(await eventTypes(outsideDivision)).includes('request_forwarded'), 'Divisi di luar scope tidak boleh menerima penerusan.');
 
 		await claimCentralRequest(division, central.id);
 		check((await eventTypes(branch)).filter((event) => event === 'request_claimed').length >= 2, 'Cabang harus menerima Ambil Divisi.');
-		await returnCentralRequestForDocuments(division, central.id, 'Fixture minta kelengkapan.');
+		await returnCentralRequestForDocuments(division, central.id, {
+			note: 'Perbaiki uraian fixture.', fields: [{ kind: 'description' }], documents: []
+		});
 		check((await eventTypes(branch)).includes('documents_requested'), 'Cabang harus menerima permintaan kelengkapan.');
-		const revision = await submitBranchRevision(branch, central.id, 'Fixture mengirim jawaban kelengkapan.');
+		const revision = await submitBranchRevision(branch, central.id, {
+			response: 'Fixture mengirim jawaban kelengkapan.',
+			updates: [{ kind: 'description', value: 'Uraian fixture sudah diperbaiki.' }],
+			files: {}
+		});
 		assert.equal(revision.resumed_to_previous_handler, true);
 		check((await eventTypes(division)).includes('revision_submitted'), 'Jawaban revisi harus kembali ke petugas peminta.');
 		check(!(await eventTypes(outsideDivision)).includes('revision_submitted'), 'Jawaban revisi tidak boleh keluar scope.');
-		await finishCentralRequest(division, central.id, 'rejected', 'Fixture ditolak.');
+		await finishCentralRequest(division, central.id, 'rejected', 'Fixture ditolak.', { rejectionReasonId: await defaultRejectionReasonId() });
 		check((await eventTypes(branch)).includes('request_rejected'), 'Cabang harus menerima penolakan.');
 		assert.equal((await getRequestDetail(branch, central.id)).request.id, central.id);
 		await expectForbidden(() => getRequestDetail(outsideDivision, central.id), 'Detail harus menolak pengguna di luar scope.');
@@ -197,7 +211,7 @@ async function run(): Promise<void> {
 		});
 		requestIds.push(korwilRequest.id);
 		await claimKorwilRequest(korwil, korwilRequest.id);
-		await finishKorwilRequest(korwil, korwilRequest.id, 'completed', 'Fixture selesai.');
+		await finishKorwilRequest(korwil, korwilRequest.id, 'completed', 'Fixture selesai.', { approvalConfirmed: true });
 		check((await eventTypes(branch)).includes('request_completed'), 'Cabang harus menerima penyelesaian.');
 
 		const before = await listNotifications(branch);

@@ -14,7 +14,8 @@
 	import { theme, toggleTheme } from '#lib/features/theme/theme.store.js';
 	import slaLogoMark from '#lib/assets/favicon.svg';
 	import type { AuthenticatedProfile } from '#lib/features/auth/auth.types.js';
-	import { Bell, BriefcaseBusiness, Building2, Check, CheckCheck, ClipboardList, House, Inbox, LogOut, Menu, Moon, Sun, UserRound, UsersRound, X } from '@lucide/svelte';
+	import { formatDateTimeWib } from '#lib/utils/datetime.js';
+	import { Bell, BriefcaseBusiness, Building2, Check, CheckCheck, ClipboardList, House, Inbox, LogOut, Menu, Moon, Plus, Sun, UserRound, UsersRound, X } from '@lucide/svelte';
 	import {
 		fetchNotifications,
 		markAllNotificationsRead,
@@ -151,7 +152,7 @@
 	}
 
 	function formatNotificationDate(value: string): string {
-		return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+		return formatDateTimeWib(value);
 	}
 
 	async function restoreProfile(token: string): Promise<void> {
@@ -174,6 +175,17 @@
 	function isActive(path: string): boolean {
 		if (path === '/requests') return currentPath === path || currentPath.startsWith(`${path}/`);
 		return currentPath === path;
+	}
+
+	function isTabActive(path: string): boolean {
+		if (path === '/requests') {
+			return currentPath === path || (currentPath.startsWith(`${path}/`) && currentPath !== '/requests/new');
+		}
+		return isActive(path);
+	}
+
+	function isMoreTabActive(): boolean {
+		return mobileMenuOpen || (role === 'admin' && ['/admin/master', '/admin/forms', '/admin/divisions'].some(isActive));
 	}
 
 	function roleLabel(value: AuthenticatedProfile['sla_access']['role']): string {
@@ -255,7 +267,7 @@
 	{#if role === 'management' || role === 'supervisor' || role === 'admin'}
 						<Button href="/management/branch-follow-up" variant={!mobile && isActive('/management/branch-follow-up') ? 'secondary' : 'ghost'} class={mobile ? 'mobile-nav-link h-auto min-h-20 w-full flex-col gap-2 py-3 text-center' : 'nav-link min-h-11 px-3'} aria-current={isActive('/management/branch-follow-up') ? 'page' : undefined} onclick={mobile ? closeMobileMenu : undefined}>
 			{#if mobile}<ClipboardList class="size-5" aria-hidden="true" />{/if}
-			<span>Tindak lanjut Cabang</span>
+			<span>Pemantauan tiket</span>
 		</Button>
 	{/if}
 {/snippet}
@@ -301,16 +313,7 @@
 			<UserRound class="size-4" aria-hidden="true" />
 		</Button>
 		<Dialog.Root bind:open={mobileMenuOpen}>
-		<Dialog.Trigger>
-			{#snippet child({ props })}
-				<Button {...props} variant="ghost" class="mobile-menu-trigger min-h-11 gap-2 border-0 bg-transparent px-2 shadow-none hover:bg-transparent hover:text-primary dark:hover:bg-transparent" aria-label="Menu" title="Menu">
-					<Menu class="size-4" aria-hidden="true" />
-					<span>Menu</span>
-				</Button>
-			{/snippet}
-		</Dialog.Trigger>
-
-		<Dialog.Content class="mobile-menu-dialog gap-5 p-5" showCloseButton={false}>
+		<Dialog.Content id="mobile-nav-dialog" class="mobile-menu-dialog gap-5 p-5" showCloseButton={false}>
 			<Dialog.Header class="mobile-menu-header flex-row items-center justify-between gap-3">
 				<Dialog.Title class="text-base">Navigasi</Dialog.Title>
 				<Dialog.Close>
@@ -323,9 +326,11 @@
 			</Dialog.Header>
 			<Dialog.Description class="sr-only">Pilih halaman atau ubah pengaturan akun.</Dialog.Description>
 
-			<nav class="mobile-nav" aria-label="Navigasi utama">
-				{@render navigationLinks(true)}
-			</nav>
+			<div class="mobile-menu-nav-scroll">
+				<nav class="mobile-nav" aria-label="Navigasi utama">
+					{@render navigationLinks(true)}
+				</nav>
+			</div>
 
 			<div class="mobile-menu-actions" aria-label="Aksi akun">
 				<Button variant="ghost" class="mobile-menu-action min-h-11 h-auto min-w-0 justify-center gap-2 whitespace-nowrap px-2" type="button" onclick={toggleTheme}>
@@ -339,6 +344,47 @@
 		</Dialog.Root>
 	</div>
 </header>
+
+<nav class="mobile-tabbar" aria-label="Navigasi utama">
+	<Button href="/dashboard" variant="ghost" class={isActive('/dashboard') ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-current={isActive('/dashboard') ? 'page' : undefined}>
+		<House class="size-[1.15rem]" aria-hidden="true" /><span>Beranda</span>
+	</Button>
+	{#if role === 'branch_user'}
+		<Button href="/requests" variant="ghost" class={isTabActive('/requests') ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-current={isTabActive('/requests') ? 'page' : undefined}>
+			<ClipboardList class="size-[1.15rem]" aria-hidden="true" /><span>Pengajuan</span>
+		</Button>
+		<Button href="/requests/new" variant="ghost" class={isActive('/requests/new') ? 'mobile-tab-link mobile-tab-link--create mobile-tab-link--active' : 'mobile-tab-link mobile-tab-link--create'} aria-current={isActive('/requests/new') ? 'page' : undefined}>
+			<Plus class="size-[1.15rem]" aria-hidden="true" /><span>Buat</span>
+		</Button>
+	{:else if role === 'korwil_staff' || role === 'korwil_approver'}
+		<Button href="/inbox/korwil" variant="ghost" class={isActive('/inbox/korwil') ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-current={isActive('/inbox/korwil') ? 'page' : undefined}>
+			<Inbox class="size-[1.15rem]" aria-hidden="true" /><span>Antrean</span>
+		</Button>
+	{:else if role === 'division_staff'}
+		<Button href="/inbox/central" variant="ghost" class={isActive('/inbox/central') ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-current={isActive('/inbox/central') ? 'page' : undefined}>
+			<Building2 class="size-[1.15rem]" aria-hidden="true" /><span>Antrean</span>
+		</Button>
+		{#if canManageForms}
+			<Button href="/admin/forms" variant="ghost" class={isActive('/admin/forms') ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-current={isActive('/admin/forms') ? 'page' : undefined}>
+				<ClipboardList class="size-[1.15rem]" aria-hidden="true" /><span>Kelola form</span>
+			</Button>
+		{/if}
+	{:else if role === 'admin'}
+		<Button href="/management/branch-follow-up" variant="ghost" class={isActive('/management/branch-follow-up') ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-current={isActive('/management/branch-follow-up') ? 'page' : undefined}>
+			<ClipboardList class="size-[1.15rem]" aria-hidden="true" /><span>Pemantauan</span>
+		</Button>
+		<Button href="/admin/users" variant="ghost" class={isActive('/admin/users') ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-current={isActive('/admin/users') ? 'page' : undefined}>
+			<UsersRound class="size-[1.15rem]" aria-hidden="true" /><span>Pengguna</span>
+		</Button>
+	{:else if role === 'management' || role === 'supervisor'}
+		<Button href="/management/branch-follow-up" variant="ghost" class={isActive('/management/branch-follow-up') ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-current={isActive('/management/branch-follow-up') ? 'page' : undefined}>
+			<ClipboardList class="size-[1.15rem]" aria-hidden="true" /><span>Pemantauan</span>
+		</Button>
+	{/if}
+	<Button type="button" variant="ghost" class={isMoreTabActive() ? 'mobile-tab-link mobile-tab-link--active' : 'mobile-tab-link'} aria-haspopup="dialog" aria-controls="mobile-nav-dialog" aria-expanded={mobileMenuOpen} onclick={() => (mobileMenuOpen = true)}>
+		<Menu class="size-[1.15rem]" aria-hidden="true" /><span>Lainnya</span>
+	</Button>
+</nav>
 
 	<Dialog.Content class="notification-dialog gap-0 p-0 sm:max-w-lg" showCloseButton={false}>
 		<Dialog.Header class="notification-header">
@@ -425,13 +471,13 @@
 		top: 0;
 		z-index: 30;
 		display: grid;
-		grid-template-columns: minmax(12rem, 1fr) auto minmax(12rem, 1fr);
+		grid-template-columns: minmax(10rem, 1fr) auto minmax(10rem, 1fr);
 		align-items: center;
 		gap: 0.75rem;
-		min-height: 4rem;
+		min-height: 4.25rem;
 		padding-inline: max(clamp(1rem, 4vw, 3rem), calc((100vw - 88rem) / 2));
 		border-bottom: 1px solid var(--border);
-		background: color-mix(in srgb, var(--background) 96%, transparent);
+		background: color-mix(in srgb, var(--background) 93%, transparent);
 		box-shadow: 0 1px 0 color-mix(in srgb, var(--foreground) 2%, transparent);
 		-webkit-backdrop-filter: blur(14px);
 		backdrop-filter: blur(14px);
@@ -454,9 +500,12 @@
 	.wordmark-primary { margin-left: .1rem; }
 	.wordmark-light { color: var(--muted-foreground); font-weight: 500; }
 	.wordmark > span:last-child { min-width: 0; overflow-wrap: anywhere; }
-	.primary-nav { display: flex; min-width: 0; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 0.2rem; }
-	.primary-nav :global(a[aria-current='page']) { background: var(--accent); color: var(--accent-foreground); }
-	.navbar-actions { display: flex; align-items: center; justify-self: end; gap: 0.1rem; }
+	.primary-nav { display: flex; min-width: 0; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 0.15rem; padding: .2rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--muted); }
+	.primary-nav :global(a) { min-height: 2.3rem; border: 1px solid transparent; border-radius: .45rem; color: var(--muted-foreground); font-size: var(--type-sm); transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
+	.primary-nav :global(a:hover) { color: var(--foreground); }
+	.primary-nav :global(a[aria-current='page']) { border-color: color-mix(in srgb,var(--ring) 45%,var(--border)); background: color-mix(in srgb,var(--ring) 12%,var(--card)); color: var(--ring); font-weight:650; box-shadow: inset 0 -2px 0 var(--ring), 0 1px 2px rgb(0 0 0 / .06); }
+	.navbar-actions { display: flex; align-items: center; justify-self: end; gap: 0.15rem; }
+	.navbar-actions :global([data-slot='button']:hover), .mobile-header-actions :global([data-slot='button']:hover) { background: var(--muted); color: var(--foreground); }
 	.mobile-header-actions { display: none; }
 	:global(.notification-trigger) { flex: 0 0 auto; }
 	:global(.notification-count) { position: absolute; top: 0.15rem; right: 0.1rem; min-width: 1rem; height: 1rem; padding-inline: 0.18rem; border-radius: 999px; background: var(--destructive); color: var(--destructive-foreground); font-size: 0.625rem; font-weight: 700; line-height: 1rem; text-align: center; }
@@ -489,30 +538,99 @@
 	.notification-item-body, .notification-item-copy time { overflow-wrap: anywhere; color: var(--muted-foreground); font-size: var(--type-xs); }
 	.notification-state { display: flex; min-height: 8rem; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 1.25rem; color: var(--muted-foreground); text-align: center; }
 	:global(.mobile-menu-trigger) { display: none; }
-	.mobile-nav { display: grid; grid-auto-rows: minmax(5rem, auto); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; }
+	.mobile-tabbar { display: none; }
+	.mobile-menu-nav-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+	.mobile-nav { display: grid; grid-auto-rows: minmax(4.5rem, auto); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; align-content: start; }
+	.mobile-nav :global(a) { border: 1px solid var(--border); border-radius: .7rem; background: var(--card); color: var(--foreground); transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease; }
+	.mobile-nav :global(a:hover) { background: var(--muted); }
+	.mobile-nav :global(a:active) { transform: translateY(1px); }
 	.mobile-nav :global(a:nth-child(3):last-child) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 0.125rem); }
 	.mobile-nav :global(a:nth-child(5):last-child) { grid-column: 1 / -1; justify-self: stretch; width: 100%; }
 	.mobile-nav :global(a:only-child) { width: 100%; }
-	.mobile-nav :global(a[aria-current='page']) { background: var(--accent); color: var(--accent-foreground); font-weight: 650; }
-	.mobile-menu-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+	.mobile-nav :global(a[aria-current='page']) { background: color-mix(in srgb,var(--ring) 16%,var(--card)); color: var(--ring); font-weight: 650; box-shadow: inset 3px 0 0 var(--ring); }
+	.mobile-menu-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+	.mobile-menu-actions :global(.mobile-menu-action) { min-height: 2.9rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--muted); color: var(--foreground); }
+	.mobile-menu-actions :global(.mobile-menu-action:hover) { border-color: color-mix(in srgb,var(--ring) 42%,var(--border)); background: color-mix(in srgb,var(--ring) 8%,var(--muted)); }
+	:global(.mobile-menu-dialog) { display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: .85rem; width: min(29rem, calc(100vw - 1rem)); max-height: min(84dvh, 42rem); overflow: hidden; }
 
-	@media (max-width: 64rem) {
-		.app-navbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; gap: 0 0.45rem; padding: 0.55rem 0.9rem; }
-		.wordmark { gap: 0.45rem; font-size: var(--type-xs); }
+	@media (max-width: 72rem) {
+		.app-navbar { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; gap: 0 0.45rem; min-height: calc(3.8rem + env(safe-area-inset-top)); padding: calc(0.45rem + env(safe-area-inset-top)) max(.75rem, env(safe-area-inset-right)) 0.45rem max(.75rem, env(safe-area-inset-left)); }
+		.wordmark { gap: 0.45rem; font-size: var(--type-sm); }
 		.primary-nav, .navbar-actions { display: none; }
 		.mobile-header-actions { display: flex; grid-column: 2; grid-row: 1; align-items: center; justify-self: end; gap: 0.1rem; }
-		:global(.mobile-menu-trigger) { display: inline-flex; justify-self: end; }
+		:global(.mobile-menu-trigger) { display: none; }
+		.mobile-tabbar {
+			position: fixed;
+			inset-inline: 0;
+			bottom: 0;
+			z-index: 30;
+			display: grid;
+			grid-auto-flow: column;
+			grid-auto-columns: minmax(0, 1fr);
+			align-items: stretch;
+			gap: 0.2rem;
+			padding-block: 0.35rem calc(0.35rem + env(safe-area-inset-bottom));
+			padding-right: max(0.45rem, env(safe-area-inset-right));
+			padding-left: max(0.45rem, env(safe-area-inset-left));
+			border-top: 1px solid var(--border);
+			background: var(--background);
+		}
+		.mobile-tabbar :global(.mobile-tab-link) {
+			display: flex;
+			min-width: 0;
+			min-height: 3.35rem;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 0.18rem;
+			padding: 0.22rem 0.12rem;
+			border: 0;
+			border-radius: 0.65rem;
+			background: transparent;
+			color: var(--muted-foreground);
+			font-size: 0.68rem;
+			line-height: 1.1;
+			text-align: center;
+			white-space: nowrap;
+		}
+		.mobile-tabbar :global(.mobile-tab-link:hover) { background: var(--muted); color: var(--foreground); }
+		.mobile-tabbar :global(.mobile-tab-link--active) { background: color-mix(in srgb,var(--ring) 16%,var(--card)); color: var(--ring); font-weight: 650; box-shadow: inset 0 -2px 0 var(--ring); }
+		.mobile-tabbar :global(.mobile-tab-link--create) { background: var(--foreground); color: var(--background); font-weight: 620; }
+		.mobile-tabbar :global(.mobile-tab-link--create:hover) { background: var(--muted); color: var(--foreground); }
+		.mobile-tabbar :global(.mobile-tab-link--create.mobile-tab-link--active) { background: color-mix(in srgb,var(--ring) 16%,var(--card)); color: var(--ring); box-shadow: inset 0 -2px 0 var(--ring); }
+		.mobile-tabbar :global(.mobile-tab-link > span) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 	}
 
 	@media (max-width: 22rem) {
 		.wordmark-light { display: none; }
-		.mobile-menu-actions { grid-template-columns: 1fr; }
-		.mobile-menu-actions :global(.mobile-menu-action) { width: 100%; }
+		.mobile-menu-actions { gap: .35rem; }
+		.mobile-menu-actions :global(.mobile-menu-action) { padding-inline: .35rem; font-size: var(--type-xs); }
 	}
 
 	@media (max-width: 24rem) {
 		.notification-mark-label { display: none; }
 		:global(.notification-dialog) { padding: 0; }
 		:global(.notification-header) { padding-inline: 0.75rem; }
+	}
+
+	@media (max-width: 42rem) {
+		:global(.mobile-menu-dialog[data-slot='dialog-content']),
+		:global(.notification-dialog[data-slot='dialog-content']),
+		:global(.profile-dialog[data-slot='dialog-content']) {
+			top: auto;
+			right: 0;
+			bottom: 0;
+			left: 0;
+			width: 100%;
+			max-width: none;
+			max-height: min(84dvh, 42rem);
+			margin: 0;
+			transform: none;
+			translate: 0 0;
+			border-radius: 1rem 1rem 0 0;
+			padding-bottom: calc(.85rem + env(safe-area-inset-bottom));
+		}
+		:global(.mobile-menu-dialog[data-slot='dialog-content']) { grid-template-rows: auto minmax(0,1fr) auto; overflow: hidden; }
+		.mobile-menu-nav-scroll { overscroll-behavior: contain; }
 	}
 </style>

@@ -9,6 +9,7 @@
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Table from '#lib/components/ui/table/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
 	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
@@ -167,26 +168,26 @@
 						</div>
 					{:else}
 						<div class="desktop-table">
-							<table>
-								<caption class="sr-only">Daftar Divisi Pusat dan nama unit SSO yang dikenali</caption>
-								<thead><tr><th scope="col">Divisi</th><th scope="col">Nama unit SSO</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Tindakan</span></th></tr></thead>
-								<tbody>
+							<Table.Root label="Daftar Divisi Pusat" tableClass="min-w-[42rem]">
+								<Table.Caption class="sr-only">Daftar Divisi Pusat dan nama unit SSO yang dikenali</Table.Caption>
+								<Table.Header><Table.Row><Table.Head scope="col">Divisi</Table.Head><Table.Head scope="col">Nama unit SSO</Table.Head><Table.Head scope="col">Status</Table.Head><Table.Head scope="col"><span class="sr-only">Tindakan</span></Table.Head></Table.Row></Table.Header>
+								<Table.Body>
 									{#each divisions as division (division.id)}
-										<tr>
-											<th scope="row"><strong>{division.nama_divisi}</strong><small>{division.kode}</small></th>
-											<td><span class="alias-summary">{division.sso_unit_kerja_aliases.join(', ') || 'Belum ada pemetaan'}</span></td>
-											<td><Badge variant={division.is_active ? 'secondary' : 'outline'}>{division.is_active ? 'Aktif' : 'Nonaktif'}</Badge></td>
-											<td class="action-cell"><Button variant="outline" class="min-h-11" onclick={() => openEditor(division)}><Pencil class="size-4" aria-hidden="true" />Ubah</Button></td>
-										</tr>
+										<Table.Row>
+											<Table.Head scope="row" class="division-name-cell"><strong>{division.nama_divisi}</strong><small>{division.kode}</small></Table.Head>
+											<Table.Cell><span class="alias-summary">{division.sso_unit_kerja_aliases.join(', ') || 'Belum ada pemetaan'}</span></Table.Cell>
+										<Table.Cell><Badge variant={division.is_active ? 'secondary' : 'outline'} class={division.is_active ? 'status-badge status-badge--success' : ''}>{division.is_active ? 'Aktif' : 'Nonaktif'}</Badge></Table.Cell>
+											<Table.Cell class="action-cell"><Button variant="outline" class="min-h-11" onclick={() => openEditor(division)}><Pencil class="size-4" aria-hidden="true" />Ubah</Button></Table.Cell>
+										</Table.Row>
 									{/each}
-								</tbody>
-							</table>
+								</Table.Body>
+							</Table.Root>
 						</div>
 						<div class="mobile-list">
 							{#each divisions as division (division.id)}
 								<Card.Root size="sm" class="division-row">
 									<Card.Content class="division-row-content">
-										<div class="row-heading"><div><h2>{division.nama_divisi}</h2><p>{division.kode}</p></div><Badge variant={division.is_active ? 'secondary' : 'outline'}>{division.is_active ? 'Aktif' : 'Nonaktif'}</Badge></div>
+										<div class="row-heading"><div><h2>{division.nama_divisi}</h2><p>{division.kode}</p></div><Badge variant={division.is_active ? 'secondary' : 'outline'} class={division.is_active ? 'status-badge status-badge--success' : ''}>{division.is_active ? 'Aktif' : 'Nonaktif'}</Badge></div>
 										<div class="alias-block"><span>Nama unit SSO</span><p>{division.sso_unit_kerja_aliases.join(', ') || 'Belum ada pemetaan'}</p></div>
 										<Button variant="outline" class="min-h-11 w-full" onclick={() => openEditor(division)}><Pencil class="size-4" aria-hidden="true" />Ubah divisi</Button>
 									</Card.Content>
@@ -242,16 +243,16 @@
 	:global(.division-card-header) { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 	.list-heading { display: flex; min-width: 0; align-items: flex-start; gap: .7rem; }
 	.list-heading :global([data-slot='card-title']) { margin-bottom: .2rem; }
-	.desktop-table { width: 100%; overflow-x: auto; }
-	table { width: 100%; border-collapse: collapse; text-align: left; }
-	th, td { padding: .85rem .7rem; border-top: 1px solid var(--border); vertical-align: middle; }
-	thead th { color: var(--muted-foreground); font-size: var(--type-xs); font-weight: 600; }
-	tbody th { min-width: 9rem; font-weight: 500; }
-	tbody th strong, tbody th small { display: block; }
-	tbody th small { margin-top: .25rem; color: var(--muted-foreground); font-weight: 400; }
-	td { color: var(--muted-foreground); font-size: var(--type-sm); }
-	.alias-summary { display: block; max-width: 36rem; overflow-wrap: anywhere; }
-	.action-cell { width: 1%; white-space: nowrap; text-align: right; }
+	.desktop-table { width: 100%; min-width: 0; }
+	:global(.desktop-table [data-slot='table']) { width: 100%; text-align: left; }
+	:global(.desktop-table [data-slot='table-header']) { background: var(--muted); }
+	:global(.desktop-table [data-slot='table-head']) { height: 2.8rem; padding: .75rem; color: var(--muted-foreground); font-size: var(--type-xs); font-weight: 600; }
+	:global(.desktop-table [data-slot='table-head'][scope='row']) { min-width: 9rem; color: var(--foreground); font-size: var(--type-sm); font-weight: 500; }
+	:global(.desktop-table [data-slot='table-cell']) { padding: .75rem; border-bottom: 1px solid var(--border); color: var(--muted-foreground); font-size: var(--type-sm); vertical-align: middle; }
+	:global(.division-name-cell strong), :global(.division-name-cell small) { display: block; }
+	:global(.division-name-cell small) { margin-top: .25rem; color: var(--muted-foreground); font-size: var(--type-xs); font-weight: 400; }
+	:global(.alias-summary) { display: block; max-width: 36rem; overflow-wrap: anywhere; }
+	:global(.action-cell) { width: 1%; white-space: nowrap; text-align: right; }
 	.mobile-list { display: none; }
 	:global(.division-row-content) { display: grid; gap: .8rem; }
 	.row-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; }

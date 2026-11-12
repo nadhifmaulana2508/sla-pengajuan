@@ -9,14 +9,15 @@ export class ApiError extends Error {
 }
 
 type ApiRequestOptions = {
-	method?: 'GET' | 'POST' | 'PUT';
+	method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
 	body?: unknown;
 	token?: string | null;
 };
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
 	const headers = new Headers({ accept: 'application/json' });
-	if (options.body !== undefined) headers.set('content-type', 'application/json');
+	const formBody = typeof FormData !== 'undefined' && options.body instanceof FormData ? options.body : null;
+	if (options.body !== undefined && formBody === null) headers.set('content-type', 'application/json');
 	if (options.token) headers.set('authorization', `Bearer ${options.token}`);
 
 	const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -27,7 +28,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 		response = await fetch(`${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`, {
 			method: options.method ?? 'GET',
 			headers,
-			body: options.body === undefined ? undefined : JSON.stringify(options.body)
+			body: formBody ?? (options.body === undefined ? undefined : JSON.stringify(options.body))
 		});
 	} catch {
 		throw new ApiError(0, 'Permintaan ke backend gagal. Periksa koneksi API dan konfigurasi CORS.');

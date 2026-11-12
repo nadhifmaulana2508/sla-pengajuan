@@ -29,6 +29,7 @@ type WorkCatalogRow = RowDataPacket & {
 	nama_pekerjaan: string;
 	deskripsi: string | null;
 	target_sla_minutes: number | null;
+	routing_flow: 'branch_korwil_central' | 'branch_central';
 	is_active: number;
 	updated_at: Date;
 };
@@ -38,6 +39,7 @@ const workCatalogSchema = z.object({
 	nama_pekerjaan: z.string().trim().min(1).max(160),
 	deskripsi: z.string().trim().max(500).nullable(),
 	target_sla_minutes: z.number().int().positive().nullable(),
+	routing_flow: z.enum(['branch_korwil_central', 'branch_central']),
 	is_active: z.boolean()
 });
 
@@ -77,7 +79,7 @@ adminRouter.get('/master-data', async (_request, response) => {
 		const [workCatalogs] = await mysqlPool.execute<WorkCatalogRow[]>(
 			`SELECT catalog.id, catalog.divisi_id, division.kode AS kode_divisi,
 				division.nama_divisi, catalog.nama_pekerjaan, catalog.deskripsi,
-				catalog.target_sla_minutes, catalog.is_active, catalog.updated_at
+				catalog.target_sla_minutes, catalog.routing_flow, catalog.is_active, catalog.updated_at
 			FROM work_catalogs catalog
 			INNER JOIN master_divisi division ON division.id = catalog.divisi_id
 			ORDER BY division.nama_divisi, catalog.nama_pekerjaan`
@@ -280,13 +282,14 @@ adminRouter.post('/work-catalogs', async (request, response) => {
 
 		const [result] = await mysqlPool.execute<ResultSetHeader>(
 			`INSERT INTO work_catalogs
-				(divisi_id, nama_pekerjaan, deskripsi, target_sla_minutes, is_active)
-			VALUES (?, ?, ?, ?, ?)`,
+				(divisi_id, nama_pekerjaan, deskripsi, target_sla_minutes, routing_flow, is_active)
+			VALUES (?, ?, ?, ?, ?, ?)`,
 			[
 				parsed.data.divisi_id,
 				parsed.data.nama_pekerjaan,
 				parsed.data.deskripsi || null,
 				parsed.data.target_sla_minutes ?? DEFAULT_SLA_MINUTES,
+				parsed.data.routing_flow,
 				parsed.data.is_active ? 1 : 0
 			]
 		);
@@ -357,13 +360,14 @@ adminRouter.put('/work-catalogs/:id', async (request, response) => {
 		await mysqlPool.execute(
 			`UPDATE work_catalogs
 			SET divisi_id = ?, nama_pekerjaan = ?, deskripsi = ?,
-				target_sla_minutes = ?, is_active = ?
+				target_sla_minutes = ?, routing_flow = ?, is_active = ?
 			WHERE id = ?`,
 			[
 				parsed.data.divisi_id,
 				parsed.data.nama_pekerjaan,
 				parsed.data.deskripsi || null,
 				parsed.data.target_sla_minutes ?? DEFAULT_SLA_MINUTES,
+				parsed.data.routing_flow,
 				parsed.data.is_active ? 1 : 0,
 				id
 			]

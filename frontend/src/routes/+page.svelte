@@ -6,8 +6,9 @@
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+	import SearchableSelect from '#lib/components/SearchableSelect.svelte';
 	import { Eye, EyeOff, Moon, Sun } from '@lucide/svelte';
-	import { loginWithSso } from '#lib/features/auth/auth.api.js';
+	import { fetchDummyUsers, loginWithDummy, loginWithSso, type DummyUserOption } from '#lib/features/auth/auth.api.js';
 	import {
 		authSession,
 		getRememberedEmployeeId,
@@ -22,9 +23,22 @@
 	let isPasswordVisible = $state(false);
 	let isSubmitting = $state(false);
 	let errorMessage = $state('');
+	let dummyUsers = $state<DummyUserOption[] | null>(null);
+	let selectedDummyId = $state('');
+	let dummyUserOptions = $derived((dummyUsers ?? []).map((user) => ({
+		value: user.employee_id,
+		label: `${user.label} · ${user.scope_label}`,
+		keywords: [user.employee_id, user.scope_label]
+	})));
 
 	onMount(() => {
 		employeeId = getRememberedEmployeeId();
+		void fetchDummyUsers().then((users) => {
+			dummyUsers = users;
+			selectedDummyId = users[0]?.employee_id ?? '';
+		}).catch(() => {
+			// Dummy access stays hidden when the local-only API route is unavailable.
+		});
 		const unsubscribe = authSession.subscribe((session) => {
 			if (session.token) void goto('/dashboard');
 		});
@@ -36,6 +50,24 @@
 
 		employeeId = event.currentTarget.value;
 		rememberEmployeeId(employeeId);
+	}
+
+	async function submitDummyLogin(): Promise<void> {
+		if (isSubmitting || !selectedDummyId) return;
+
+		isSubmitting = true;
+		errorMessage = '';
+		try {
+			const session = await loginWithDummy(selectedDummyId);
+			setAuthenticatedSession(session.token, session.profile);
+			await goto('/dashboard');
+		} catch (error) {
+			errorMessage = error instanceof ApiError
+				? error.message
+				: 'Login akun uji belum berhasil. Coba lagi.';
+		} finally {
+			isSubmitting = false;
+		}
 	}
 
 	async function submitLogin(event: SubmitEvent): Promise<void> {
@@ -184,6 +216,40 @@
 			<p class="form-note">
 				Password hanya dikirim ke backend untuk diteruskan ke SSO. Sistem SLA tidak menyimpannya.
 			</p>
+
+			{#if dummyUsers !== null}
+				<section class="dummy-login" aria-labelledby="dummy-login-title">
+					<h3 id="dummy-login-title">Pengujian lokal</h3>
+					{#if dummyUsers.length > 0}
+						<div class="field-group">
+							<Label for="dummy-user">Akun dan role</Label>
+							<SearchableSelect
+								id="dummy-user"
+								label="Akun dan role"
+								options={dummyUserOptions}
+								value={selectedDummyId}
+								onValueChange={(value) => (selectedDummyId = value)}
+								placeholder="Pilih akun uji"
+								searchPlaceholder="Cari role, cakupan, atau ID..."
+								disabled={isSubmitting}
+							/>
+						</div>
+						<Button
+							class="submit-button min-h-11 w-full"
+							variant="outline"
+							size="lg"
+							type="button"
+							disabled={isSubmitting || !selectedDummyId}
+							onclick={submitDummyLogin}
+						>
+							{isSubmitting ? 'Membuka akun uji...' : 'Masuk sebagai akun uji'}
+						</Button>
+						<p class="form-note">Akun sintetis untuk backend development; tidak tersedia di production.</p>
+					{:else}
+						<p class="form-note">Belum ada akun dummy. Jalankan seed akun dummy pada backend lokal.</p>
+					{/if}
+				</section>
+			{/if}
 		</div>
 	</section>
 </main>
@@ -356,8 +422,13 @@
 
 	.login-form-wrap {
 		width: 100%;
-		max-width: 25rem;
+		max-width: 27rem;
 		min-width: 0;
+		padding: clamp(1.25rem, 3vw, 2rem);
+		border: 1px solid var(--border);
+		border-radius: calc(var(--radius) + 0.15rem);
+		background: var(--card);
+		box-shadow: 0 12px 36px rgb(0 0 0 / 0.055), 0 1px 2px rgb(0 0 0 / 0.035);
 	}
 
 	.login-heading {
@@ -392,6 +463,20 @@
 	.field-group {
 		display: grid;
 		gap: 0.5rem;
+	}
+
+	.dummy-login {
+		margin-top: 1.5rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--border);
+		display: grid;
+		gap: 0.9rem;
+	}
+
+	.dummy-login h3 {
+		margin: 0;
+		font-size: var(--type-sm);
+		font-weight: 600;
 	}
 
 	.password-field {
