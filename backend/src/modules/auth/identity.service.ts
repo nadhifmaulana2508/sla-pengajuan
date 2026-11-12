@@ -26,7 +26,7 @@ export type DummyUserOption = {
 function dummyAuthEnabled(): boolean {
 	if (!env.DUMMY_AUTH_ENABLED) return false;
 	if (env.NODE_ENV === 'development') return true;
-	return env.NODE_ENV === 'production' && /_staging$/i.test(env.DB_NAME);
+	return env.NODE_ENV === 'production' && (/^sla_pengajuan$/i.test(env.DB_NAME) || /_staging$/i.test(env.DB_NAME));
 }
 
 async function findDummyProfile(employeeId: string): Promise<SsoProfile | null> {
@@ -68,7 +68,7 @@ export async function listDummyUsers(): Promise<DummyUserOption[]> {
 
 export async function loginAsDummy(employeeId: string): Promise<{ token: string; profile: SsoProfile & { sla_access: Awaited<ReturnType<typeof resolveSlaAccess>> } }> {
 	if (!dummyAuthEnabled()) {
-		throw new SsoAuthError(401, 'Login akun uji hanya tersedia pada development atau staging yang mengaktifkannya.');
+		throw new SsoAuthError(401, 'Login akun uji hanya tersedia pada development atau UAT/staging yang mengaktifkannya.');
 	}
 
 	const profile = await findDummyProfile(employeeId);

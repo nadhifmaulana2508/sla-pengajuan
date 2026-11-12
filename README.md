@@ -155,7 +155,7 @@ Untuk mencoba seluruh role tanpa akun SSO, aktifkan `DUMMY_AUTH_ENABLED=true` di
 
     npm.cmd run db:seed-dummy-users
 
-Restart backend. Halaman login akan menampilkan pilihan akun uji untuk role Admin, Pengguna Cabang, Petugas Korwil, Penyetuju Korwil, Petugas Divisi Pusat, Supervisor, dan Manajemen. Sembilan akun Petugas Divisi tersedia, satu per divisi; semuanya diberi izin kelola form pada divisinya untuk mencoba menu tersebut. Akun ini memakai data sintetis tanpa password; aksesnya tetap diperiksa melalui assignment lokal. Pada server dengan `NODE_ENV=production`, login uji hanya diterima jika `DB_NAME` berakhiran `_staging`. Batasi akses staging ke VPN/IP tepercaya dan matikan kembali dengan `DUMMY_AUTH_ENABLED=false` setelah pengujian.
+Restart backend. Halaman login akan menampilkan pilihan akun uji untuk role Admin, Pengguna Cabang, Petugas Korwil, Penyetuju Korwil, Petugas Divisi Pusat, Supervisor, dan Manajemen. Sembilan akun Petugas Divisi tersedia, satu per divisi; semuanya diberi izin kelola form pada divisinya untuk mencoba menu tersebut. Akun ini memakai data sintetis tanpa password; aksesnya tetap diperiksa melalui assignment lokal. Selama UAT saat ini, backend `NODE_ENV=production` menerima login dummy hanya bila `DUMMY_AUTH_ENABLED=true` dan `DB_NAME=sla_pengajuan` atau nama database berakhiran `_staging`. Batasi akses aplikasi UAT ke VPN/IP tepercaya dan setel `DUMMY_AUTH_ENABLED=false` sebelum go-live.
 
 Isi SLA_INITIAL_ADMIN_EMPLOYEE_ID di backend/.env, kemudian jalankan sekali per database:
 

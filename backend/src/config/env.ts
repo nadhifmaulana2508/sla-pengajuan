@@ -25,11 +25,12 @@ const envSchema = z.object({
 	SLA_INITIAL_ADMIN_EMPLOYEE_ID: z.string().trim().default(''),
 	DUMMY_AUTH_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true')
 }).superRefine((config, context) => {
-	if (config.NODE_ENV === 'production' && config.DUMMY_AUTH_ENABLED && !/_staging$/i.test(config.DB_NAME)) {
+	const isUatDatabase = /^sla_pengajuan$/i.test(config.DB_NAME) || /_staging$/i.test(config.DB_NAME);
+	if (config.NODE_ENV === 'production' && config.DUMMY_AUTH_ENABLED && !isUatDatabase) {
 		context.addIssue({
 			code: 'custom',
 			path: ['DUMMY_AUTH_ENABLED'],
-			message: 'Dummy authentication in production is only allowed for staging databases ending in _staging.'
+			message: 'Dummy authentication in production is only allowed for sla_pengajuan during UAT or databases ending in _staging.'
 		});
 	}
 });

@@ -22,6 +22,7 @@ Daftar awal sembilan Divisi Pusat sudah dicatat. Aturan bisnis yang belum disahk
 | Frontend | SvelteKit sebagai aplikasi frontend terpisah |
 | UI | shadcn-svelte dan Tailwind CSS, dengan gaya admin yang bersih dan padat |
 | Database | MySQL |
+| Lingkungan database | Selama UAT, aplikasi memakai database `sla_pengajuan`. Setelah UAT disetujui, sediakan server database development dan production terpisah; development tidak lagi memakai database MySQL lokal. |
 | Login | SSO perusahaan melalui API yang diberikan; app code `simpeg` dipakai sementara |
 | Hak akses organisasi | Admin menetapkan role/status. Scope Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO, bukan pilihan scope manual |
 | Struktur organisasi | 28 Cabang, 4 Korwil, dan 9 Divisi Pusat |
@@ -453,7 +454,7 @@ Kanal email atau pesan eksternal ditentukan setelah kebutuhan dan akses organisa
 - Payload pengajuan divalidasi dengan skema Zod yang ketat; query SQL menggunakan parameter binding untuk semua nilai dari pengguna.
 - Lampiran surat InOffice memeriksa ekstensi PDF, MIME, dan signature `%PDF-` serta dibatasi 10 MB. File disimpan di `PRIVATE_UPLOAD_DIR`, tidak disajikan sebagai file publik, dan setiap unduhan memeriksa scope tiket. Retensi, backup, pemulihan, logging, dan monitoring perlu ditetapkan sebelum produksi.
 - Target kinerja dan ketersediaan ditetapkan oleh tim IT sesuai infrastruktur yang dipilih.
-- Akun sintetis untuk mencoba seluruh role tersedia pada development dan staging privat melalui `DUMMY_AUTH_ENABLED=true`. Akun tersebut ditandai dalam `dummy_users`, memakai data profil tanpa password, dan tetap diperiksa dengan assignment role/scope MySQL. Pada staging yang memakai `NODE_ENV=production`, backend hanya mengizinkan login dummy bila database terpisah berakhiran `_staging`; akses situs staging harus dibatasi ke VPN/IP tepercaya. Database production asli harus menolak autentikasi dummy dan tidak boleh ditimpa fixture development.
+- Akun sintetis untuk mencoba seluruh role tersedia melalui `DUMMY_AUTH_ENABLED=true`; akun tersebut ditandai dalam `dummy_users`, memakai data profil tanpa password, dan tetap diperiksa dengan assignment role/scope MySQL. Selama UAT, environment `NODE_ENV=production` boleh memakai login dummy hanya jika nama database tepat `sla_pengajuan` atau berakhiran `_staging`; akses aplikasi UAT dibatasi ke VPN/IP tepercaya. Sebelum go-live, matikan `DUMMY_AUTH_ENABLED` dan gunakan server database development serta production terpisah. Fixture development tidak boleh ditimpa ke database production final.
 
 ## 13. Model data konseptual
 
@@ -467,7 +468,7 @@ Tabel atau entitas awal:
 - `work_catalog_form_versions`: versi definisi field dan pengaturan kelompok berulang yang diterbitkan untuk katalog pekerjaan; versi lama tidak ditimpa.
 - `user_role_scopes`: role, scope organisasi, status assignment, dan izin opsional untuk mengelola form Divisi.
 - `users`: akun, peran, kode Cabang atau unit, serta status aktif.
-- `dummy_users`: allowlist akun sintetis untuk autentikasi development saja; bukan sumber role atau scope.
+- `dummy_users`: allowlist akun sintetis untuk autentikasi development dan UAT yang diaktifkan; bukan sumber role atau scope.
 - `service_requests`: data utama pengajuan, pemilik tindakan saat ini, versi form yang dipakai, jawaban snapshot, nominal kredit jika ada, dan metadata nomor/tanggal surat InOffice.
 - `request_sla_sessions`: seluruh sesi timer per unit.
 - `request_status_histories`: perubahan status dan tahap.
@@ -499,7 +500,7 @@ Pengajuan 1 --- banyak Komentar dan Lampiran
 | Frontend | SvelteKit dan TypeScript | Menangani form, antrean, dashboard, timeline, dan state UI |
 | UI | shadcn-svelte dan Tailwind CSS | Dipakai untuk komponen admin yang konsisten dan mudah dirawat |
 | Database | MySQL | Menyimpan data transaksi, master, histori, dan konfigurasi |
-| Auth | SSO perusahaan dengan bearer token | Frontend menyimpan token di `sessionStorage` per-tab agar bertahan saat reload, mengirimkannya melalui header Authorization, dan menghapusnya saat logout atau token ditolak; Express memvalidasi token dengan `whoami` dan memeriksa akses lokal pada endpoint terlindungi. Auth dummy lokal development dapat dipakai untuk UAT role, dinonaktifkan secara default, dan tidak boleh aktif pada production |
+| Auth | SSO perusahaan dengan bearer token | Frontend menyimpan token di `sessionStorage` per-tab agar bertahan saat reload, mengirimkannya melalui header Authorization, dan menghapusnya saat logout atau token ditolak; Express memvalidasi token dengan `whoami` dan memeriksa akses lokal pada endpoint terlindungi. Auth dummy dinonaktifkan secara default; selama UAT boleh diaktifkan eksplisit pada `sla_pengajuan` atau database `_staging`, lalu harus dinonaktifkan sebelum go-live |
 | Queue | Belum diperlukan untuk alur dasar MVP | Notifikasi terjadwal dapat ditambahkan setelah kebutuhan dan beban diketahui |
 | Storage | Storage privat yang disetujui organisasi | Lampiran tidak disimpan sebagai file publik |
 | API | Prefix `/api/v1` | Menjaga ruang untuk perubahan API berikutnya |
