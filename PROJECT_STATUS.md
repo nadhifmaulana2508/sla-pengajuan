@@ -2,7 +2,7 @@
 
 Terakhir diperbarui: 12 November 2026
 
-**Seeder database development dan sinkronisasi aaPanel (12 November 2026):** `db:export:dev-seed` membuat fixture 19 tabel/350 baris dan menyertakan lampiran privat; profil pengguna yang tidak ditandai dummy dianonimkan. `db:sync:dev` meng-upgrade schema lalu mereset serta mengisi ulang DB lokal dari fixture; berhasil dua kali, dengan lampiran tersalin. Backend `npm.cmd run check` lulus. Langkah aaPanel tercatat di `docs/DATABASE_STAGING.md`; staging server belum disinkronkan.
+**Replacement fixture database staging aaPanel (12 November 2026):** `db:replace:prod` menjalankan migrasi lalu mengganti semua tabel dan lampiran staging dari fixture lokal. Runner membatasi target ke nama database berakhiran `_staging` dan memeriksa kecocokan daftar tabel/kolom sebelum reset. Fixture berisi 19 tabel/350 baris; profil yang tidak ditandai dummy dianonimkan. Backend `npm.cmd run check` lulus. Server aaPanel belum disinkronkan.
 
 **Rentang default Dashboard Manajemen dan ringkasan Divisi (12 November 2026):** Dashboard global dan Pemantauan Tiket memakai tanggal 60 hari terakhir termasuk hari ini sebagai rentang awal; Reset juga mengembalikan periode tersebut, sementara tanggal yang lebih lama tetap bisa dipilih manual. Baris Divisi dengan hitungan nol disembunyikan agar kartu breakdown lebih ringkas. Frontend `npm.cmd run check` lulus 0 error/0 warning; tidak ada perubahan API, backend, migrasi, atau data.
 

@@ -149,7 +149,7 @@ Untuk jaringan lokal yang memerlukan pin koneksi, isi SSO_CONNECT_IP=10.0.2.2. H
 
 Perintah `db:upgrade` menerapkan migrasi yang belum berjalan lalu memasukkan seed kantor dasar (29 kantor: kode 001 sampai 028 untuk Cabang dan kode 000 untuk Pusat). Aman diulang pada database aplikasi yang sudah dibuat; tidak menghapus atau menyalin tiket, pengguna, assignment, maupun lampiran.
 
-Untuk menyamakan database staging dengan data dummy lokal, jalankan `npm.cmd run db:export:dev-seed`, commit file fixture, lalu di aaPanel gunakan `npm run db:sync:dev` sesuai [panduan sinkronisasi staging](docs/DATABASE_STAGING.md). Jangan jalankan seed development di production.
+Untuk mengganti seluruh data database staging dengan fixture lokal, jalankan `npm.cmd run db:export:dev-seed`, commit file fixture, lalu di aaPanel gunakan `npm run db:replace:prod` sesuai [panduan sinkronisasi staging](docs/DATABASE_STAGING.md). Command hanya menerima DB dengan akhiran `_staging`; jangan arahkan ke production.
 
 Untuk mencoba seluruh role tanpa akun SSO, aktifkan `DUMMY_AUTH_ENABLED=true` di `backend/.env` dengan `NODE_ENV=development`, lalu jalankan:
 

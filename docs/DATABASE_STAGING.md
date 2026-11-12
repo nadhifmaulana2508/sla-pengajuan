@@ -1,6 +1,6 @@
 # Sinkronkan data development dengan aaPanel
 
-Database development lokal menjadi sumber data untuk staging privat. Snapshot berisi seluruh tabel bisnis development dan lampiran privat. `db:sync:dev` mengosongkan tabel staging lalu mengisi ulang snapshot; jalankan hanya untuk staging dengan data uji, jangan untuk production.
+Database development lokal menjadi sumber data untuk staging privat. Snapshot berisi seluruh tabel development dan lampiran privat; tabel `schema_migrations` tidak disalin karena riwayat migrasi mengikuti kode yang dipasang.
 
 ## 1. Perbarui snapshot dari lokal
 
@@ -31,7 +31,7 @@ mysqldump --single-transaction --routines --triggers --hex-blob --host=127.0.0.1
 
 ## 3. Pull dan seed di aaPanel
 
-Pastikan `backend/.env` staging memakai database terpisah dengan nama berakhiran `_staging`, `NODE_ENV=development`, `DUMMY_AUTH_ENABLED=true`, dan `PRIVATE_UPLOAD_DIR` mengarah ke folder privat khusus, misalnya `/www/private/sla-pengajuan/uploads`. Batasi akses staging ke VPN/IP tepercaya.
+Pastikan `backend/.env` aaPanel memakai database staging terpisah dengan nama berakhiran `_staging`, dan `PRIVATE_UPLOAD_DIR` mengarah ke folder privat khusus, misalnya `/www/private/sla-pengajuan/uploads`. Command replacement dapat dijalankan saat `NODE_ENV=development` atau `production`; pada `production`, `DUMMY_AUTH_ENABLED` harus tetap `false`. Untuk login akun dummy, gunakan `NODE_ENV=development` dan `DUMMY_AUTH_ENABLED=true` hanya pada staging yang dibatasi ke VPN/IP tepercaya.
 
 Setelah itu jalankan:
 
@@ -43,7 +43,7 @@ git pull --ff-only origin main
 
 cd backend
 npm ci
-npm run db:sync:dev
+npm run db:replace:prod
 npm run build
 
 cd ../frontend
@@ -51,10 +51,10 @@ npm ci
 npm run build
 ```
 
-`db:sync:dev` menjalankan migrasi dan seed kantor, lalu mengisi ulang seluruh tabel dari snapshot. Setelah build berhasil, restart backend dan frontend lewat aaPanel/PM2. Periksa login dummy, dashboard, detail tiket, dan lampiran.
+`db:replace:prod` menjalankan migrasi dan seed kantor, lalu mengganti seluruh tabel dari snapshot. Perintah ini hanya menerima database dengan nama berakhiran `_staging`, memastikan daftar tabel dan kolom cocok sebelum menghapus data, serta menyalin ulang lampiran privat. Nama command tidak berarti database production boleh ditimpa. Setelah build berhasil, restart backend dan frontend lewat aaPanel/PM2. Periksa dashboard, detail tiket, dan lampiran.
 
 ## 4. Pull code tanpa reset data
 
-Jika ingin mempertahankan perubahan uji yang dibuat langsung di staging, jangan jalankan `db:sync:dev`. Pull code, lalu jalankan `npm run db:upgrade` untuk menerapkan migrasi/seed acuan saja sebelum build.
+Jika ingin mempertahankan perubahan uji yang dibuat langsung di staging, jangan jalankan `db:replace:prod`. Pull code, lalu jalankan `npm run db:upgrade` untuk menerapkan migrasi/seed acuan saja sebelum build.
 
-Jangan aktifkan `DUMMY_AUTH_ENABLED` pada production. `db:seed:dev` menolak production, host remote non-staging, dan database yang tidak memakai akhiran `_staging`.
+Jangan aktifkan `DUMMY_AUTH_ENABLED` pada production. `db:replace:prod` menolak database yang tidak memakai akhiran `_staging`; command tersebut mengganti semua data aplikasi staging dengan snapshot lokal.

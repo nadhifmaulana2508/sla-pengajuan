@@ -8,6 +8,7 @@ import { mysqlPool } from './client.js';
 const snapshotUrl = new URL('./dev-seeders/local-snapshot.json', import.meta.url);
 const fixtureUploads = fileURLToPath(new URL('./dev-seeders/private-uploads/', import.meta.url));
 const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
+const replaceStaging = process.argv.includes('--replace-staging');
 
 type Snapshot = { version: number; tables: Record<string, { rows: Array<Record<string, unknown>> }> };
 
@@ -26,9 +27,16 @@ function quoteIdentifier(value: string): string {
 	return `\`${value.replace(/`/g, '``')}\``;
 }
 
-async function runDevelopmentSeed(): Promise<void> {
-	if (env.NODE_ENV !== 'development' || !env.DUMMY_AUTH_ENABLED) {
-		throw new Error('Seed development hanya boleh dijalankan dengan NODE_ENV=development dan DUMMY_AUTH_ENABLED=true.');
+async function runSnapshotSeed(): Promise<void> {
+	if (replaceStaging) {
+		if (env.NODE_ENV === 'test') {
+			throw new Error('db:replace:prod tidak boleh dijalankan pada NODE_ENV=test.');
+		}
+		if (!/_staging$/i.test(env.DB_NAME)) {
+			throw new Error('db:replace:prod hanya boleh dijalankan pada database staging dengan nama berakhiran _staging.');
+		}
+	} else if (env.NODE_ENV !== 'development' || !env.DUMMY_AUTH_ENABLED) {
+		throw new Error('Seed development hanya boleh dijalankan pada development dengan DUMMY_AUTH_ENABLED=true.');
 	}
 	const localDatabase = localHosts.has(env.DB_HOST.toLowerCase());
 	if (!localDatabase && !/_staging$/i.test(env.DB_NAME)) {
@@ -48,20 +56,58 @@ async function runDevelopmentSeed(): Promise<void> {
 			.filter((row) => Object.values(row).includes('BASE TABLE'))
 			.map((row) => String(Object.entries(row).find(([key]) => key.toLowerCase() !== 'table_type')?.[1] ?? '')));
 		const seedTables = Object.keys(snapshot.tables);
-		for (const table of seedTables) {
-			if (!availableTables.has(table)) throw new Error(`Tabel seed ${table} belum ada. Jalankan db:upgrade terlebih dahulu.`);
+		const databaseTables = [...availableTables].filter((table) => table !== 'schema_migrations');
+		if (seedTables.includes('schema_migrations')) {
+			throw new Error('Fixture tidak boleh mengganti tabel riwayat migrasi schema_migrations.');
+		}
+		const missingFromSnapshot = databaseTables.filter((table) => !Object.hasOwn(snapshot.tables, table));
+		const missingFromDatabase = seedTables.filter((table) => !availableTables.has(table));
+		if (missingFromSnapshot.length || missingFromDatabase.length) {
+			throw new Error(
+				'Daftar tabel fixture dan database berbeda. Tidak ada tabel yang diubah. ' +
+				'Kurang di fixture: ' + (missingFromSnapshot.join(', ') || '-') +
+				'; tidak ada di database: ' + (missingFromDatabase.join(', ') || '-') + '.'
+			);
+		}
+
+		const generatedColumnsByTable = new Map<string, Set<string>>();
+		for (const table of databaseTables) {
+			const rows = snapshot.tables[table]?.rows ?? [];
+			if (!rows.length) continue;
+			const fixtureColumns = new Set(Object.keys(rows[0] ?? {}));
+			const [columnRows] = await connection.query<Array<RowDataPacket & { Field: string; Null: string; Default: unknown; Extra: string }>>(
+				`SHOW COLUMNS FROM ${quoteIdentifier(table)}`
+			);
+			const databaseColumns = new Set(columnRows.map((column) => column.Field));
+			const unknownFixtureColumns = [...fixtureColumns].filter((column) => !databaseColumns.has(column));
+			const generatedColumns = new Set(columnRows
+				.filter((column) => /generated/i.test(column.Extra))
+				.map((column) => column.Field));
+			generatedColumnsByTable.set(table, generatedColumns);
+			const columnsMissingFromFixture = columnRows
+				.filter((column) => !generatedColumns.has(column.Field))
+				.filter((column) => !fixtureColumns.has(column.Field))
+				.map((column) => column.Field);
+			if (unknownFixtureColumns.length || columnsMissingFromFixture.length) {
+				throw new Error(
+					'Kolom fixture tidak cocok pada tabel ' + table + '. Tidak ada tabel yang diubah. ' +
+					'Kolom fixture tidak dikenal: ' + (unknownFixtureColumns.join(', ') || '-') +
+					'; kolom database tidak ada di fixture: ' + (columnsMissingFromFixture.join(', ') || '-') + '.'
+				);
+			}
 		}
 
 		await connection.query('SET FOREIGN_KEY_CHECKS = 0');
-		for (const table of availableTables) {
-			if (table !== 'schema_migrations') await connection.query(`TRUNCATE TABLE ${quoteIdentifier(table)}`);
+		for (const table of databaseTables) {
+			await connection.query(`TRUNCATE TABLE ${quoteIdentifier(table)}`);
 		}
 
 		let insertedRows = 0;
 		for (const table of seedTables) {
 			const rows = snapshot.tables[table]?.rows ?? [];
 			if (!rows.length) continue;
-			const columns = Object.keys(rows[0] ?? {});
+			const generatedColumns = generatedColumnsByTable.get(table) ?? new Set<string>();
+			const columns = Object.keys(rows[0] ?? {}).filter((column) => !generatedColumns.has(column));
 			if (!columns.length) continue;
 			const batchSize = Math.max(1, Math.floor(8000 / columns.length));
 			for (let offset = 0; offset < rows.length; offset += batchSize) {
@@ -80,14 +126,15 @@ async function runDevelopmentSeed(): Promise<void> {
 		for (const entry of await readdir(fixtureUploads, { withFileTypes: true }).catch(() => [])) {
 			await cp(resolve(fixtureUploads, entry.name), resolve(uploadTarget, entry.name), { recursive: true, force: true });
 		}
-		console.log(`Seed development siap: ${seedTables.length} tabel, ${insertedRows} baris, lampiran fixture disalin.`);
+		const action = replaceStaging ? 'Penggantian staging' : 'Seed development';
+		console.log(`${action} siap: ${seedTables.length} tabel, ${insertedRows} baris, lampiran fixture disalin.`);
 	} finally {
 		connection.release();
 		await mysqlPool.end();
 	}
 }
 
-runDevelopmentSeed().catch((error: unknown) => {
-	console.error('Seed development gagal:', error instanceof Error ? error.message : 'kesalahan tidak diketahui');
+runSnapshotSeed().catch((error: unknown) => {
+	console.error('Seed database gagal:', error instanceof Error ? error.message : 'kesalahan tidak diketahui');
 	process.exitCode = 1;
 });
