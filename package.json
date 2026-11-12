@@ -1,0 +1,7 @@
+{
+	"name": "sla-pengajuan",
+	"private": true,
+	"scripts": {
+		"prod": "npm run build --prefix backend && npm run build --prefix frontend"
+	}
+}

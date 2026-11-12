@@ -276,17 +276,15 @@ git fetch origin
 git checkout main
 git pull --ff-only origin main
 
-cd backend
-npm ci
-npm run db:upgrade
-npm run build
+npm ci --prefix backend
+npm ci --prefix frontend
+npm run db:upgrade --prefix backend
+npm run prod
 
-cd ../frontend
-npm ci
-npm run build
+git rev-parse --short HEAD
 ```
 
-Restart kedua project dari aaPanel/PM2 setelah build selesai. Backup database dilakukan sebelum migrasi yang mengubah schema. Migrations pada repository tidak memiliki rollback otomatis, sehingga rollback release dan rollback data harus diperlakukan sebagai dua langkah terpisah.
+Perintah `npm run prod` dari root repository membangun backend lalu frontend, dan berhenti jika salah satu build gagal. Verifikasi commit hasil pull dengan `git rev-parse --short HEAD`. Restart kedua project dari aaPanel/PM2 setelah build selesai. Backup database dilakukan sebelum migrasi yang mengubah schema. Migrations pada repository tidak memiliki rollback otomatis, sehingga rollback release dan rollback data harus diperlakukan sebagai dua langkah terpisah.
 
 Untuk pull dan mengganti seluruh data staging dengan fixture database lokal selama development, ikuti [panduan sinkronisasi staging](DATABASE_STAGING.md). Release rutin cukup memakai `npm run db:upgrade`; jangan jalankan `db:replace:prod` pada database production.
 
