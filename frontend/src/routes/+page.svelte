@@ -244,9 +244,9 @@
 						>
 							{isSubmitting ? 'Membuka akun uji...' : 'Masuk sebagai akun uji'}
 						</Button>
-						<p class="form-note">Akun sintetis hanya tersedia pada development atau staging privat.</p>
+						<p class="form-note">Akun sintetis tersedia selama UAT pada lingkungan yang telah diaktifkan.</p>
 					{:else}
-						<p class="form-note">Belum ada akun uji. Jalankan seed di development atau ganti data staging dengan fixture lokal.</p>
+						<p class="form-note">Belum ada akun uji. Jalankan `db:seed-dummy-users` pada backend UAT.</p>
 					{/if}
 				</section>
 			{/if}

@@ -2,7 +2,7 @@
 
 Terakhir diperbarui: 12 November 2026
 
-**Login dummy sementara untuk UAT pada `sla_pengajuan` (12 November 2026):** backend mode production mengizinkan login dummy hanya dengan `DUMMY_AUTH_ENABLED=true` dan `DB_NAME=sla_pengajuan` atau database berakhiran `_staging`; akun dummy tetap harus ada di database. PRD, README, dan panduan deployment mencatat bahwa `sla_pengajuan` saat ini dipakai untuk UAT, lalu server database development dan production akan dipisah setelah UAT disetujui, tanpa MySQL lokal untuk development. Backend production build dan frontend production build lulus. Konfigurasi aaPanel, seed akun dummy, serta restart server belum dilakukan; `db:replace:prod` tidak boleh dijalankan terhadap `sla_pengajuan`.
+**Login dummy sementara untuk UAT pada `sla_pengajuan` (12 November 2026):** backend mode production mengizinkan login dummy hanya dengan `DUMMY_AUTH_ENABLED=true` dan `DB_NAME=sla_pengajuan` atau database berakhiran `_staging`; akun dummy tetap harus ada di database. Petunjuk UI, PRD, README, dan panduan deployment diselaraskan. `npm run prod` lulus; konfigurasi aaPanel, seed akun dummy, serta restart server belum dilakukan. Endpoint publik health merespons 200 tetapi `/api/v1/auth/dummy-users` merespons 404, sehingga frontend menyembunyikan bagian akun uji sampai backend mengaktifkan route tersebut. `db:replace:prod` tidak boleh dijalankan terhadap `sla_pengajuan`.
 
 **Build produksi backend dan frontend dari root repository (12 November 2026):** `npm run prod` menjalankan build backend lalu frontend secara berurutan dan berhenti bila satu build gagal. Runbook aaPanel memakai instalasi dependency per aplikasi dan migrasi terpisah sebelum build gabungan. Belum ada perubahan runtime atau database.
 
