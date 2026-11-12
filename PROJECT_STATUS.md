@@ -2,6 +2,10 @@
 
 Terakhir diperbarui: 12 November 2026
 
+**Build produksi backend dan frontend dari root repository (12 November 2026):** `npm run prod` menjalankan build backend lalu frontend secara berurutan dan berhenti bila satu build gagal. Runbook aaPanel memakai instalasi dependency per aplikasi dan migrasi terpisah sebelum build gabungan. Belum ada perubahan runtime atau database.
+
+**Login akun uji pada staging aaPanel (12 November 2026):** halaman login menampilkan daftar akun uji pada staging yang menjalankan `NODE_ENV=production` bila `DUMMY_AUTH_ENABLED=true` dan database berakhiran `_staging`. Database production asli tetap menolak login dummy. Akses staging perlu dibatasi ke VPN/IP tepercaya dan flag dimatikan setelah pengujian. Backend dan frontend `npm.cmd run check` lulus; konfigurasi server belum diubah.
+
 **Replacement fixture database staging aaPanel (12 November 2026):** `db:replace:prod` menjalankan migrasi lalu mengganti semua tabel dan lampiran staging dari fixture lokal. Runner membatasi target ke nama database berakhiran `_staging` dan memeriksa kecocokan daftar tabel/kolom sebelum reset. Fixture berisi 19 tabel/350 baris; profil yang tidak ditandai dummy dianonimkan. Backend `npm.cmd run check` lulus. Server aaPanel belum disinkronkan.
 
 **Rentang default Dashboard Manajemen dan ringkasan Divisi (12 November 2026):** Dashboard global dan Pemantauan Tiket memakai tanggal 60 hari terakhir termasuk hari ini sebagai rentang awal; Reset juga mengembalikan periode tersebut, sementara tanggal yang lebih lama tetap bisa dipilih manual. Baris Divisi dengan hitungan nol disembunyikan agar kartu breakdown lebih ringkas. Frontend `npm.cmd run check` lulus 0 error/0 warning; tidak ada perubahan API, backend, migrasi, atau data.

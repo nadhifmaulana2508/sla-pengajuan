@@ -149,13 +149,13 @@ Untuk jaringan lokal yang memerlukan pin koneksi, isi SSO_CONNECT_IP=10.0.2.2. H
 
 Perintah `db:upgrade` menerapkan migrasi yang belum berjalan lalu memasukkan seed kantor dasar (29 kantor: kode 001 sampai 028 untuk Cabang dan kode 000 untuk Pusat). Aman diulang pada database aplikasi yang sudah dibuat; tidak menghapus atau menyalin tiket, pengguna, assignment, maupun lampiran.
 
-Untuk mengganti seluruh data database staging dengan fixture lokal, jalankan `npm.cmd run db:export:dev-seed`, commit file fixture, lalu di aaPanel gunakan `npm run db:replace:prod` sesuai [panduan sinkronisasi staging](docs/DATABASE_STAGING.md). Command hanya menerima DB dengan akhiran `_staging`; jangan arahkan ke production.
+Untuk mengganti seluruh data database staging dengan fixture lokal, jalankan `npm.cmd run db:export:dev-seed`, commit file fixture, lalu di aaPanel gunakan `npm run db:replace:prod` sesuai [panduan sinkronisasi staging](docs/DATABASE_STAGING.md). Command hanya menerima DB dengan akhiran `_staging`; jangan arahkan ke database production.
 
-Untuk mencoba seluruh role tanpa akun SSO, aktifkan `DUMMY_AUTH_ENABLED=true` di `backend/.env` dengan `NODE_ENV=development`, lalu jalankan:
+Untuk mencoba seluruh role tanpa akun SSO, aktifkan `DUMMY_AUTH_ENABLED=true` di development, lalu jalankan:
 
     npm.cmd run db:seed-dummy-users
 
-Restart backend. Halaman login akan menampilkan pilihan akun uji untuk role Admin, Pengguna Cabang, Petugas Korwil, Penyetuju Korwil, Petugas Divisi Pusat, Supervisor, dan Manajemen. Sembilan akun Petugas Divisi tersedia, satu per divisi; semuanya diberi izin kelola form pada divisinya untuk mencoba menu tersebut. Akun ini memakai data sintetis tanpa password; aksesnya tetap diperiksa melalui assignment lokal. Seed ditolak selain pada mode development, dan backend menolak konfigurasi dummy auth di production. Matikan kembali dengan `DUMMY_AUTH_ENABLED=false` jika pengujian selesai.
+Restart backend. Halaman login akan menampilkan pilihan akun uji untuk role Admin, Pengguna Cabang, Petugas Korwil, Penyetuju Korwil, Petugas Divisi Pusat, Supervisor, dan Manajemen. Sembilan akun Petugas Divisi tersedia, satu per divisi; semuanya diberi izin kelola form pada divisinya untuk mencoba menu tersebut. Akun ini memakai data sintetis tanpa password; aksesnya tetap diperiksa melalui assignment lokal. Pada server dengan `NODE_ENV=production`, login uji hanya diterima jika `DB_NAME` berakhiran `_staging`. Batasi akses staging ke VPN/IP tepercaya dan matikan kembali dengan `DUMMY_AUTH_ENABLED=false` setelah pengujian.
 
 Isi SLA_INITIAL_ADMIN_EMPLOYEE_ID di backend/.env, kemudian jalankan sekali per database:
 

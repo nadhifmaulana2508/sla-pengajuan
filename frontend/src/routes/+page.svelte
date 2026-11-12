@@ -219,7 +219,7 @@
 
 			{#if dummyUsers !== null}
 				<section class="dummy-login" aria-labelledby="dummy-login-title">
-					<h3 id="dummy-login-title">Pengujian lokal</h3>
+					<h3 id="dummy-login-title">Pengujian akun</h3>
 					{#if dummyUsers.length > 0}
 						<div class="field-group">
 							<Label for="dummy-user">Akun dan role</Label>
@@ -244,9 +244,9 @@
 						>
 							{isSubmitting ? 'Membuka akun uji...' : 'Masuk sebagai akun uji'}
 						</Button>
-						<p class="form-note">Akun sintetis untuk backend development; tidak tersedia di production.</p>
+						<p class="form-note">Akun sintetis hanya tersedia pada development atau staging privat.</p>
 					{:else}
-						<p class="form-note">Belum ada akun dummy. Jalankan seed akun dummy pada backend lokal.</p>
+						<p class="form-note">Belum ada akun uji. Jalankan seed di development atau ganti data staging dengan fixture lokal.</p>
 					{/if}
 				</section>
 			{/if}

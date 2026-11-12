@@ -31,7 +31,17 @@ mysqldump --single-transaction --routines --triggers --hex-blob --host=127.0.0.1
 
 ## 3. Pull dan seed di aaPanel
 
-Pastikan `backend/.env` aaPanel memakai database staging terpisah dengan nama berakhiran `_staging`, dan `PRIVATE_UPLOAD_DIR` mengarah ke folder privat khusus, misalnya `/www/private/sla-pengajuan/uploads`. Command replacement dapat dijalankan saat `NODE_ENV=development` atau `production`; pada `production`, `DUMMY_AUTH_ENABLED` harus tetap `false`. Untuk login akun dummy, gunakan `NODE_ENV=development` dan `DUMMY_AUTH_ENABLED=true` hanya pada staging yang dibatasi ke VPN/IP tepercaya.
+Pastikan `backend/.env` aaPanel memakai database staging terpisah dengan nama berakhiran `_staging`, dan `PRIVATE_UPLOAD_DIR` mengarah ke folder privat khusus, misalnya `/www/private/sla-pengajuan/uploads`. Batasi situs staging ke VPN/IP tepercaya sebelum mengaktifkan login akun uji. Pada staging, akun uji dapat digunakan dengan `DUMMY_AUTH_ENABLED=true` di `NODE_ENV=development` atau `NODE_ENV=production`; konfigurasi production hanya diterima bila nama database berakhiran `_staging`. Database production asli tetap harus memakai `DUMMY_AUTH_ENABLED=false`.
+
+Untuk staging yang memakai mode production di aaPanel, setel:
+
+```dotenv
+NODE_ENV=production
+DB_NAME=sla_pengajuan_staging
+DUMMY_AUTH_ENABLED=true
+```
+
+Simpan pengaturan tersebut di environment backend aaPanel atau `backend/.env`, lalu restart backend. Setelah uji selesai, ubah `DUMMY_AUTH_ENABLED=false` dan restart lagi.
 
 Setelah itu jalankan:
 
@@ -57,4 +67,4 @@ npm run build
 
 Jika ingin mempertahankan perubahan uji yang dibuat langsung di staging, jangan jalankan `db:replace:prod`. Pull code, lalu jalankan `npm run db:upgrade` untuk menerapkan migrasi/seed acuan saja sebelum build.
 
-Jangan aktifkan `DUMMY_AUTH_ENABLED` pada production. `db:replace:prod` menolak database yang tidak memakai akhiran `_staging`; command tersebut mengganti semua data aplikasi staging dengan snapshot lokal.
+Jangan aktifkan `DUMMY_AUTH_ENABLED` pada database production. Pada staging, setel kembali ke `false` setelah pengujian selesai. `db:replace:prod` menolak database yang tidak memakai akhiran `_staging`; command tersebut mengganti semua data aplikasi staging dengan snapshot lokal.

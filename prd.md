@@ -453,7 +453,7 @@ Kanal email atau pesan eksternal ditentukan setelah kebutuhan dan akses organisa
 - Payload pengajuan divalidasi dengan skema Zod yang ketat; query SQL menggunakan parameter binding untuk semua nilai dari pengguna.
 - Lampiran surat InOffice memeriksa ekstensi PDF, MIME, dan signature `%PDF-` serta dibatasi 10 MB. File disimpan di `PRIVATE_UPLOAD_DIR`, tidak disajikan sebagai file publik, dan setiap unduhan memeriksa scope tiket. Retensi, backup, pemulihan, logging, dan monitoring perlu ditetapkan sebelum produksi.
 - Target kinerja dan ketersediaan ditetapkan oleh tim IT sesuai infrastruktur yang dipilih.
-- Akun sintetis untuk mencoba seluruh role tersedia pada development dan staging privat melalui `DUMMY_AUTH_ENABLED=true` dengan `NODE_ENV=development`. Akun tersebut ditandai dalam `dummy_users`, memakai data profil tanpa password, dan tetap diperiksa dengan assignment role/scope MySQL. Replacement fixture hanya boleh menyasar database staging terpisah bernama dengan akhiran `_staging`; backend tetap harus menolak konfigurasi autentikasi dummy pada production dan database production tidak boleh ditimpa fixture development.
+- Akun sintetis untuk mencoba seluruh role tersedia pada development dan staging privat melalui `DUMMY_AUTH_ENABLED=true`. Akun tersebut ditandai dalam `dummy_users`, memakai data profil tanpa password, dan tetap diperiksa dengan assignment role/scope MySQL. Pada staging yang memakai `NODE_ENV=production`, backend hanya mengizinkan login dummy bila database terpisah berakhiran `_staging`; akses situs staging harus dibatasi ke VPN/IP tepercaya. Database production asli harus menolak autentikasi dummy dan tidak boleh ditimpa fixture development.
 
 ## 13. Model data konseptual
 

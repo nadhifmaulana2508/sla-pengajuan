@@ -24,7 +24,9 @@ export type DummyUserOption = {
 };
 
 function dummyAuthEnabled(): boolean {
-	return env.NODE_ENV === 'development' && env.DUMMY_AUTH_ENABLED;
+	if (!env.DUMMY_AUTH_ENABLED) return false;
+	if (env.NODE_ENV === 'development') return true;
+	return env.NODE_ENV === 'production' && /_staging$/i.test(env.DB_NAME);
 }
 
 async function findDummyProfile(employeeId: string): Promise<SsoProfile | null> {
@@ -66,7 +68,7 @@ export async function listDummyUsers(): Promise<DummyUserOption[]> {
 
 export async function loginAsDummy(employeeId: string): Promise<{ token: string; profile: SsoProfile & { sla_access: Awaited<ReturnType<typeof resolveSlaAccess>> } }> {
 	if (!dummyAuthEnabled()) {
-		throw new SsoAuthError(401, 'Login akun dummy hanya tersedia pada backend development yang mengaktifkannya.');
+		throw new SsoAuthError(401, 'Login akun uji hanya tersedia pada development atau staging yang mengaktifkannya.');
 	}
 
 	const profile = await findDummyProfile(employeeId);
@@ -90,7 +92,7 @@ export async function loginWithSso(idPeg: string, password: string): Promise<{ t
 export async function resolveBearerIdentity(token: string): Promise<SsoProfile> {
 	if (token.startsWith(DUMMY_TOKEN_PREFIX)) {
 		if (!dummyAuthEnabled()) {
-			throw new SsoAuthError(401, 'Sesi akun dummy tidak tersedia pada lingkungan ini.');
+			throw new SsoAuthError(401, 'Sesi akun uji tidak tersedia pada lingkungan ini.');
 		}
 		const employeeId = token.slice(DUMMY_TOKEN_PREFIX.length);
 		const profile = await findDummyProfile(employeeId);
