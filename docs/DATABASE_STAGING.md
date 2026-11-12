@@ -1,54 +1,60 @@
-# Menyamakan database lokal dan staging
+# Sinkronkan data development dengan aaPanel
 
-Database lokal dan server tidak perlu berisi tiket yang sama untuk menjalankan versi aplikasi yang sama. Gunakan migrasi untuk menyamakan struktur, seed untuk data acuan awal, dan dump satu kali hanya saat membuat staging dari snapshot lokal.
+Database development lokal menjadi sumber data untuk staging privat. Snapshot berisi seluruh tabel bisnis development dan lampiran privat. `db:sync:dev` mengosongkan tabel staging lalu mengisi ulang snapshot; jalankan hanya untuk staging dengan data uji, jangan untuk production.
 
-## Update schema dan seed dasar
+## 1. Perbarui snapshot dari lokal
 
-Di folder backend, jalankan:
-
-```bash
-npm ci
-npm run db:upgrade
-```
-
-`db:upgrade` menjalankan migrasi yang belum diterapkan dan seed kantor dasar. Divisi, role, katalog awal, form bawaan, serta alasan penolakan dibuat oleh migrasi. Perintah ini tidak menghapus atau menyalin pengguna, assignment, tiket, histori, atau lampiran; aman diulang saat release.
-
-Di Windows lokal, padanannya:
+Di komputer lokal, dari folder `backend`:
 
 ```powershell
-npm.cmd ci
 npm.cmd run db:upgrade
+npm.cmd run db:export:dev-seed
 ```
 
-Akun dummy dijalankan terpisah dengan `npm run db:seed-dummy-users` dan hanya untuk development. Jangan aktifkan autentikasi dummy pada staging yang bisa diakses publik atau pada production.
+Exporter hanya menerima database lokal dengan `NODE_ENV=development` dan `DUMMY_AUTH_ENABLED=true`. Snapshot tersimpan di `src/db/dev-seeders/local-snapshot.json`; lampiran tersimpan di `src/db/dev-seeders/private-uploads/`. Identitas akun yang tidak ditandai sebagai akun dummy diganti dengan identitas uji sintetis.
 
-## Clone lokal satu kali ke staging
+Setelah memastikan snapshot hanya memuat data uji, commit dan push:
 
-Pakai ini hanya untuk membuat atau menyegarkan database staging. Jangan restore dump lokal ke production. Dump dapat memuat profil pegawai, tiket, histori, notifikasi, dan metadata lampiran. Pastikan isi lokal sintetis atau sudah dianonimkan dan disetujui untuk dipakai di staging. Jangan taruh dump di repository atau mengirimnya melalui chat.
+```powershell
+git add backend/package.json backend/src/db/export-dev-seed.ts backend/src/db/run-dev-seeders.ts backend/src/db/run-seeders.ts backend/src/db/seeders backend/src/db/dev-seeders docs/DATABASE_STAGING.md README.md docs/DEPLOY_AAPANEL.md PROJECT_STATUS.md
+git commit -m "chore: update development seed data"
+git push
+```
 
-1. Buat database staging terpisah yang kosong, misalnya `sla_pengajuan_staging`, dan user MySQL staging. Jika database staging sudah berisi data, backup serta verifikasi dump itu sebelum menggantinya.
-2. Di komputer lokal, jalankan perintah ini dari folder `backend`. Script membaca koneksi dari `backend/.env`, menolak host database non-lokal dan `NODE_ENV=production`, menaruh dump di `%TEMP%` di luar repository, serta menghapus file kredensial sementara setelah selesai:
+## 2. Backup data staging
 
-   ```powershell
-   npm.cmd run db:dump:staging
-   ```
+Di terminal aaPanel, sebelum sinkronisasi, buat backup database staging. Password diminta secara interaktif:
 
-   Terminal menampilkan lokasi file dump. Jika `mysqldump` tidak ada di `C:\xampp\mysql\bin\mysqldump.exe` atau `PATH`, atur environment `MYSQLDUMP_PATH` ke executable MySQL client yang tersedia.
+```bash
+mysqldump --single-transaction --routines --triggers --hex-blob --host=127.0.0.1 --port=3306 --user=sla_staging --password sla_pengajuan_staging > /tmp/sla-staging-before-seed.sql
+```
 
-3. Transfer file memakai SCP/SFTP ke server staging. Contoh dengan SCP:
+## 3. Pull dan seed di aaPanel
 
-   ```powershell
-   scp "$dumpPath" user-staging@HOST_STAGING:/tmp/sla-pengajuan-staging.sql
-   ```
+Pastikan `backend/.env` staging memakai database terpisah dengan nama berakhiran `_staging`, `NODE_ENV=development`, `DUMMY_AUTH_ENABLED=true`, dan `PRIVATE_UPLOAD_DIR` mengarah ke folder privat khusus, misalnya `/www/private/sla-pengajuan/uploads`. Batasi akses staging ke VPN/IP tepercaya.
 
-4. Di server, restore ke database staging yang kosong. Perintah `mysql` juga meminta password secara interaktif:
+Setelah itu jalankan:
 
-   ```bash
-   mysql --host=127.0.0.1 --port=3306 --user=sla_staging --password sla_pengajuan_staging < /tmp/sla-pengajuan-staging.sql
-   ```
+```bash
+cd /www/wwwroot/sla-pengajuan
+git fetch origin
+git checkout main
+git pull --ff-only origin main
 
-5. Pastikan `backend/.env` staging menunjuk ke `DB_NAME=sla_pengajuan_staging`, lalu jalankan `npm run db:upgrade`, build aplikasi, dan restart backend. Autentikasi dummy hanya berjalan dengan `NODE_ENV=development` dan `DUMMY_AUTH_ENABLED=true`; aktifkan sementara hanya pada staging yang dibatasi ke VPN/IP tepercaya. Biarkan nonaktif di server publik dan production.
-6. Jika staging perlu membuka lampiran lokal, salin isi `PRIVATE_UPLOAD_DIR` lewat jalur privat yang sama. Dump MySQL hanya menyimpan metadata lampiran, bukan file-nya. Jika file berisi dokumen nyata, jangan salin ke staging tanpa persetujuan dan sanitasi.
-7. Setelah restore dan pemeriksaan selesai, hapus dump sementara dari komputer lokal dan `/tmp` server.
+cd backend
+npm ci
+npm run db:sync:dev
+npm run build
 
-Dump adalah snapshot satu kali, bukan cara sinkronisasi setiap release. Setelah itu, gunakan `npm run db:upgrade`; jangan restore ulang di atas data staging yang sudah dipakai.
+cd ../frontend
+npm ci
+npm run build
+```
+
+`db:sync:dev` menjalankan migrasi dan seed kantor, lalu mengisi ulang seluruh tabel dari snapshot. Setelah build berhasil, restart backend dan frontend lewat aaPanel/PM2. Periksa login dummy, dashboard, detail tiket, dan lampiran.
+
+## 4. Pull code tanpa reset data
+
+Jika ingin mempertahankan perubahan uji yang dibuat langsung di staging, jangan jalankan `db:sync:dev`. Pull code, lalu jalankan `npm run db:upgrade` untuk menerapkan migrasi/seed acuan saja sebelum build.
+
+Jangan aktifkan `DUMMY_AUTH_ENABLED` pada production. `db:seed:dev` menolak production, host remote non-staging, dan database yang tidak memakai akhiran `_staging`.

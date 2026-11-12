@@ -14,7 +14,9 @@
     "db:migrate": "tsx src/db/run-migrations.ts",
 		"db:seed-reference": "tsx src/db/run-seeders.ts",
 		"db:upgrade": "npm run db:migrate && npm run db:seed-reference",
-		"db:dump:staging": "tsx src/db/dump-staging.ts",
+		"db:export:dev-seed": "tsx src/db/export-dev-seed.ts",
+		"db:seed:dev": "tsx src/db/run-dev-seeders.ts",
+		"db:sync:dev": "npm run db:upgrade && npm run db:seed:dev",
     "db:bootstrap-admin": "tsx src/db/bootstrap-admin.ts",
     "db:seed-dummy-users": "tsx src/db/seed-dummy-users.ts"
   },

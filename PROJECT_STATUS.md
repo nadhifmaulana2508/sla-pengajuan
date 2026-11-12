@@ -2,7 +2,7 @@
 
 Terakhir diperbarui: 12 November 2026
 
-**Persiapan database staging (12 November 2026):** perintah `npm run db:upgrade` menjalankan migrasi tertunda dan seed master kantor; berhasil dijalankan pada database lokal. `npm run db:dump:staging` menghasilkan snapshot SQL lokal di `%TEMP%`, di luar repository, untuk staging privat sesuai pilihan pemilik proyek. Backend `npm.cmd run check` lulus. Snapshot belum ditransfer atau direstore karena tujuan/server staging belum diberikan; kredensial tidak disimpan di repository.
+**Seeder database development dan sinkronisasi aaPanel (12 November 2026):** `db:export:dev-seed` membuat fixture 19 tabel/350 baris dan menyertakan lampiran privat; profil pengguna yang tidak ditandai dummy dianonimkan. `db:sync:dev` meng-upgrade schema lalu mereset serta mengisi ulang DB lokal dari fixture; berhasil dua kali, dengan lampiran tersalin. Backend `npm.cmd run check` lulus. Langkah aaPanel tercatat di `docs/DATABASE_STAGING.md`; staging server belum disinkronkan.
 
 **Rentang default Dashboard Manajemen dan ringkasan Divisi (12 November 2026):** Dashboard global dan Pemantauan Tiket memakai tanggal 60 hari terakhir termasuk hari ini sebagai rentang awal; Reset juga mengembalikan periode tersebut, sementara tanggal yang lebih lama tetap bisa dipilih manual. Baris Divisi dengan hitungan nol disembunyikan agar kartu breakdown lebih ringkas. Frontend `npm.cmd run check` lulus 0 error/0 warning; tidak ada perubahan API, backend, migrasi, atau data.
 

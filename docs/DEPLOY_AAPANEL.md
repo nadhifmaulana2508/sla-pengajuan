@@ -288,7 +288,7 @@ npm run build
 
 Restart kedua project dari aaPanel/PM2 setelah build selesai. Backup database dilakukan sebelum migrasi yang mengubah schema. Migrations pada repository tidak memiliki rollback otomatis, sehingga rollback release dan rollback data harus diperlakukan sebagai dua langkah terpisah.
 
-Untuk membuat database staging dari snapshot lokal satu kali, gunakan [panduan database staging](DATABASE_STAGING.md). Release rutin tetap memakai `npm run db:upgrade`; jangan restore dump lokal ke production.
+Untuk pull dan menyamakan staging dengan fixture database lokal selama development, ikuti [panduan sinkronisasi staging](DATABASE_STAGING.md). Release rutin cukup memakai `npm run db:upgrade`; jangan jalankan `db:sync:dev` di production.
 
 ## 9. Backup dan keamanan minimum
 

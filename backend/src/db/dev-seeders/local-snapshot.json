@@ -1,0 +1,6121 @@
+{
+  "version": 1,
+  "tables": {
+    "division_sso_unit_aliases": {
+      "rows": [
+        {
+          "id": 1,
+          "division_id": 5,
+          "unit_kerja": "Litbang",
+          "unit_kerja_key": "litbang",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:46:08.000Z"
+          }
+        },
+        {
+          "id": 2,
+          "division_id": 4,
+          "unit_kerja": "Operasional",
+          "unit_kerja_key": "operasional",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:46:08.000Z"
+          }
+        },
+        {
+          "id": 3,
+          "division_id": 2,
+          "unit_kerja": "Pemasaran",
+          "unit_kerja_key": "pemasaran",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:46:08.000Z"
+          }
+        },
+        {
+          "id": 4,
+          "division_id": 1,
+          "unit_kerja": "Penyelesaian Kredit",
+          "unit_kerja_key": "penyelesaian kredit",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:46:08.000Z"
+          }
+        },
+        {
+          "id": 5,
+          "division_id": 9,
+          "unit_kerja": "SDM",
+          "unit_kerja_key": "sdm",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:46:08.000Z"
+          }
+        },
+        {
+          "id": 6,
+          "division_id": 3,
+          "unit_kerja": "Sekretaris Perusahaan",
+          "unit_kerja_key": "sekretaris perusahaan",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:46:08.000Z"
+          }
+        },
+        {
+          "id": 8,
+          "division_id": 6,
+          "unit_kerja": "SKK",
+          "unit_kerja_key": "skk",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:46:08.000Z"
+          }
+        },
+        {
+          "id": 9,
+          "division_id": 7,
+          "unit_kerja": "SKMR",
+          "unit_kerja_key": "skmr",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:46:08.000Z"
+          }
+        },
+        {
+          "id": 17,
+          "division_id": 8,
+          "unit_kerja": "Satuan Kerja Audit Internal",
+          "unit_kerja_key": "satuan kerja audit internal",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T01:18:46.000Z"
+          }
+        },
+        {
+          "id": 18,
+          "division_id": 8,
+          "unit_kerja": "SKAI",
+          "unit_kerja_key": "skai",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T01:18:46.000Z"
+          }
+        }
+      ]
+    },
+    "dummy_users": {
+      "rows": [
+        {
+          "id": 1,
+          "user_id": 2965,
+          "label": "Admin global",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 2,
+          "user_id": 2966,
+          "label": "Pengguna Cabang - Kantor 001",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 3,
+          "user_id": 2967,
+          "label": "Petugas Korwil - Semarang",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 4,
+          "user_id": 2968,
+          "label": "Penyetuju Korwil - Semarang",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 5,
+          "user_id": 2969,
+          "label": "Petugas Divisi - Penyelesaian Kredit",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 6,
+          "user_id": 2970,
+          "label": "Petugas Divisi - Pemasaran",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 7,
+          "user_id": 2971,
+          "label": "Petugas Divisi - Sekretaris Perusahaan",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 8,
+          "user_id": 2972,
+          "label": "Petugas Divisi - Operasional",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 9,
+          "user_id": 2973,
+          "label": "Petugas Divisi - Litbang",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 10,
+          "user_id": 2974,
+          "label": "Petugas Divisi - SKK",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 11,
+          "user_id": 2975,
+          "label": "Petugas Divisi - SKMR",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 12,
+          "user_id": 2976,
+          "label": "Petugas Divisi - Satuan Kerja Audit Internal",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 13,
+          "user_id": 2977,
+          "label": "Petugas Divisi - SDM",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 14,
+          "user_id": 2978,
+          "label": "Supervisor global",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        },
+        {
+          "id": 15,
+          "user_id": 2979,
+          "label": "Manajemen global",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          }
+        }
+      ]
+    },
+    "master_divisi": {
+      "rows": [
+        {
+          "id": 1,
+          "kode": "penyelesaian-kredit",
+          "nama_divisi": "Penyelesaian Kredit",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          }
+        },
+        {
+          "id": 2,
+          "kode": "pemasaran",
+          "nama_divisi": "Pemasaran",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          }
+        },
+        {
+          "id": 3,
+          "kode": "sekretaris-perusahaan",
+          "nama_divisi": "Sekretaris Perusahaan",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          }
+        },
+        {
+          "id": 4,
+          "kode": "operasional",
+          "nama_divisi": "Operasional",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          }
+        },
+        {
+          "id": 5,
+          "kode": "litbang",
+          "nama_divisi": "Litbang",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          }
+        },
+        {
+          "id": 6,
+          "kode": "skk",
+          "nama_divisi": "SKK",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          }
+        },
+        {
+          "id": 7,
+          "kode": "skmr",
+          "nama_divisi": "SKMR",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          }
+        },
+        {
+          "id": 8,
+          "kode": "skai",
+          "nama_divisi": "Satuan Kerja Audit Internal",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T01:18:46.000Z"
+          }
+        },
+        {
+          "id": 9,
+          "kode": "sdm",
+          "nama_divisi": "SDM",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:10.000Z"
+          }
+        }
+      ]
+    },
+    "master_kantor": {
+      "rows": [
+        {
+          "id": 1,
+          "kode_kantor": "001",
+          "nama_kantor": "Kc. Utama",
+          "korwil": "semarang",
+          "is_active": 1
+        },
+        {
+          "id": 2,
+          "kode_kantor": "002",
+          "nama_kantor": "Kc. Rembang",
+          "korwil": "semarang",
+          "is_active": 1
+        },
+        {
+          "id": 3,
+          "kode_kantor": "003",
+          "nama_kantor": "Kc. Pati",
+          "korwil": "semarang",
+          "is_active": 1
+        },
+        {
+          "id": 4,
+          "kode_kantor": "004",
+          "nama_kantor": "Kc. Demak",
+          "korwil": "semarang",
+          "is_active": 1
+        },
+        {
+          "id": 5,
+          "kode_kantor": "005",
+          "nama_kantor": "Kc. Kendal",
+          "korwil": "semarang",
+          "is_active": 1
+        },
+        {
+          "id": 6,
+          "kode_kantor": "006",
+          "nama_kantor": "Kc. Salatiga",
+          "korwil": "semarang",
+          "is_active": 1
+        },
+        {
+          "id": 7,
+          "kode_kantor": "007",
+          "nama_kantor": "Kc. Kab. Semarang",
+          "korwil": "semarang",
+          "is_active": 1
+        },
+        {
+          "id": 8,
+          "kode_kantor": "008",
+          "nama_kantor": "Kc. Wonogiri",
+          "korwil": "solo",
+          "is_active": 1
+        },
+        {
+          "id": 9,
+          "kode_kantor": "009",
+          "nama_kantor": "Kc. Kota Surakarta",
+          "korwil": "solo",
+          "is_active": 1
+        },
+        {
+          "id": 10,
+          "kode_kantor": "010",
+          "nama_kantor": "Kc. Karanganyar",
+          "korwil": "solo",
+          "is_active": 1
+        },
+        {
+          "id": 11,
+          "kode_kantor": "011",
+          "nama_kantor": "Kc. Sukoharjo",
+          "korwil": "solo",
+          "is_active": 1
+        },
+        {
+          "id": 12,
+          "kode_kantor": "012",
+          "nama_kantor": "Kc. Sragen",
+          "korwil": "solo",
+          "is_active": 1
+        },
+        {
+          "id": 13,
+          "kode_kantor": "013",
+          "nama_kantor": "Kc. Boyolali",
+          "korwil": "solo",
+          "is_active": 1
+        },
+        {
+          "id": 14,
+          "kode_kantor": "014",
+          "nama_kantor": "Kc. Magelang",
+          "korwil": "solo",
+          "is_active": 1
+        },
+        {
+          "id": 15,
+          "kode_kantor": "015",
+          "nama_kantor": "Kc. Wonosobo",
+          "korwil": "banyumas",
+          "is_active": 1
+        },
+        {
+          "id": 16,
+          "kode_kantor": "016",
+          "nama_kantor": "Kc. Purworejo",
+          "korwil": "banyumas",
+          "is_active": 1
+        },
+        {
+          "id": 17,
+          "kode_kantor": "017",
+          "nama_kantor": "Kc. Kebumen",
+          "korwil": "banyumas",
+          "is_active": 1
+        },
+        {
+          "id": 18,
+          "kode_kantor": "018",
+          "nama_kantor": "Kc. Banjarnegara",
+          "korwil": "banyumas",
+          "is_active": 1
+        },
+        {
+          "id": 19,
+          "kode_kantor": "019",
+          "nama_kantor": "Kc. Purbalingga",
+          "korwil": "banyumas",
+          "is_active": 1
+        },
+        {
+          "id": 20,
+          "kode_kantor": "020",
+          "nama_kantor": "Kc. Banyumas",
+          "korwil": "banyumas",
+          "is_active": 1
+        },
+        {
+          "id": 21,
+          "kode_kantor": "021",
+          "nama_kantor": "Kc. Cilacap",
+          "korwil": "banyumas",
+          "is_active": 1
+        },
+        {
+          "id": 22,
+          "kode_kantor": "022",
+          "nama_kantor": "Kc. Kab. Tegal",
+          "korwil": "pekalongan",
+          "is_active": 1
+        },
+        {
+          "id": 23,
+          "kode_kantor": "023",
+          "nama_kantor": "Kc. Brebes",
+          "korwil": "pekalongan",
+          "is_active": 1
+        },
+        {
+          "id": 24,
+          "kode_kantor": "024",
+          "nama_kantor": "Kc. Kota Tegal",
+          "korwil": "pekalongan",
+          "is_active": 1
+        },
+        {
+          "id": 25,
+          "kode_kantor": "025",
+          "nama_kantor": "Kc. Pemalang",
+          "korwil": "pekalongan",
+          "is_active": 1
+        },
+        {
+          "id": 26,
+          "kode_kantor": "026",
+          "nama_kantor": "Kc. Kota Pekalongan",
+          "korwil": "pekalongan",
+          "is_active": 1
+        },
+        {
+          "id": 27,
+          "kode_kantor": "027",
+          "nama_kantor": "Kc. Kab. Pekalongan",
+          "korwil": "pekalongan",
+          "is_active": 1
+        },
+        {
+          "id": 28,
+          "kode_kantor": "028",
+          "nama_kantor": "Kc. Batang",
+          "korwil": "pekalongan",
+          "is_active": 1
+        },
+        {
+          "id": 29,
+          "kode_kantor": "000",
+          "nama_kantor": "Pusat",
+          "korwil": "pusat",
+          "is_active": 1
+        }
+      ]
+    },
+    "notifications": {
+      "rows": [
+        {
+          "id": 78,
+          "recipient_user_id": 374,
+          "request_id": 28,
+          "history_id": 143,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:34:48.398Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:27:59.781Z"
+          }
+        },
+        {
+          "id": 79,
+          "recipient_user_id": 54,
+          "request_id": 28,
+          "history_id": 144,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:07.679Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:34:58.372Z"
+          }
+        },
+        {
+          "id": 80,
+          "recipient_user_id": 54,
+          "request_id": 28,
+          "history_id": 145,
+          "event_type": "documents_requested",
+          "title": "Kelengkapan diminta",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:07.679Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:35:31.433Z"
+          }
+        },
+        {
+          "id": 81,
+          "recipient_user_id": 374,
+          "request_id": 28,
+          "history_id": 146,
+          "event_type": "revision_submitted",
+          "title": "Kelengkapan dikirim kembali",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:29.710Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:36:50.879Z"
+          }
+        },
+        {
+          "id": 82,
+          "recipient_user_id": 91,
+          "request_id": 28,
+          "history_id": 147,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan masuk ke Divisi Pusat",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T21:49:56.034Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:53.166Z"
+          }
+        },
+        {
+          "id": 83,
+          "recipient_user_id": 54,
+          "request_id": 28,
+          "history_id": 147,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan diteruskan ke Divisi Pusat",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:51:29.510Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:53.173Z"
+          }
+        },
+        {
+          "id": 84,
+          "recipient_user_id": 54,
+          "request_id": 28,
+          "history_id": 148,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:51:29.510Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:38:31.726Z"
+          }
+        },
+        {
+          "id": 85,
+          "recipient_user_id": 54,
+          "request_id": 28,
+          "history_id": 149,
+          "event_type": "documents_requested",
+          "title": "Kelengkapan diminta",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:51:29.510Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:56:34.750Z"
+          }
+        },
+        {
+          "id": 86,
+          "recipient_user_id": 91,
+          "request_id": 28,
+          "history_id": 150,
+          "event_type": "revision_submitted",
+          "title": "Kelengkapan dikirim kembali",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T21:49:56.034Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:02:30.318Z"
+          }
+        },
+        {
+          "id": 87,
+          "recipient_user_id": 54,
+          "request_id": 28,
+          "history_id": 151,
+          "event_type": "request_completed",
+          "title": "Pengajuan selesai",
+          "body": "SLA-00000028 · edc error",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:51:29.510Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:24:23.512Z"
+          }
+        },
+        {
+          "id": 127,
+          "recipient_user_id": 374,
+          "request_id": 37,
+          "history_id": 188,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000037 · EDC terblokir",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:49:21.518Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:33:07.282Z"
+          }
+        },
+        {
+          "id": 128,
+          "recipient_user_id": 54,
+          "request_id": 37,
+          "history_id": 189,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000037 · EDC terblokir",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:51:29.510Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:44:24.162Z"
+          }
+        },
+        {
+          "id": 129,
+          "recipient_user_id": 91,
+          "request_id": 37,
+          "history_id": 190,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan masuk ke Divisi Pusat",
+          "body": "SLA-00000037 · EDC terblokir",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T21:49:56.034Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:21.955Z"
+          }
+        },
+        {
+          "id": 130,
+          "recipient_user_id": 54,
+          "request_id": 37,
+          "history_id": 190,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan diteruskan ke Divisi Pusat",
+          "body": "SLA-00000037 · EDC terblokir",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:51:29.510Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:21.964Z"
+          }
+        },
+        {
+          "id": 131,
+          "recipient_user_id": 54,
+          "request_id": 37,
+          "history_id": 191,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000037 · EDC terblokir",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:51:29.510Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:52.061Z"
+          }
+        },
+        {
+          "id": 132,
+          "recipient_user_id": 54,
+          "request_id": 37,
+          "history_id": 192,
+          "event_type": "request_completed",
+          "title": "Pengajuan selesai",
+          "body": "SLA-00000037 · EDC terblokir",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:51:29.510Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:46:32.147Z"
+          }
+        },
+        {
+          "id": 133,
+          "recipient_user_id": 2967,
+          "request_id": 38,
+          "history_id": 193,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000038 · sgwgw",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:54:52.021Z"
+          }
+        },
+        {
+          "id": 134,
+          "recipient_user_id": 2968,
+          "request_id": 38,
+          "history_id": 193,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000038 · sgwgw",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:54:52.022Z"
+          }
+        },
+        {
+          "id": 135,
+          "recipient_user_id": 2966,
+          "request_id": 38,
+          "history_id": 194,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000038 · sgwgw",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T02:46:45.758Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:18.816Z"
+          }
+        },
+        {
+          "id": 136,
+          "recipient_user_id": 2970,
+          "request_id": 38,
+          "history_id": 195,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan masuk ke Divisi Pusat",
+          "body": "SLA-00000038 · sgwgw",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:57:02.582Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:28.179Z"
+          }
+        },
+        {
+          "id": 137,
+          "recipient_user_id": 2966,
+          "request_id": 38,
+          "history_id": 195,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan diteruskan ke Divisi Pusat",
+          "body": "SLA-00000038 · sgwgw",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T02:46:45.758Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:28.181Z"
+          }
+        },
+        {
+          "id": 138,
+          "recipient_user_id": 2966,
+          "request_id": 38,
+          "history_id": 196,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000038 · sgwgw",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T02:46:45.758Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:16.172Z"
+          }
+        },
+        {
+          "id": 139,
+          "recipient_user_id": 2966,
+          "request_id": 38,
+          "history_id": 197,
+          "event_type": "request_completed",
+          "title": "Pengajuan selesai",
+          "body": "SLA-00000038 · sgwgw",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T02:46:45.758Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:27.882Z"
+          }
+        },
+        {
+          "id": 140,
+          "recipient_user_id": 2967,
+          "request_id": 39,
+          "history_id": 198,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000039 · sdgwgwg",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:07.220Z"
+          }
+        },
+        {
+          "id": 141,
+          "recipient_user_id": 2968,
+          "request_id": 39,
+          "history_id": 198,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000039 · sdgwgwg",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:07.221Z"
+          }
+        },
+        {
+          "id": 142,
+          "recipient_user_id": 2966,
+          "request_id": 39,
+          "history_id": 199,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000039 · sdgwgwg",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:48:36.765Z"
+          }
+        },
+        {
+          "id": 143,
+          "recipient_user_id": 2967,
+          "request_id": 40,
+          "history_id": 200,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000040 · Pengajuan Hapus Buku 2027",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:24:36.352Z"
+          }
+        },
+        {
+          "id": 144,
+          "recipient_user_id": 2968,
+          "request_id": 40,
+          "history_id": 200,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000040 · Pengajuan Hapus Buku 2027",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:24:36.352Z"
+          }
+        },
+        {
+          "id": 145,
+          "recipient_user_id": 2966,
+          "request_id": 40,
+          "history_id": 201,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000040 · Pengajuan Hapus Buku 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:01.960Z"
+          }
+        },
+        {
+          "id": 146,
+          "recipient_user_id": 2966,
+          "request_id": 39,
+          "history_id": 202,
+          "event_type": "request_rejected",
+          "title": "Pengajuan ditolak",
+          "body": "SLA-00000039 · sdgwgwg",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:13.681Z"
+          }
+        },
+        {
+          "id": 147,
+          "recipient_user_id": 2969,
+          "request_id": 40,
+          "history_id": 203,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan masuk ke Divisi Pusat",
+          "body": "SLA-00000040 · Pengajuan Hapus Buku 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:11:07.503Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:05:34.737Z"
+          }
+        },
+        {
+          "id": 148,
+          "recipient_user_id": 2966,
+          "request_id": 40,
+          "history_id": 203,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan diteruskan ke Divisi Pusat",
+          "body": "SLA-00000040 · Pengajuan Hapus Buku 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:05:34.740Z"
+          }
+        },
+        {
+          "id": 149,
+          "recipient_user_id": 2966,
+          "request_id": 40,
+          "history_id": 204,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000040 · Pengajuan Hapus Buku 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:06:23.489Z"
+          }
+        },
+        {
+          "id": 150,
+          "recipient_user_id": 2966,
+          "request_id": 40,
+          "history_id": 205,
+          "event_type": "request_completed",
+          "title": "Pengajuan selesai",
+          "body": "SLA-00000040 · Pengajuan Hapus Buku 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:11:53.839Z"
+          }
+        },
+        {
+          "id": 151,
+          "recipient_user_id": 2967,
+          "request_id": 41,
+          "history_id": 206,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:39:28.989Z"
+          }
+        },
+        {
+          "id": 152,
+          "recipient_user_id": 2968,
+          "request_id": 41,
+          "history_id": 206,
+          "event_type": "request_received",
+          "title": "Pengajuan baru masuk ke Korwil",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:39:28.992Z"
+          }
+        },
+        {
+          "id": 153,
+          "recipient_user_id": 2966,
+          "request_id": 41,
+          "history_id": 207,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:12.139Z"
+          }
+        },
+        {
+          "id": 154,
+          "recipient_user_id": 2966,
+          "request_id": 41,
+          "history_id": 208,
+          "event_type": "documents_requested",
+          "title": "Kelengkapan diminta",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:37.312Z"
+          }
+        },
+        {
+          "id": 155,
+          "recipient_user_id": 2967,
+          "request_id": 41,
+          "history_id": 209,
+          "event_type": "revision_submitted",
+          "title": "Kelengkapan dikirim kembali",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:46:12.193Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:41:38.577Z"
+          }
+        },
+        {
+          "id": 156,
+          "recipient_user_id": 2969,
+          "request_id": 41,
+          "history_id": 210,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan masuk ke Divisi Pusat",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:05.063Z"
+          }
+        },
+        {
+          "id": 157,
+          "recipient_user_id": 2966,
+          "request_id": 41,
+          "history_id": 210,
+          "event_type": "request_forwarded",
+          "title": "Pengajuan diteruskan ke Divisi Pusat",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:05.066Z"
+          }
+        },
+        {
+          "id": 158,
+          "recipient_user_id": 2966,
+          "request_id": 41,
+          "history_id": 211,
+          "event_type": "request_claimed",
+          "title": "Pengajuan mulai diproses",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:32.529Z"
+          }
+        },
+        {
+          "id": 159,
+          "recipient_user_id": 2966,
+          "request_id": 41,
+          "history_id": 212,
+          "event_type": "documents_requested",
+          "title": "Kelengkapan diminta",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:45:11.447Z"
+          }
+        },
+        {
+          "id": 160,
+          "recipient_user_id": 2969,
+          "request_id": 41,
+          "history_id": 213,
+          "event_type": "revision_submitted",
+          "title": "Kelengkapan dikirim kembali",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:47:28.932Z"
+          }
+        },
+        {
+          "id": 161,
+          "recipient_user_id": 2966,
+          "request_id": 41,
+          "history_id": 214,
+          "event_type": "documents_requested",
+          "title": "Kelengkapan diminta",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:21:31.664Z"
+          }
+        },
+        {
+          "id": 162,
+          "recipient_user_id": 2969,
+          "request_id": 41,
+          "history_id": 215,
+          "event_type": "revision_submitted",
+          "title": "Kelengkapan dikirim kembali",
+          "body": "SLA-00000041 Â· Persetujuan PH 2027",
+          "read_at": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.370Z"
+          }
+        },
+        {
+          "id": 163,
+          "recipient_user_id": 2966,
+          "request_id": 41,
+          "history_id": 216,
+          "event_type": "request_rejected",
+          "title": "Pengajuan ditolak",
+          "body": "SLA-00000041 · Persetujuan PH 2027",
+          "read_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T03:26:04.508Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:23:36.689Z"
+          }
+        }
+      ]
+    },
+    "rejection_reasons": {
+      "rows": [
+        {
+          "id": 1,
+          "scope_type": "system",
+          "division_id": null,
+          "work_catalog_id": null,
+          "code": "requirements_not_met",
+          "label": "Tidak memenuhi persyaratan",
+          "is_active": 1,
+          "sort_order": 10,
+          "created_by_user_id": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          }
+        },
+        {
+          "id": 2,
+          "scope_type": "system",
+          "division_id": null,
+          "work_catalog_id": null,
+          "code": "outside_authority",
+          "label": "Di luar kewenangan atau cakupan",
+          "is_active": 1,
+          "sort_order": 20,
+          "created_by_user_id": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          }
+        },
+        {
+          "id": 3,
+          "scope_type": "system",
+          "division_id": null,
+          "work_catalog_id": null,
+          "code": "invalid_documents",
+          "label": "Dokumen tidak valid",
+          "is_active": 1,
+          "sort_order": 30,
+          "created_by_user_id": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          }
+        },
+        {
+          "id": 4,
+          "scope_type": "system",
+          "division_id": null,
+          "work_catalog_id": null,
+          "code": "unverifiable_data",
+          "label": "Data tidak dapat diverifikasi",
+          "is_active": 1,
+          "sort_order": 40,
+          "created_by_user_id": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          }
+        },
+        {
+          "id": 5,
+          "scope_type": "system",
+          "division_id": null,
+          "work_catalog_id": null,
+          "code": "other",
+          "label": "Lainnya",
+          "is_active": 1,
+          "sort_order": 100,
+          "created_by_user_id": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:15:55.218Z"
+          }
+        }
+      ]
+    },
+    "request_assignments": {
+      "rows": [
+        {
+          "id": 1,
+          "request_id": 1,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:38:10.563Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T22:07:21.931Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:00:15.912Z"
+          }
+        },
+        {
+          "id": 2,
+          "request_id": 2,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:29.833Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T22:06:49.049Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:04:37.720Z"
+          }
+        },
+        {
+          "id": 9,
+          "request_id": 1,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:00:15.916Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:01:40.777Z"
+          }
+        },
+        {
+          "id": 10,
+          "request_id": 1,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:01:40.783Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:15:33.208Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:16:25.413Z"
+          }
+        },
+        {
+          "id": 11,
+          "request_id": 5,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:13:37.456Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:04.369Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:37.478Z"
+          }
+        },
+        {
+          "id": 19,
+          "request_id": 5,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:37.480Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:57.932Z"
+          }
+        },
+        {
+          "id": 20,
+          "request_id": 5,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:57.934Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:15:58.018Z"
+          }
+        },
+        {
+          "id": 24,
+          "request_id": 1,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "assigned_user_id": 91,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:16:25.415Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:22.899Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:37.021Z"
+          }
+        },
+        {
+          "id": 25,
+          "request_id": 1,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:37.039Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:27:53.351Z"
+          }
+        },
+        {
+          "id": 26,
+          "request_id": 1,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "assigned_user_id": 91,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:27:53.363Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:28:50.703Z"
+          }
+        },
+        {
+          "id": 33,
+          "request_id": 12,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:32.944Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:48.566Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:18:07.239Z"
+          }
+        },
+        {
+          "id": 34,
+          "request_id": 12,
+          "unit_type": "central",
+          "unit_code": "skai",
+          "assigned_user_id": 517,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:18:07.247Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:13.515Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:49.087Z"
+          }
+        },
+        {
+          "id": 35,
+          "request_id": 12,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:49.092Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:21:17.697Z"
+          }
+        },
+        {
+          "id": 36,
+          "request_id": 12,
+          "unit_type": "central",
+          "unit_code": "skai",
+          "assigned_user_id": 517,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:21:17.700Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:22:08.380Z"
+          }
+        },
+        {
+          "id": 75,
+          "request_id": 28,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:27:59.765Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:34:58.367Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:35:31.407Z"
+          }
+        },
+        {
+          "id": 76,
+          "request_id": 28,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:35:31.421Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:36:50.865Z"
+          }
+        },
+        {
+          "id": 77,
+          "request_id": 28,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:36:50.867Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:53.116Z"
+          }
+        },
+        {
+          "id": 78,
+          "request_id": 28,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "assigned_user_id": 91,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:53.124Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:38:31.719Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:56:34.735Z"
+          }
+        },
+        {
+          "id": 79,
+          "request_id": 28,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:56:34.739Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:02:30.288Z"
+          }
+        },
+        {
+          "id": 80,
+          "request_id": 28,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "assigned_user_id": 91,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:02:30.313Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:24:23.489Z"
+          }
+        },
+        {
+          "id": 100,
+          "request_id": 37,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "assigned_user_id": 374,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:33:07.264Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:44:24.150Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:21.938Z"
+          }
+        },
+        {
+          "id": 101,
+          "request_id": 37,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "assigned_user_id": 91,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:21.941Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:52.057Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:46:32.139Z"
+          }
+        },
+        {
+          "id": 102,
+          "request_id": 38,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "assigned_user_id": 2967,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:54:51.995Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:18.810Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:28.162Z"
+          }
+        },
+        {
+          "id": 103,
+          "request_id": 38,
+          "unit_type": "central",
+          "unit_code": "pemasaran",
+          "assigned_user_id": 2970,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:28.164Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:16.166Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:27.872Z"
+          }
+        },
+        {
+          "id": 104,
+          "request_id": 39,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "assigned_user_id": 2967,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:07.200Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:48:36.758Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:13.676Z"
+          }
+        },
+        {
+          "id": 105,
+          "request_id": 40,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "assigned_user_id": 2967,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:24:36.345Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:01.944Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:05:34.709Z"
+          }
+        },
+        {
+          "id": 106,
+          "request_id": 40,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "assigned_user_id": 2969,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:05:34.714Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:06:23.474Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:11:53.826Z"
+          }
+        },
+        {
+          "id": 107,
+          "request_id": 41,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "assigned_user_id": 2967,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:39:28.971Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:12.107Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:37.293Z"
+          }
+        },
+        {
+          "id": 108,
+          "request_id": 41,
+          "unit_type": "branch",
+          "unit_code": "001",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:37.306Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:41:38.564Z"
+          }
+        },
+        {
+          "id": 109,
+          "request_id": 41,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "assigned_user_id": 2967,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:41:38.570Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:05.000Z"
+          }
+        },
+        {
+          "id": 110,
+          "request_id": 41,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "assigned_user_id": 2969,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:05.014Z"
+          },
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:32.520Z"
+          },
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:45:11.431Z"
+          }
+        },
+        {
+          "id": 111,
+          "request_id": 41,
+          "unit_type": "branch",
+          "unit_code": "001",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:45:11.438Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:47:28.908Z"
+          }
+        },
+        {
+          "id": 112,
+          "request_id": 41,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "assigned_user_id": 2969,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:47:28.912Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:21:31.645Z"
+          }
+        },
+        {
+          "id": 113,
+          "request_id": 41,
+          "unit_type": "branch",
+          "unit_code": "001",
+          "assigned_user_id": null,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:21:31.653Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.365Z"
+          }
+        },
+        {
+          "id": 114,
+          "request_id": 41,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "assigned_user_id": 2969,
+          "assigned_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.368Z"
+          },
+          "claimed_at": null,
+          "released_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:23:36.657Z"
+          }
+        }
+      ]
+    },
+    "request_attachments": {
+      "rows": [
+        {
+          "id": 1,
+          "request_id": 41,
+          "revision_id": 1,
+          "category": "inoffice_letter",
+          "storage_key": "145814ba-5049-4392-ad60-6f45d920cb36",
+          "original_filename": "SIMONTOK Summary PDF.pdf",
+          "mime_type": "application/pdf",
+          "size_bytes": 38205,
+          "sha256": "59cf48bf6d1f3084a76ca1dc9303870934b863f337379df833df4fcacbf8641d",
+          "uploaded_by_user_id": 2966,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.349Z"
+          }
+        }
+      ]
+    },
+    "request_decisions": {
+      "rows": [
+        {
+          "id": 1,
+          "request_id": 41,
+          "history_id": 216,
+          "actor_user_id": 2969,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "decision_type": "rejected",
+          "rejection_reason_id": 1,
+          "reason_code_snapshot": "requirements_not_met",
+          "reason_label_snapshot": "Tidak memenuhi persyaratan",
+          "note": "sudah melebihi sla yang ditentukan",
+          "confirmation_text": null,
+          "attachment_id": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:23:36.679Z"
+          }
+        }
+      ]
+    },
+    "request_revisions": {
+      "rows": [
+        {
+          "id": 1,
+          "request_id": 41,
+          "revision_number": 1,
+          "requested_by_user_id": 2969,
+          "requesting_unit_type": "central",
+          "requesting_unit_code": "penyelesaian-kredit",
+          "request_note": "bantu upload ini",
+          "requested_fields_json": "[]",
+          "requested_documents_json": "[\"inoffice_letter\"]",
+          "snapshot_before_json": "{\"form_version_id\":11,\"form_answers\":{\"__entries\":[{\"rekening\":\"0011202020221\",\"nama_nasabah\":\"Sukron\",\"baki_debet\":50000000,\"ckpn\":5000000},{\"rekening\":\"211101001111\",\"nama_nasabah\":\"Adhi\",\"baki_debet\":40000000,\"ckpn\":5000000}]},\"subject\":\"Persetujuan PH 2027\",\"description\":\"pengajuan PH untuk 2027\",\"inoffice_letter_number\":\"252525\",\"inoffice_letter_date\":\"2026-11-10\"}",
+          "snapshot_after_json": "{\"form_version_id\":11,\"form_answers\":{\"__entries\":[{\"rekening\":\"0011202020221\",\"nama_nasabah\":\"Sukron\",\"baki_debet\":50000000,\"ckpn\":5000000},{\"rekening\":\"211101001111\",\"nama_nasabah\":\"Adhi\",\"baki_debet\":40000000,\"ckpn\":5000000}]},\"subject\":\"Persetujuan PH 2027\",\"description\":\"pengajuan PH untuk 2027\",\"inoffice_letter_number\":\"252525\",\"inoffice_letter_date\":\"2026-11-10\"}",
+          "response_note": "done bang",
+          "response_by_user_id": 2966,
+          "status": "submitted",
+          "requested_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:21:31.632Z"
+          },
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.354Z"
+          }
+        }
+      ]
+    },
+    "request_sla_sessions": {
+      "rows": [
+        {
+          "id": 1,
+          "request_id": 1,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T22:07:21.934Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T22:07:21.934Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:00:15.908Z"
+          },
+          "duration_seconds": 3173,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:38:10.573Z"
+          }
+        },
+        {
+          "id": 2,
+          "request_id": 2,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T22:06:49.051Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T22:06:49.051Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:04:37.718Z"
+          },
+          "duration_seconds": 3468,
+          "target_sla_minutes": 10080,
+          "outcome": "rejected",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:29.834Z"
+          }
+        },
+        {
+          "id": 9,
+          "request_id": 1,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:00:15.918Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:01:40.776Z"
+          },
+          "duration_seconds": 84,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:00:15.918Z"
+          }
+        },
+        {
+          "id": 10,
+          "request_id": 1,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:01:40.790Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:15:33.229Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:16:25.412Z"
+          },
+          "duration_seconds": 884,
+          "target_sla_minutes": 10080,
+          "outcome": "forwarded",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:01:40.790Z"
+          }
+        },
+        {
+          "id": 11,
+          "request_id": 5,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:04.374Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:04.374Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:37.476Z"
+          },
+          "duration_seconds": 33,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:13:37.461Z"
+          }
+        },
+        {
+          "id": 19,
+          "request_id": 5,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:37.481Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:57.931Z"
+          },
+          "duration_seconds": 20,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:37.481Z"
+          }
+        },
+        {
+          "id": 20,
+          "request_id": 5,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:57.935Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:15:58.014Z"
+          },
+          "duration_seconds": 60,
+          "target_sla_minutes": 10080,
+          "outcome": "completed",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:57.935Z"
+          }
+        },
+        {
+          "id": 24,
+          "request_id": 1,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:16:25.416Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:22.901Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:37.015Z"
+          },
+          "duration_seconds": 611,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:16:25.416Z"
+          }
+        },
+        {
+          "id": 25,
+          "request_id": 1,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:37.046Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:27:53.349Z"
+          },
+          "duration_seconds": 76,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:37.046Z"
+          }
+        },
+        {
+          "id": 26,
+          "request_id": 1,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:27:53.365Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:28:50.701Z"
+          },
+          "duration_seconds": 57,
+          "target_sla_minutes": 10080,
+          "outcome": "completed",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:27:53.365Z"
+          }
+        },
+        {
+          "id": 33,
+          "request_id": 12,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:48.568Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:48.568Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:18:07.233Z"
+          },
+          "duration_seconds": 18,
+          "target_sla_minutes": 10080,
+          "outcome": "forwarded",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:32.953Z"
+          }
+        },
+        {
+          "id": 34,
+          "request_id": 12,
+          "unit_type": "central",
+          "unit_code": "skai",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:18:07.253Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:13.518Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:49.086Z"
+          },
+          "duration_seconds": 101,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:18:07.253Z"
+          }
+        },
+        {
+          "id": 35,
+          "request_id": 12,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:49.098Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:21:17.696Z"
+          },
+          "duration_seconds": 88,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:49.098Z"
+          }
+        },
+        {
+          "id": 36,
+          "request_id": 12,
+          "unit_type": "central",
+          "unit_code": "skai",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:21:17.701Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:22:08.377Z"
+          },
+          "duration_seconds": 50,
+          "target_sla_minutes": 10080,
+          "outcome": "completed",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:21:17.701Z"
+          }
+        },
+        {
+          "id": 75,
+          "request_id": 28,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:34:58.368Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:34:58.368Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:35:31.404Z"
+          },
+          "duration_seconds": 33,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:27:59.772Z"
+          }
+        },
+        {
+          "id": 76,
+          "request_id": 28,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:35:31.429Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:36:50.863Z"
+          },
+          "duration_seconds": 79,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:35:31.429Z"
+          }
+        },
+        {
+          "id": 77,
+          "request_id": 28,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:36:50.868Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:53.113Z"
+          },
+          "duration_seconds": 62,
+          "target_sla_minutes": 10080,
+          "outcome": "forwarded",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:36:50.868Z"
+          }
+        },
+        {
+          "id": 78,
+          "request_id": 28,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:38:31.721Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:38:31.721Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:56:34.732Z"
+          },
+          "duration_seconds": 1083,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:53.125Z"
+          }
+        },
+        {
+          "id": 79,
+          "request_id": 28,
+          "unit_type": "branch",
+          "unit_code": "010",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:56:34.740Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:02:30.286Z"
+          },
+          "duration_seconds": 355,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:56:34.740Z"
+          }
+        },
+        {
+          "id": 80,
+          "request_id": 28,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:02:30.314Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:24:23.484Z"
+          },
+          "duration_seconds": 1313,
+          "target_sla_minutes": 10080,
+          "outcome": "completed",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:02:30.314Z"
+          }
+        },
+        {
+          "id": 100,
+          "request_id": 37,
+          "unit_type": "korwil",
+          "unit_code": "solo",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:44:24.153Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:44:24.153Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:21.936Z"
+          },
+          "duration_seconds": 57,
+          "target_sla_minutes": 10080,
+          "outcome": "forwarded",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:33:07.273Z"
+          }
+        },
+        {
+          "id": 101,
+          "request_id": 37,
+          "unit_type": "central",
+          "unit_code": "operasional",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:52.058Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:52.058Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:46:32.137Z"
+          },
+          "duration_seconds": 40,
+          "target_sla_minutes": 10080,
+          "outcome": "completed",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:21.942Z"
+          }
+        },
+        {
+          "id": 102,
+          "request_id": 38,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:18.812Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:18.812Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:28.159Z"
+          },
+          "duration_seconds": 9,
+          "target_sla_minutes": 10080,
+          "outcome": "forwarded",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:54:52.003Z"
+          }
+        },
+        {
+          "id": 103,
+          "request_id": 38,
+          "unit_type": "central",
+          "unit_code": "pemasaran",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:16.168Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:16.168Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:27.871Z"
+          },
+          "duration_seconds": 11,
+          "target_sla_minutes": 10080,
+          "outcome": "completed",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:28.170Z"
+          }
+        },
+        {
+          "id": 104,
+          "request_id": 39,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:48:36.760Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:48:36.760Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:13.673Z"
+          },
+          "duration_seconds": 2436,
+          "target_sla_minutes": 10080,
+          "outcome": "rejected",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:07.202Z"
+          }
+        },
+        {
+          "id": 105,
+          "request_id": 40,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:01.950Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:01.950Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:05:34.703Z"
+          },
+          "duration_seconds": 2192,
+          "target_sla_minutes": 10080,
+          "outcome": "forwarded",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:24:36.346Z"
+          }
+        },
+        {
+          "id": 106,
+          "request_id": 40,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:06:23.475Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:06:23.475Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:11:53.824Z"
+          },
+          "duration_seconds": 330,
+          "target_sla_minutes": 10080,
+          "outcome": "completed",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:05:34.715Z"
+          }
+        },
+        {
+          "id": 107,
+          "request_id": 41,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:12.129Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:12.129Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:37.291Z"
+          },
+          "duration_seconds": 25,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:39:28.975Z"
+          }
+        },
+        {
+          "id": 108,
+          "request_id": 41,
+          "unit_type": "branch",
+          "unit_code": "001",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:37.307Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:41:38.561Z"
+          },
+          "duration_seconds": 61,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:37.307Z"
+          }
+        },
+        {
+          "id": 109,
+          "request_id": 41,
+          "unit_type": "korwil",
+          "unit_code": "semarang",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:41:38.572Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:04.990Z"
+          },
+          "duration_seconds": 86,
+          "target_sla_minutes": 10080,
+          "outcome": "forwarded",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:41:38.572Z"
+          }
+        },
+        {
+          "id": 110,
+          "request_id": 41,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:32.522Z"
+          },
+          "start_reason": "claim",
+          "claimed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:32.522Z"
+          },
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:45:11.429Z"
+          },
+          "duration_seconds": 98,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:05.023Z"
+          }
+        },
+        {
+          "id": 111,
+          "request_id": 41,
+          "unit_type": "branch",
+          "unit_code": "001",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:45:11.442Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:47:28.906Z"
+          },
+          "duration_seconds": 137,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:45:11.442Z"
+          }
+        },
+        {
+          "id": 112,
+          "request_id": 41,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:47:28.922Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:21:31.638Z"
+          },
+          "duration_seconds": 45242,
+          "target_sla_minutes": 10080,
+          "outcome": "requested_documents",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:47:28.922Z"
+          }
+        },
+        {
+          "id": 113,
+          "request_id": 41,
+          "unit_type": "branch",
+          "unit_code": "001",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:21:31.654Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.355Z"
+          },
+          "duration_seconds": 64,
+          "target_sla_minutes": 10080,
+          "outcome": "documents_submitted",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:21:31.654Z"
+          }
+        },
+        {
+          "id": 114,
+          "request_id": 41,
+          "unit_type": "central",
+          "unit_code": "penyelesaian-kredit",
+          "started_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.369Z"
+          },
+          "start_reason": "sent",
+          "claimed_at": null,
+          "ended_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:23:36.655Z"
+          },
+          "duration_seconds": 60,
+          "target_sla_minutes": 10080,
+          "outcome": "rejected",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.369Z"
+          }
+        }
+      ]
+    },
+    "request_status_histories": {
+      "rows": [
+        {
+          "id": 1,
+          "request_id": 1,
+          "actor_user_id": 54,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:38:10.575Z"
+          }
+        },
+        {
+          "id": 2,
+          "request_id": 2,
+          "actor_user_id": 54,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:29.842Z"
+          }
+        },
+        {
+          "id": 3,
+          "request_id": 2,
+          "actor_user_id": 374,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T22:06:49.055Z"
+          }
+        },
+        {
+          "id": 4,
+          "request_id": 1,
+          "actor_user_id": 374,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T22:07:21.935Z"
+          }
+        },
+        {
+          "id": 17,
+          "request_id": 1,
+          "actor_user_id": 374,
+          "action_name": "request_documents",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "branch",
+          "unit_to_code": "010",
+          "reason": "bantu lengkapi nomor edcnya dari kantor mana, dan no edc berapa",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:00:15.923Z"
+          }
+        },
+        {
+          "id": 18,
+          "request_id": 1,
+          "actor_user_id": 54,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "waiting_korwil",
+          "unit_from_type": "branch",
+          "unit_from_code": "010",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": "kantor kas karanganyar dan kode edc 12121212121",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:01:40.794Z"
+          }
+        },
+        {
+          "id": 19,
+          "request_id": 2,
+          "actor_user_id": 374,
+          "action_name": "rejected",
+          "status_from": "in_progress_korwil",
+          "status_to": "rejected",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": "testing",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:04:37.727Z"
+          }
+        },
+        {
+          "id": 20,
+          "request_id": 5,
+          "actor_user_id": 54,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:13:37.547Z"
+          }
+        },
+        {
+          "id": 21,
+          "request_id": 5,
+          "actor_user_id": 374,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:04.378Z"
+          }
+        },
+        {
+          "id": 34,
+          "request_id": 5,
+          "actor_user_id": 374,
+          "action_name": "request_documents",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "branch",
+          "unit_to_code": "010",
+          "reason": "kirim berkas jaminan, dan abcdnya",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:37.482Z"
+          }
+        },
+        {
+          "id": 35,
+          "request_id": 5,
+          "actor_user_id": 54,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "branch",
+          "unit_from_code": "010",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": "sgwgwgwgw",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:14:58.120Z"
+          }
+        },
+        {
+          "id": 36,
+          "request_id": 1,
+          "actor_user_id": 374,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:15:33.250Z"
+          }
+        },
+        {
+          "id": 37,
+          "request_id": 5,
+          "actor_user_id": 374,
+          "action_name": "completed",
+          "status_from": "in_progress_korwil",
+          "status_to": "completed",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": "komite dan cairkan sekarang",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:15:58.165Z"
+          }
+        },
+        {
+          "id": 44,
+          "request_id": 1,
+          "actor_user_id": 374,
+          "action_name": "forwarded_to_central",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_central",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "bantu segera tindak lanjuti",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:16:25.416Z"
+          }
+        },
+        {
+          "id": 45,
+          "request_id": 1,
+          "actor_user_id": 91,
+          "action_name": "claimed",
+          "status_from": "waiting_central",
+          "status_to": "in_progress_central",
+          "unit_from_type": "central",
+          "unit_from_code": "operasional",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:22.902Z"
+          }
+        },
+        {
+          "id": 46,
+          "request_id": 1,
+          "actor_user_id": 91,
+          "action_name": "request_documents",
+          "status_from": "in_progress_central",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "central",
+          "unit_from_code": "operasional",
+          "unit_to_type": "branch",
+          "unit_to_code": "010",
+          "reason": "cgfcgfcfc",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:26:37.054Z"
+          }
+        },
+        {
+          "id": 47,
+          "request_id": 1,
+          "actor_user_id": 54,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "in_progress_central",
+          "unit_from_type": "branch",
+          "unit_from_code": "010",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "eqgqgqegqg",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:27:53.366Z"
+          }
+        },
+        {
+          "id": 48,
+          "request_id": 1,
+          "actor_user_id": 91,
+          "action_name": "completed",
+          "status_from": "in_progress_central",
+          "status_to": "completed",
+          "unit_from_type": "central",
+          "unit_from_code": "operasional",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "done : pass bkkjtg123 dan segera ganti password",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:28:50.732Z"
+          }
+        },
+        {
+          "id": 62,
+          "request_id": 12,
+          "actor_user_id": 54,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:32.958Z"
+          }
+        },
+        {
+          "id": 63,
+          "request_id": 12,
+          "actor_user_id": 374,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:48.571Z"
+          }
+        },
+        {
+          "id": 64,
+          "request_id": 12,
+          "actor_user_id": 374,
+          "action_name": "forwarded_to_central",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_central",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "central",
+          "unit_to_code": "skai",
+          "reason": "bantuan untuk tindak lanjut",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:18:07.259Z"
+          }
+        },
+        {
+          "id": 65,
+          "request_id": 12,
+          "actor_user_id": 517,
+          "action_name": "claimed",
+          "status_from": "waiting_central",
+          "status_to": "in_progress_central",
+          "unit_from_type": "central",
+          "unit_from_code": "skai",
+          "unit_to_type": "central",
+          "unit_to_code": "skai",
+          "reason": "",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:13.520Z"
+          }
+        },
+        {
+          "id": 66,
+          "request_id": 12,
+          "actor_user_id": 517,
+          "action_name": "request_documents",
+          "status_from": "in_progress_central",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "central",
+          "unit_from_code": "skai",
+          "unit_to_type": "branch",
+          "unit_to_code": "010",
+          "reason": "bantu jelaskan secara detail, agar nanti kita bisa menindaklanjuti secara tegas",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:19:49.102Z"
+          }
+        },
+        {
+          "id": 67,
+          "request_id": 12,
+          "actor_user_id": 54,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "in_progress_central",
+          "unit_from_type": "branch",
+          "unit_from_code": "010",
+          "unit_to_type": "central",
+          "unit_to_code": "skai",
+          "reason": "salah satu ao inisial A, melakukan fraud tidak melakukan transfer dana nasabah yang ditarik di pasar B",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:21:17.701Z"
+          }
+        },
+        {
+          "id": 68,
+          "request_id": 12,
+          "actor_user_id": 517,
+          "action_name": "completed",
+          "status_from": "in_progress_central",
+          "status_to": "completed",
+          "unit_from_type": "central",
+          "unit_from_code": "skai",
+          "unit_to_type": "central",
+          "unit_to_code": "skai",
+          "reason": "nanti tim skai tgl 07/11/2026 akan datang ke sana",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:22:08.390Z"
+          }
+        },
+        {
+          "id": 143,
+          "request_id": 28,
+          "actor_user_id": 54,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:27:59.775Z"
+          }
+        },
+        {
+          "id": 144,
+          "request_id": 28,
+          "actor_user_id": 374,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:34:58.369Z"
+          }
+        },
+        {
+          "id": 145,
+          "request_id": 28,
+          "actor_user_id": 374,
+          "action_name": "request_documents",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "branch",
+          "unit_to_code": "010",
+          "reason": "tolong lampirkan kronologinya",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:35:31.430Z"
+          }
+        },
+        {
+          "id": 146,
+          "request_id": 28,
+          "actor_user_id": 54,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "branch",
+          "unit_from_code": "010",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": "karna karyawan lupa pass",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:36:50.877Z"
+          }
+        },
+        {
+          "id": 147,
+          "request_id": 28,
+          "actor_user_id": 374,
+          "action_name": "forwarded_to_central",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_central",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "oke, bantu tindak lanjuti",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:37:53.161Z"
+          }
+        },
+        {
+          "id": 148,
+          "request_id": 28,
+          "actor_user_id": 91,
+          "action_name": "claimed",
+          "status_from": "waiting_central",
+          "status_to": "in_progress_central",
+          "unit_from_type": "central",
+          "unit_from_code": "operasional",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:38:31.722Z"
+          }
+        },
+        {
+          "id": 149,
+          "request_id": 28,
+          "actor_user_id": 91,
+          "action_name": "request_documents",
+          "status_from": "in_progress_central",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "central",
+          "unit_from_code": "operasional",
+          "unit_to_type": "branch",
+          "unit_to_code": "010",
+          "reason": "fotokan code edcnya",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:56:34.746Z"
+          }
+        },
+        {
+          "id": 150,
+          "request_id": 28,
+          "actor_user_id": 54,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "in_progress_central",
+          "unit_from_type": "branch",
+          "unit_from_code": "010",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "ini broo",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:02:30.315Z"
+          }
+        },
+        {
+          "id": 151,
+          "request_id": 28,
+          "actor_user_id": 91,
+          "action_name": "completed",
+          "status_from": "in_progress_central",
+          "status_to": "completed",
+          "unit_from_type": "central",
+          "unit_from_code": "operasional",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "code sudah kirim di email, segera upload yaa broo",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:24:23.500Z"
+          }
+        },
+        {
+          "id": 188,
+          "request_id": 37,
+          "actor_user_id": 54,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:33:07.275Z"
+          }
+        },
+        {
+          "id": 189,
+          "request_id": 37,
+          "actor_user_id": 374,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "korwil",
+          "unit_to_code": "solo",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:44:24.154Z"
+          }
+        },
+        {
+          "id": 190,
+          "request_id": 37,
+          "actor_user_id": 374,
+          "action_name": "forwarded_to_central",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_central",
+          "unit_from_type": "korwil",
+          "unit_from_code": "solo",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "mohon dibantu untuk segera tindak lanjuti, urgent",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:21.943Z"
+          }
+        },
+        {
+          "id": 191,
+          "request_id": 37,
+          "actor_user_id": 91,
+          "action_name": "claimed",
+          "status_from": "waiting_central",
+          "status_to": "in_progress_central",
+          "unit_from_type": "central",
+          "unit_from_code": "operasional",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:45:52.059Z"
+          }
+        },
+        {
+          "id": 192,
+          "request_id": 37,
+          "actor_user_id": 91,
+          "action_name": "completed",
+          "status_from": "in_progress_central",
+          "status_to": "completed",
+          "unit_from_type": "central",
+          "unit_from_code": "operasional",
+          "unit_to_type": "central",
+          "unit_to_code": "operasional",
+          "reason": "untuk pin baru : abcdac\nsegera ganti pin yaa",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:46:32.140Z"
+          }
+        },
+        {
+          "id": 193,
+          "request_id": 38,
+          "actor_user_id": 2966,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:54:52.006Z"
+          }
+        },
+        {
+          "id": 194,
+          "request_id": 38,
+          "actor_user_id": 2967,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:18.813Z"
+          }
+        },
+        {
+          "id": 195,
+          "request_id": 38,
+          "actor_user_id": 2967,
+          "action_name": "forwarded_to_central",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_central",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "central",
+          "unit_to_code": "pemasaran",
+          "reason": "asfqfqf",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:55:28.176Z"
+          }
+        },
+        {
+          "id": 196,
+          "request_id": 38,
+          "actor_user_id": 2970,
+          "action_name": "claimed",
+          "status_from": "waiting_central",
+          "status_to": "in_progress_central",
+          "unit_from_type": "central",
+          "unit_from_code": "pemasaran",
+          "unit_to_type": "central",
+          "unit_to_code": "pemasaran",
+          "reason": "",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:16.169Z"
+          }
+        },
+        {
+          "id": 197,
+          "request_id": 38,
+          "actor_user_id": 2970,
+          "action_name": "completed",
+          "status_from": "in_progress_central",
+          "status_to": "completed",
+          "unit_from_type": "central",
+          "unit_from_code": "pemasaran",
+          "unit_to_type": "central",
+          "unit_to_code": "pemasaran",
+          "reason": "mantap",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:27.875Z"
+          }
+        },
+        {
+          "id": 198,
+          "request_id": 39,
+          "actor_user_id": 2966,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:07.213Z"
+          }
+        },
+        {
+          "id": 199,
+          "request_id": 39,
+          "actor_user_id": 2967,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:48:36.762Z"
+          }
+        },
+        {
+          "id": 200,
+          "request_id": 40,
+          "actor_user_id": 2966,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:24:36.348Z"
+          }
+        },
+        {
+          "id": 201,
+          "request_id": 40,
+          "actor_user_id": 2967,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:01.958Z"
+          }
+        },
+        {
+          "id": 202,
+          "request_id": 39,
+          "actor_user_id": 2967,
+          "action_name": "rejected",
+          "status_from": "in_progress_korwil",
+          "status_to": "rejected",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": "dummy",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:13.679Z"
+          }
+        },
+        {
+          "id": 203,
+          "request_id": 40,
+          "actor_user_id": 2967,
+          "action_name": "forwarded_to_central",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_central",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "central",
+          "unit_to_code": "penyelesaian-kredit",
+          "reason": "segera tindak lanjuti",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:05:34.728Z"
+          }
+        },
+        {
+          "id": 204,
+          "request_id": 40,
+          "actor_user_id": 2969,
+          "action_name": "claimed",
+          "status_from": "waiting_central",
+          "status_to": "in_progress_central",
+          "unit_from_type": "central",
+          "unit_from_code": "penyelesaian-kredit",
+          "unit_to_type": "central",
+          "unit_to_code": "penyelesaian-kredit",
+          "reason": "",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:06:23.483Z"
+          }
+        },
+        {
+          "id": 205,
+          "request_id": 40,
+          "actor_user_id": 2969,
+          "action_name": "completed",
+          "status_from": "in_progress_central",
+          "status_to": "completed",
+          "unit_from_type": "central",
+          "unit_from_code": "penyelesaian-kredit",
+          "unit_to_type": "central",
+          "unit_to_code": "penyelesaian-kredit",
+          "reason": "Akan segera ditindaklanjuti",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:11:53.829Z"
+          }
+        },
+        {
+          "id": 206,
+          "request_id": 41,
+          "actor_user_id": 2966,
+          "action_name": "submitted",
+          "status_from": null,
+          "status_to": "waiting_korwil",
+          "unit_from_type": null,
+          "unit_from_code": null,
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:39:28.979Z"
+          }
+        },
+        {
+          "id": 207,
+          "request_id": 41,
+          "actor_user_id": 2967,
+          "action_name": "claimed",
+          "status_from": "waiting_korwil",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": null,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:12.131Z"
+          }
+        },
+        {
+          "id": 208,
+          "request_id": 41,
+          "actor_user_id": 2967,
+          "action_name": "request_documents",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "branch",
+          "unit_to_code": "001",
+          "reason": "bantu upload surat inoffcenya",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:40:37.308Z"
+          }
+        },
+        {
+          "id": 209,
+          "request_id": 41,
+          "actor_user_id": 2966,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "in_progress_korwil",
+          "unit_from_type": "branch",
+          "unit_from_code": "001",
+          "unit_to_type": "korwil",
+          "unit_to_code": "semarang",
+          "reason": "surat sudah dibuatkan",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:41:38.574Z"
+          }
+        },
+        {
+          "id": 210,
+          "request_id": 41,
+          "actor_user_id": 2967,
+          "action_name": "forwarded_to_central",
+          "status_from": "in_progress_korwil",
+          "status_to": "waiting_central",
+          "unit_from_type": "korwil",
+          "unit_from_code": "semarang",
+          "unit_to_type": "central",
+          "unit_to_code": "penyelesaian-kredit",
+          "reason": "segera tindak lanjut",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:05.031Z"
+          }
+        },
+        {
+          "id": 211,
+          "request_id": 41,
+          "actor_user_id": 2969,
+          "action_name": "claimed",
+          "status_from": "waiting_central",
+          "status_to": "in_progress_central",
+          "unit_from_type": "central",
+          "unit_from_code": "penyelesaian-kredit",
+          "unit_to_type": "central",
+          "unit_to_code": "penyelesaian-kredit",
+          "reason": "",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:43:32.523Z"
+          }
+        },
+        {
+          "id": 212,
+          "request_id": 41,
+          "actor_user_id": 2969,
+          "action_name": "request_documents",
+          "status_from": "in_progress_central",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "central",
+          "unit_from_code": "penyelesaian-kredit",
+          "unit_to_type": "branch",
+          "unit_to_code": "001",
+          "reason": "kurang mie ayam",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:45:11.444Z"
+          }
+        },
+        {
+          "id": 213,
+          "request_id": 41,
+          "actor_user_id": 2966,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "in_progress_central",
+          "unit_from_type": "branch",
+          "unit_from_code": "001",
+          "unit_to_type": "central",
+          "unit_to_code": "penyelesaian-kredit",
+          "reason": "ayam goreng",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:47:28.931Z"
+          }
+        },
+        {
+          "id": 214,
+          "request_id": 41,
+          "actor_user_id": 2969,
+          "action_name": "request_documents",
+          "status_from": "in_progress_central",
+          "status_to": "waiting_branch_revision",
+          "unit_from_type": "central",
+          "unit_from_code": "penyelesaian-kredit",
+          "unit_to_type": "branch",
+          "unit_to_code": "001",
+          "reason": "bantu upload ini",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:21:31.657Z"
+          }
+        },
+        {
+          "id": 215,
+          "request_id": 41,
+          "actor_user_id": 2966,
+          "action_name": "branch_revision_submitted",
+          "status_from": "waiting_branch_revision",
+          "status_to": "in_progress_central",
+          "unit_from_type": "branch",
+          "unit_from_code": "001",
+          "unit_to_type": "central",
+          "unit_to_code": "penyelesaian-kredit",
+          "reason": "done bang",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:22:36.370Z"
+          }
+        },
+        {
+          "id": 216,
+          "request_id": 41,
+          "actor_user_id": 2969,
+          "action_name": "rejected",
+          "status_from": "in_progress_central",
+          "status_to": "rejected",
+          "unit_from_type": "central",
+          "unit_from_code": "penyelesaian-kredit",
+          "unit_to_type": "central",
+          "unit_to_code": "penyelesaian-kredit",
+          "reason": "sudah melebihi sla yang ditentukan",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:23:36.675Z"
+          }
+        }
+      ]
+    },
+    "roles": {
+      "rows": [
+        {
+          "id": 1,
+          "kode": "admin",
+          "nama_role": "Admin",
+          "is_active": 1
+        },
+        {
+          "id": 2,
+          "kode": "branch_user",
+          "nama_role": "Pengguna Cabang",
+          "is_active": 1
+        },
+        {
+          "id": 3,
+          "kode": "korwil_staff",
+          "nama_role": "Petugas Korwil",
+          "is_active": 1
+        },
+        {
+          "id": 4,
+          "kode": "korwil_approver",
+          "nama_role": "Penyetuju Korwil",
+          "is_active": 1
+        },
+        {
+          "id": 5,
+          "kode": "division_staff",
+          "nama_role": "Petugas Divisi Pusat",
+          "is_active": 1
+        },
+        {
+          "id": 6,
+          "kode": "supervisor",
+          "nama_role": "Supervisor",
+          "is_active": 1
+        },
+        {
+          "id": 7,
+          "kode": "management",
+          "nama_role": "Manajemen",
+          "is_active": 1
+        }
+      ]
+    },
+    "service_requests": {
+      "rows": [
+        {
+          "id": 1,
+          "request_number": "SLA-00000001",
+          "created_by_user_id": 54,
+          "kode_kantor": "010",
+          "korwil": "solo",
+          "authority_type": "central",
+          "central_division_id": 4,
+          "work_catalog_id": 10,
+          "form_version_id": null,
+          "form_answers_json": null,
+          "credit_amount": null,
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "reset password edc",
+          "description": "edc tiba tiba password terblokir",
+          "status": "completed",
+          "current_unit_type": "central",
+          "current_unit_code": "operasional",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:38:10.556Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:28:50.719Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:38:10.556Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:28:50.719Z"
+          }
+        },
+        {
+          "id": 2,
+          "request_number": "SLA-00000002",
+          "created_by_user_id": 54,
+          "kode_kantor": "010",
+          "korwil": "solo",
+          "authority_type": "korwil",
+          "central_division_id": null,
+          "work_catalog_id": null,
+          "form_version_id": null,
+          "form_answers_json": null,
+          "credit_amount": null,
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "[UJI LOKAL] Verifikasi route Cabang 20261103215229",
+          "description": "Tiket dummy untuk memverifikasi pengiriman, daftar, detail, routing Korwil, dan sesi timer pada API lokal.",
+          "status": "rejected",
+          "current_unit_type": "korwil",
+          "current_unit_code": "solo",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:29.829Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:04:37.724Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:29.829Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:04:37.724Z"
+          }
+        },
+        {
+          "id": 5,
+          "request_number": "SLA-00000005",
+          "created_by_user_id": 54,
+          "kode_kantor": "010",
+          "korwil": "solo",
+          "authority_type": "korwil",
+          "central_division_id": null,
+          "work_catalog_id": null,
+          "form_version_id": null,
+          "form_answers_json": null,
+          "credit_amount": null,
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "Pengajuan Kredit 350.0000.000",
+          "description": "kewenangan korwil",
+          "status": "completed",
+          "current_unit_type": "korwil",
+          "current_unit_code": "solo",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:13:37.334Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:15:58.041Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:13:37.334Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:15:58.041Z"
+          }
+        },
+        {
+          "id": 12,
+          "request_number": "SLA-00000012",
+          "created_by_user_id": 54,
+          "kode_kantor": "010",
+          "korwil": "solo",
+          "authority_type": "central",
+          "central_division_id": 8,
+          "work_catalog_id": 18,
+          "form_version_id": null,
+          "form_answers_json": null,
+          "credit_amount": null,
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "ada indikasi fraud kredit",
+          "description": "ada kabid ops yang melakukan indikasi fraud",
+          "status": "completed",
+          "current_unit_type": "central",
+          "current_unit_code": "skai",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:32.932Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:22:08.388Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:17:32.932Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:22:08.388Z"
+          }
+        },
+        {
+          "id": 28,
+          "request_number": "SLA-00000028",
+          "created_by_user_id": 54,
+          "kode_kantor": "010",
+          "korwil": "solo",
+          "authority_type": "central",
+          "central_division_id": 4,
+          "work_catalog_id": 10,
+          "form_version_id": null,
+          "form_answers_json": null,
+          "credit_amount": null,
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "edc error",
+          "description": "dbsssbsbsb",
+          "status": "completed",
+          "current_unit_type": "central",
+          "current_unit_code": "operasional",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:27:59.758Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:24:23.494Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:27:59.758Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:24:23.494Z"
+          }
+        },
+        {
+          "id": 37,
+          "request_number": "SLA-00000037",
+          "created_by_user_id": 54,
+          "kode_kantor": "010",
+          "korwil": "solo",
+          "authority_type": "central",
+          "central_division_id": 4,
+          "work_catalog_id": 10,
+          "form_version_id": 5,
+          "form_answers_json": "{\"nomor_edc\":\"1900010001\",\"kantor_yang_memiliki_edc\":\"tawangmangu\"}",
+          "credit_amount": null,
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "EDC terblokir",
+          "description": "lupa password",
+          "status": "completed",
+          "current_unit_type": "central",
+          "current_unit_code": "operasional",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:33:07.256Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:46:32.140Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:33:07.256Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:46:32.140Z"
+          }
+        },
+        {
+          "id": 38,
+          "request_number": "SLA-00000038",
+          "created_by_user_id": 2966,
+          "kode_kantor": "001",
+          "korwil": "semarang",
+          "authority_type": "central",
+          "central_division_id": 2,
+          "work_catalog_id": 7,
+          "form_version_id": 1,
+          "form_answers_json": "{\"credit_amount\":500000000}",
+          "credit_amount": "500000000.00",
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "sgwgw",
+          "description": "sdgsdgwg",
+          "status": "completed",
+          "current_unit_type": "central",
+          "current_unit_code": "pemasaran",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:54:51.987Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:27.873Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:54:51.987Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:56:27.873Z"
+          }
+        },
+        {
+          "id": 39,
+          "request_number": "SLA-00000039",
+          "created_by_user_id": 2966,
+          "kode_kantor": "001",
+          "korwil": "semarang",
+          "authority_type": "korwil",
+          "central_division_id": null,
+          "work_catalog_id": 7,
+          "form_version_id": 1,
+          "form_answers_json": "{\"credit_amount\":250000000}",
+          "credit_amount": "250000000.00",
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "sdgwgwg",
+          "description": "wgwgwgg",
+          "status": "rejected",
+          "current_unit_type": "korwil",
+          "current_unit_code": "semarang",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:07.179Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:13.677Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:07.179Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:29:13.677Z"
+          }
+        },
+        {
+          "id": 40,
+          "request_number": "SLA-00000040",
+          "created_by_user_id": 2966,
+          "kode_kantor": "001",
+          "korwil": "semarang",
+          "authority_type": "central",
+          "central_division_id": 1,
+          "work_catalog_id": 3,
+          "form_version_id": 11,
+          "form_answers_json": "{\"__entries\":[{\"rekening\":\"0012031223121\",\"nama_nasabah\":\"mahmud\",\"baki_debet\":25000000,\"ckpn\":10000000},{\"rekening\":\"0012031223122\",\"nama_nasabah\":\"Erik Pratama\",\"baki_debet\":50000000,\"ckpn\":24000000}]}",
+          "credit_amount": null,
+          "inoffice_letter_number": null,
+          "inoffice_letter_date": null,
+          "subject": "Pengajuan Hapus Buku 2027",
+          "description": "Pengajuan Hapus Buku",
+          "status": "completed",
+          "current_unit_type": "central",
+          "current_unit_code": "penyelesaian-kredit",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:24:36.333Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:11:53.827Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:24:36.333Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:11:53.827Z"
+          }
+        },
+        {
+          "id": 41,
+          "request_number": "SLA-00000041",
+          "created_by_user_id": 2966,
+          "kode_kantor": "001",
+          "korwil": "semarang",
+          "authority_type": "central",
+          "central_division_id": 1,
+          "work_catalog_id": 3,
+          "form_version_id": 11,
+          "form_answers_json": "{\"__entries\":[{\"rekening\":\"0011202020221\",\"nama_nasabah\":\"Sukron\",\"baki_debet\":50000000,\"ckpn\":5000000},{\"rekening\":\"211101001111\",\"nama_nasabah\":\"Adhi\",\"baki_debet\":40000000,\"ckpn\":5000000}]}",
+          "credit_amount": null,
+          "inoffice_letter_number": "252525",
+          "inoffice_letter_date": {
+            "__seed_type": "date",
+            "value": "2026-11-09T17:00:00.000Z"
+          },
+          "subject": "Persetujuan PH 2027",
+          "description": "pengajuan PH untuk 2027",
+          "status": "rejected",
+          "current_unit_type": "central",
+          "current_unit_code": "penyelesaian-kredit",
+          "current_owner_user_id": null,
+          "submitted_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:39:28.950Z"
+          },
+          "closed_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:23:36.671Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T10:39:28.950Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T23:23:36.671Z"
+          }
+        }
+      ]
+    },
+    "user_access_audit_logs": {
+      "rows": [
+        {
+          "id": 1,
+          "actor_user_id": 1,
+          "target_user_id": 54,
+          "action": "access_updated",
+          "before_data": "{\"is_active\":false,\"assignments\":[]}",
+          "after_data": "{\"is_active\":false,\"assignments\":[{\"role_id\":2,\"role_code\":\"branch_user\",\"nama_role\":\"Pengguna Cabang\",\"scope_type\":\"office\",\"kode_kantor\":\"010\",\"korwil\":null,\"divisi_id\":null}]}",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T23:24:56.000Z"
+          }
+        },
+        {
+          "id": 2,
+          "actor_user_id": 1,
+          "target_user_id": 54,
+          "action": "access_updated",
+          "before_data": "{\"is_active\":false,\"assignments\":[{\"role_id\":2,\"role_code\":\"branch_user\",\"nama_role\":\"Pengguna Cabang\",\"scope_type\":\"office\",\"kode_kantor\":\"010\",\"korwil\":null,\"divisi_id\":null}]}",
+          "after_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":2,\"role_code\":\"branch_user\",\"nama_role\":\"Pengguna Cabang\",\"scope_type\":\"office\",\"kode_kantor\":\"010\",\"korwil\":null,\"divisi_id\":null}]}",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T23:26:33.000Z"
+          }
+        },
+        {
+          "id": 3,
+          "actor_user_id": 1,
+          "target_user_id": 91,
+          "action": "access_updated",
+          "before_data": "{\"is_active\":false,\"assignments\":[]}",
+          "after_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":1,\"role_code\":\"admin\",\"nama_role\":\"Admin\",\"scope_type\":\"global\",\"kode_kantor\":null,\"korwil\":null,\"divisi_id\":null}]}",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T00:56:51.000Z"
+          }
+        },
+        {
+          "id": 4,
+          "actor_user_id": 1,
+          "target_user_id": 91,
+          "action": "access_updated",
+          "before_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":1,\"role_code\":\"admin\",\"nama_role\":\"Admin\",\"scope_type\":\"global\",\"kode_kantor\":null,\"korwil\":null,\"divisi_id\":null}]}",
+          "after_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":5,\"role_code\":\"division_staff\",\"nama_role\":\"Petugas Divisi Pusat\",\"scope_type\":\"division\",\"kode_kantor\":null,\"korwil\":null,\"divisi_id\":4}]}",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:35:34.000Z"
+          }
+        },
+        {
+          "id": 5,
+          "actor_user_id": 1,
+          "target_user_id": 374,
+          "action": "access_updated",
+          "before_data": "{\"is_active\":false,\"assignments\":[]}",
+          "after_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":4,\"role_code\":\"korwil_approver\",\"nama_role\":\"Penyetuju Korwil\",\"scope_type\":\"korwil\",\"kode_kantor\":null,\"korwil\":\"solo\",\"divisi_id\":null}]}",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:41.000Z"
+          }
+        },
+        {
+          "id": 7,
+          "actor_user_id": 1,
+          "target_user_id": 517,
+          "action": "access_updated",
+          "before_data": "{\"is_active\":false,\"assignments\":[]}",
+          "after_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":5,\"role_code\":\"division_staff\",\"nama_role\":\"Petugas Divisi Pusat\",\"scope_type\":\"division\",\"kode_kantor\":null,\"korwil\":null,\"divisi_id\":8}]}",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T01:47:10.000Z"
+          }
+        },
+        {
+          "id": 8,
+          "actor_user_id": 1,
+          "target_user_id": 1240,
+          "action": "access_updated",
+          "before_data": "{\"is_active\":false,\"assignments\":[]}",
+          "after_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":7,\"role_code\":\"management\",\"nama_role\":\"Manajemen\",\"scope_type\":\"global\",\"kode_kantor\":null,\"korwil\":null,\"divisi_id\":null}]}",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:47:45.000Z"
+          }
+        },
+        {
+          "id": 9,
+          "actor_user_id": 1,
+          "target_user_id": 91,
+          "action": "access_updated",
+          "before_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":5,\"role_code\":\"division_staff\",\"nama_role\":\"Petugas Divisi Pusat\",\"scope_type\":\"division\",\"kode_kantor\":null,\"korwil\":null,\"divisi_id\":4,\"can_manage_forms\":0}]}",
+          "after_data": "{\"is_active\":true,\"assignments\":[{\"role_id\":5,\"role_code\":\"division_staff\",\"nama_role\":\"Petugas Divisi Pusat\",\"scope_type\":\"division\",\"kode_kantor\":null,\"korwil\":null,\"divisi_id\":4,\"can_manage_forms\":1}]}",
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:37:54.000Z"
+          }
+        }
+      ]
+    },
+    "user_role_scopes": {
+      "rows": [
+        {
+          "id": 1,
+          "user_id": 1,
+          "role_id": 1,
+          "scope_type": "global",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:16.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:16.000Z"
+          }
+        },
+        {
+          "id": 2,
+          "user_id": 54,
+          "role_id": 2,
+          "scope_type": "office",
+          "kode_kantor": "010",
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 0,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T23:24:56.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T23:26:31.000Z"
+          }
+        },
+        {
+          "id": 3,
+          "user_id": 54,
+          "role_id": 2,
+          "scope_type": "office",
+          "kode_kantor": "010",
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T23:26:32.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T23:26:32.000Z"
+          }
+        },
+        {
+          "id": 4,
+          "user_id": 91,
+          "role_id": 1,
+          "scope_type": "global",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 0,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T00:56:51.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:35:34.000Z"
+          }
+        },
+        {
+          "id": 5,
+          "user_id": 91,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 4,
+          "can_manage_forms": 0,
+          "is_active": 0,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:35:34.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:37:54.000Z"
+          }
+        },
+        {
+          "id": 6,
+          "user_id": 374,
+          "role_id": 4,
+          "scope_type": "korwil",
+          "kode_kantor": null,
+          "korwil": "solo",
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:41.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:41.000Z"
+          }
+        },
+        {
+          "id": 20,
+          "user_id": 517,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 8,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T01:47:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T01:47:10.000Z"
+          }
+        },
+        {
+          "id": 54,
+          "user_id": 1240,
+          "role_id": 7,
+          "scope_type": "global",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:47:45.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:47:45.000Z"
+          }
+        },
+        {
+          "id": 75,
+          "user_id": 91,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 4,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:37:54.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:37:54.000Z"
+          }
+        },
+        {
+          "id": 76,
+          "user_id": 2965,
+          "role_id": 1,
+          "scope_type": "global",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 77,
+          "user_id": 2966,
+          "role_id": 2,
+          "scope_type": "office",
+          "kode_kantor": "001",
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 78,
+          "user_id": 2967,
+          "role_id": 3,
+          "scope_type": "korwil",
+          "kode_kantor": null,
+          "korwil": "semarang",
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 79,
+          "user_id": 2968,
+          "role_id": 4,
+          "scope_type": "korwil",
+          "kode_kantor": null,
+          "korwil": "semarang",
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 80,
+          "user_id": 2969,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 1,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 81,
+          "user_id": 2970,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 2,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 82,
+          "user_id": 2971,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 3,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 83,
+          "user_id": 2972,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 4,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 84,
+          "user_id": 2973,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 5,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 85,
+          "user_id": 2974,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 6,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 86,
+          "user_id": 2975,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 7,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 87,
+          "user_id": 2976,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 8,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 88,
+          "user_id": 2977,
+          "role_id": 5,
+          "scope_type": "division",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": 9,
+          "can_manage_forms": 1,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 89,
+          "user_id": 2978,
+          "role_id": 6,
+          "scope_type": "global",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 90,
+          "user_id": 2979,
+          "role_id": 7,
+          "scope_type": "global",
+          "kode_kantor": null,
+          "korwil": null,
+          "divisi_id": null,
+          "can_manage_forms": 0,
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        }
+      ]
+    },
+    "users": {
+      "rows": [
+        {
+          "id": 1,
+          "employee_id": "DEV-SEED-001",
+          "full_name": "Pegawai Uji 001",
+          "email": null,
+          "telp": null,
+          "branch_name": "Kantor Pusat",
+          "unit_kerja": "Divisi Operasional",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 4,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-06T00:57:10.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T10:06:16.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-06T00:57:10.000Z"
+          }
+        },
+        {
+          "id": 54,
+          "employee_id": "DEV-SEED-002",
+          "full_name": "Pegawai Uji 002",
+          "email": null,
+          "telp": null,
+          "branch_name": "Kc. Karanganyar",
+          "unit_kerja": "Kantor Cabang",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "010",
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:53:28.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T23:17:00.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:53:28.000Z"
+          }
+        },
+        {
+          "id": 91,
+          "employee_id": "DEV-SEED-003",
+          "full_name": "Pegawai Uji 003",
+          "email": null,
+          "telp": null,
+          "branch_name": "Kantor Pusat",
+          "unit_kerja": "Divisi Operasional",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 4,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:59:08.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T00:49:21.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:59:08.000Z"
+          }
+        },
+        {
+          "id": 374,
+          "employee_id": "DEV-SEED-004",
+          "full_name": "Pegawai Uji 004",
+          "email": null,
+          "telp": null,
+          "branch_name": "Kantor Wilayah Solo Raya",
+          "unit_kerja": "Area Kantor Wilayah",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:22.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T21:52:03.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T03:47:22.000Z"
+          }
+        },
+        {
+          "id": 517,
+          "employee_id": "DEV-SEED-005",
+          "full_name": "Pegawai Uji 005",
+          "email": null,
+          "telp": null,
+          "branch_name": "Kantor Pusat",
+          "unit_kerja": "Satuan Kerja Audit Internal",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 8,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:38:13.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T23:17:43.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T19:38:13.000Z"
+          }
+        },
+        {
+          "id": 1240,
+          "employee_id": "DEV-SEED-006",
+          "full_name": "Pegawai Uji 006",
+          "email": null,
+          "telp": null,
+          "branch_name": "Kantor Pusat",
+          "unit_kerja": "Dewan Komisaris dan Direksi",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T01:19:30.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T20:46:29.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T01:19:30.000Z"
+          }
+        },
+        {
+          "id": 2965,
+          "employee_id": "DUMMY-ADMIN",
+          "full_name": "Akun Dummy - Admin",
+          "email": null,
+          "telp": null,
+          "branch_name": null,
+          "unit_kerja": "Sistem SLA",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": null,
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2966,
+          "employee_id": "DUMMY-BRANCH-001",
+          "full_name": "Akun Dummy - Cabang 001",
+          "email": null,
+          "telp": null,
+          "branch_name": "Kc. Utama",
+          "unit_kerja": "Kc. Utama",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "001",
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2967,
+          "employee_id": "DUMMY-KORWIL-STAFF-SEMARANG",
+          "full_name": "Akun Dummy - Petugas Korwil Semarang",
+          "email": null,
+          "telp": null,
+          "branch_name": "Korwil Semarang Raya",
+          "unit_kerja": "Korwil Semarang Raya",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "001",
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2968,
+          "employee_id": "DUMMY-KORWIL-APPROVER-SEMARANG",
+          "full_name": "Akun Dummy - Penyetuju Korwil Semarang",
+          "email": null,
+          "telp": null,
+          "branch_name": "Korwil Semarang Raya",
+          "unit_kerja": "Korwil Semarang Raya",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "001",
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2969,
+          "employee_id": "DUMMY-DIVISION-PENYELESAIAN-KREDIT",
+          "full_name": "Akun Dummy - Divisi Penyelesaian Kredit",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "Penyelesaian Kredit",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 1,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2970,
+          "employee_id": "DUMMY-DIVISION-PEMASARAN",
+          "full_name": "Akun Dummy - Divisi Pemasaran",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "Pemasaran",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 2,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2971,
+          "employee_id": "DUMMY-DIVISION-SEKRETARIS-PERUSAHAAN",
+          "full_name": "Akun Dummy - Divisi Sekretaris Perusahaan",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "Sekretaris Perusahaan",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 3,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2972,
+          "employee_id": "DUMMY-DIVISION-OPERASIONAL",
+          "full_name": "Akun Dummy - Divisi Operasional",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "Operasional",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 4,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2973,
+          "employee_id": "DUMMY-DIVISION-LITBANG",
+          "full_name": "Akun Dummy - Divisi Litbang",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "Litbang",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 5,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2974,
+          "employee_id": "DUMMY-DIVISION-SKK",
+          "full_name": "Akun Dummy - Divisi SKK",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "SKK",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 6,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2975,
+          "employee_id": "DUMMY-DIVISION-SKMR",
+          "full_name": "Akun Dummy - Divisi SKMR",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "SKMR",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 7,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2976,
+          "employee_id": "DUMMY-DIVISION-SKAI",
+          "full_name": "Akun Dummy - Divisi Satuan Kerja Audit Internal",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "Satuan Kerja Audit Internal",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 8,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2977,
+          "employee_id": "DUMMY-DIVISION-SDM",
+          "full_name": "Akun Dummy - Divisi SDM",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "SDM",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": 9,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2978,
+          "employee_id": "DUMMY-SUPERVISOR",
+          "full_name": "Akun Dummy - Supervisor",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "Pusat",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        },
+        {
+          "id": 2979,
+          "employee_id": "DUMMY-MANAGEMENT",
+          "full_name": "Akun Dummy - Manajemen",
+          "email": null,
+          "telp": null,
+          "branch_name": "Pusat",
+          "unit_kerja": "Pusat",
+          "job_position": null,
+          "level": null,
+          "group_jabatan": null,
+          "kode_kantor": "000",
+          "divisi_id": null,
+          "is_active": 1,
+          "profile_synced_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          },
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-07T04:37:19.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T01:57:31.000Z"
+          }
+        }
+      ]
+    },
+    "work_catalog_form_versions": {
+      "rows": [
+        {
+          "id": 1,
+          "work_catalog_id": 7,
+          "version_number": 1,
+          "definition_json": "{\"fields\":[{\"key\":\"credit_amount\",\"label\":\"Nilai pengajuan kredit (Rp)\",\"type\":\"currency\",\"required\":true,\"min_value\":250000000,\"system\":true}]}",
+          "published_by_user_id": null,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:22:56.497Z"
+          }
+        },
+        {
+          "id": 2,
+          "work_catalog_id": 4,
+          "version_number": 1,
+          "definition_json": "{\"fields\":[]}",
+          "published_by_user_id": null,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:22:56.512Z"
+          }
+        },
+        {
+          "id": 3,
+          "work_catalog_id": 10,
+          "version_number": 1,
+          "definition_json": "{\"fields\":[{\"key\":\"nomor_edc\",\"label\":\"nomor EDC\",\"type\":\"text\",\"required\":true},{\"key\":\"kantor_yang_memiliki_edc\",\"label\":\"Kantor Yang memiliki EDC\",\"type\":\"text\",\"required\":true}]}",
+          "published_by_user_id": 1,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:29:46.007Z"
+          }
+        },
+        {
+          "id": 4,
+          "work_catalog_id": 10,
+          "version_number": 2,
+          "definition_json": "{\"fields\":[{\"key\":\"nomor_edc\",\"label\":\"nomor EDC\",\"type\":\"text\",\"required\":true},{\"key\":\"kantor_yang_memiliki_edc\",\"label\":\"Kantor Yang memiliki EDC\",\"type\":\"text\",\"required\":true}]}",
+          "published_by_user_id": 1,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:29:49.348Z"
+          }
+        },
+        {
+          "id": 5,
+          "work_catalog_id": 10,
+          "version_number": 3,
+          "definition_json": "{\"fields\":[{\"key\":\"nomor_edc\",\"label\":\"nomor EDC\",\"type\":\"text\",\"required\":true},{\"key\":\"kantor_yang_memiliki_edc\",\"label\":\"Kantor Yang memiliki EDC\",\"type\":\"text\",\"required\":true}]}",
+          "published_by_user_id": 1,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:29:52.841Z"
+          }
+        },
+        {
+          "id": 6,
+          "work_catalog_id": 3,
+          "version_number": 1,
+          "definition_json": "{\"fields\":[{\"key\":\"rekening\",\"label\":\"Rekening\",\"type\":\"text\",\"required\":true},{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true},{\"key\":\"keringanan_bunga\",\"label\":\"Keringanan Bunga\",\"type\":\"currency\",\"required\":true}]}",
+          "published_by_user_id": 1,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:30:26.905Z"
+          }
+        },
+        {
+          "id": 7,
+          "work_catalog_id": 3,
+          "version_number": 2,
+          "definition_json": "{\"fields\":[{\"key\":\"rekening\",\"label\":\"Rekening\",\"type\":\"text\",\"required\":true},{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true},{\"key\":\"keringanan_bunga\",\"label\":\"Keringanan Bunga\",\"type\":\"currency\",\"required\":true}]}",
+          "published_by_user_id": 1,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:30:30.004Z"
+          }
+        },
+        {
+          "id": 8,
+          "work_catalog_id": 3,
+          "version_number": 3,
+          "definition_json": "{\"fields\":[{\"key\":\"rekening\",\"label\":\"Rekening\",\"type\":\"text\",\"required\":true},{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true},{\"key\":\"keringanan_bunga\",\"label\":\"Keringanan Bunga\",\"type\":\"currency\",\"required\":true}]}",
+          "published_by_user_id": 1,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:30:31.206Z"
+          }
+        },
+        {
+          "id": 9,
+          "work_catalog_id": 3,
+          "version_number": 4,
+          "definition_json": "{\"fields\":[{\"key\":\"rekening\",\"label\":\"Rekening\",\"type\":\"text\",\"required\":true},{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true},{\"key\":\"keringanan_bunga\",\"label\":\"Keringanan Bunga\",\"type\":\"currency\",\"required\":true}]}",
+          "published_by_user_id": 1,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:30:47.814Z"
+          }
+        },
+        {
+          "id": 10,
+          "work_catalog_id": 4,
+          "version_number": 2,
+          "definition_json": "{\"fields\":[{\"key\":\"rekening\",\"label\":\"Rekening\",\"type\":\"text\",\"required\":true},{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true},{\"key\":\"baki_debet\",\"label\":\"Baki Debet\",\"type\":\"currency\",\"required\":true},{\"key\":\"total_tunggakan\",\"label\":\"Total Tunggakan\",\"type\":\"currency\",\"required\":true},{\"key\":\"keringanan_bunga\",\"label\":\"Keringanan Bunga\",\"type\":\"number\",\"required\":true}]}",
+          "published_by_user_id": 2969,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T02:01:17.628Z"
+          }
+        },
+        {
+          "id": 11,
+          "work_catalog_id": 3,
+          "version_number": 5,
+          "definition_json": "{\"fields\":[{\"key\":\"rekening\",\"label\":\"Rekening\",\"type\":\"text\",\"required\":true},{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"textarea\",\"required\":true},{\"key\":\"baki_debet\",\"label\":\"Baki Debet\",\"type\":\"currency\",\"required\":true},{\"key\":\"ckpn\",\"label\":\"CKPN\",\"type\":\"currency\",\"required\":true}],\"repeatable\":{\"label\":\"Data rekening/fasilitas\",\"max_entries\":20}}",
+          "published_by_user_id": 2969,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T04:22:15.983Z"
+          }
+        },
+        {
+          "id": 12,
+          "work_catalog_id": 4,
+          "version_number": 3,
+          "definition_json": "{\"fields\":[{\"key\":\"no_rekening\",\"label\":\"No Rekening\",\"type\":\"text\",\"required\":true},{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true},{\"key\":\"baki_debet\",\"label\":\"Baki Debet\",\"type\":\"currency\",\"required\":true},{\"key\":\"total_tunggakan\",\"label\":\"Total Tunggakan\",\"type\":\"currency\",\"required\":true},{\"key\":\"keringanan_bunga\",\"label\":\"Keringanan Bunga\",\"type\":\"number\",\"required\":true}],\"repeatable\":{\"label\":\"Data rekening/fasilitas\",\"max_entries\":20}}",
+          "published_by_user_id": 2969,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-09T05:09:54.436Z"
+          }
+        },
+        {
+          "id": 13,
+          "work_catalog_id": 2,
+          "version_number": 1,
+          "definition_json": "{\"fields\":[{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true}]}",
+          "published_by_user_id": 2969,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T03:20:13.535Z"
+          }
+        },
+        {
+          "id": 14,
+          "work_catalog_id": 2,
+          "version_number": 2,
+          "definition_json": "{\"fields\":[{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true},{\"key\":\"no_rekening\",\"label\":\"No Rekening\",\"type\":\"text\",\"required\":true},{\"key\":\"baki_debet\",\"label\":\"Baki Debet\",\"type\":\"currency\",\"required\":true},{\"key\":\"lokasi_agunan\",\"label\":\"Lokasi Agunan\",\"type\":\"textarea\",\"required\":true},{\"key\":\"nilai_pasar\",\"label\":\"Nilai Pasar\",\"type\":\"currency\",\"required\":true},{\"key\":\"nrv\",\"label\":\"NRV\",\"type\":\"currency\",\"required\":false},{\"key\":\"nilai_ayda\",\"label\":\"Nilai AYDA\",\"type\":\"currency\",\"required\":true},{\"key\":\"alasan_pengambilalihan\",\"label\":\"Alasan Pengambilalihan\",\"type\":\"textarea\",\"required\":true},{\"key\":\"timelane\",\"label\":\"Timelane\",\"type\":\"date\",\"required\":false}]}",
+          "published_by_user_id": 2969,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-10T03:57:28.774Z"
+          }
+        },
+        {
+          "id": 15,
+          "work_catalog_id": 10,
+          "version_number": 4,
+          "definition_json": "{\"fields\":[{\"key\":\"nomor_edc\",\"label\":\"nomor EDC\",\"type\":\"textarea\",\"required\":true,\"requires_korwil_review\":false},{\"key\":\"jenis_kantor\",\"label\":\"Jenis Kantor\",\"type\":\"select\",\"required\":true,\"options\":[\"Kantor Cabang\",\"Kantor Kas\"],\"requires_korwil_review\":false},{\"key\":\"nama_kantor\",\"label\":\"Nama Kantor\",\"type\":\"text\",\"required\":false,\"requires_korwil_review\":false}]}",
+          "published_by_user_id": 2972,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T22:35:35.237Z"
+          }
+        },
+        {
+          "id": 16,
+          "work_catalog_id": 7,
+          "version_number": 2,
+          "definition_json": "{\"fields\":[{\"key\":\"credit_amount\",\"label\":\"Nilai pengajuan kredit (Rp)\",\"type\":\"currency\",\"required\":true,\"min_value\":250000000,\"system\":true,\"requires_korwil_review\":true}],\"credit_routing\":{\"marketing_threshold_amount\":500000000}}",
+          "published_by_user_id": 2970,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T22:37:42.926Z"
+          }
+        },
+        {
+          "id": 17,
+          "work_catalog_id": 7,
+          "version_number": 3,
+          "definition_json": "{\"fields\":[{\"key\":\"credit_amount\",\"label\":\"Nilai pengajuan kredit (Rp)\",\"type\":\"currency\",\"required\":true,\"min_value\":250000000,\"system\":true,\"requires_korwil_review\":true},{\"key\":\"nama_nasabah\",\"label\":\"Nama Nasabah\",\"type\":\"text\",\"required\":true,\"requires_korwil_review\":false},{\"key\":\"usaha\",\"label\":\"Usaha\",\"type\":\"text\",\"required\":false,\"requires_korwil_review\":false},{\"key\":\"kebutuhan_pengajuan\",\"label\":\"Kebutuhan Pengajuan\",\"type\":\"text\",\"required\":false,\"requires_korwil_review\":false}],\"credit_routing\":{\"marketing_threshold_amount\":500000000}}",
+          "published_by_user_id": 2970,
+          "published_at": {
+            "__seed_type": "date",
+            "value": "2026-11-11T22:39:33.795Z"
+          }
+        }
+      ]
+    },
+    "work_catalogs": {
+      "rows": [
+        {
+          "id": 1,
+          "divisi_id": 1,
+          "nama_pekerjaan": "Persetujuan lelang",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 2,
+          "divisi_id": 1,
+          "nama_pekerjaan": "AYDA",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 3,
+          "divisi_id": 1,
+          "nama_pekerjaan": "Hapus buku",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 4,
+          "divisi_id": 1,
+          "nama_pekerjaan": "Keringanan bunga",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:22:56.000Z"
+          },
+          "system_key": "interest_relief"
+        },
+        {
+          "id": 5,
+          "divisi_id": 1,
+          "nama_pekerjaan": "Restruck",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 6,
+          "divisi_id": 1,
+          "nama_pekerjaan": "Pelunasan sebagian",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 7,
+          "divisi_id": 2,
+          "nama_pekerjaan": "Pengajuan Kredit",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-05T20:22:56.000Z"
+          },
+          "system_key": "credit_application"
+        },
+        {
+          "id": 8,
+          "divisi_id": 3,
+          "nama_pekerjaan": "Pendampingan hukum",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 9,
+          "divisi_id": 3,
+          "nama_pekerjaan": "Penanganan fraud",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 10,
+          "divisi_id": 4,
+          "nama_pekerjaan": "Permintaan EDC",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-02T22:07:10.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 17,
+          "divisi_id": 1,
+          "nama_pekerjaan": "Pengajuan Cessie",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-03T00:59:18.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        },
+        {
+          "id": 18,
+          "divisi_id": 8,
+          "nama_pekerjaan": "Indikasi Fraud Pegawai",
+          "deskripsi": null,
+          "target_sla_minutes": 10080,
+          "routing_flow": "branch_korwil_central",
+          "is_active": 1,
+          "created_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T07:15:52.000Z"
+          },
+          "updated_at": {
+            "__seed_type": "date",
+            "value": "2026-11-04T21:21:41.000Z"
+          },
+          "system_key": null
+        }
+      ]
+    }
+  }
+}
