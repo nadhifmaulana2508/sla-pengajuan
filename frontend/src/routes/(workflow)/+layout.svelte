@@ -17,4 +17,13 @@
 
 <style>
 	.workflow-shell { min-height: 100svh; background: var(--muted); color: var(--foreground); }
+	@media (max-width: 72rem) {
+		.workflow-content.app-page-shell {
+			box-sizing: border-box;
+			width: 100%;
+			max-width: none;
+			margin-inline: 0;
+			padding-inline: max(var(--page-gutter), env(safe-area-inset-left)) max(var(--page-gutter), env(safe-area-inset-right));
+		}
+	}
 </style>

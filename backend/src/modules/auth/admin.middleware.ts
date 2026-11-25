@@ -21,6 +21,7 @@ export const requireSlaAdmin: RequestHandler = async (request, response, next) =
 
 	try {
 		const profile = await resolveBearerIdentity(token);
+		response.locals.slaEmployeeId = profile.employee_id;
 		const access = await resolveSlaAccess(profile.employee_id);
 
 		if (!access.enabled || access.role !== 'admin' || access.scope !== 'all') {

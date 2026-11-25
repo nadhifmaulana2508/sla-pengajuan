@@ -13,6 +13,8 @@ const envSchema = z.object({
 	DB_PASSWORD: z.string().default(''),
 	SSO_BASE_URL: z.string().url(),
 	SSO_APP_CODE: z.string().min(1),
+	SSO_APP_TOKEN: z.string().trim().default(''),
+	SSO_DUMMY_LOGIN_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 	SSO_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
 	PRIVATE_UPLOAD_DIR: z.string().trim().min(1).default('./private-uploads'),
 	SSO_CONNECT_IP: z.preprocess(
@@ -31,6 +33,13 @@ const envSchema = z.object({
 			code: 'custom',
 			path: ['DUMMY_AUTH_ENABLED'],
 			message: 'Dummy authentication in production is only allowed for sla_pengajuan during UAT or databases ending in _staging.'
+		});
+	}
+	if (config.SSO_DUMMY_LOGIN_ENABLED && config.NODE_ENV !== 'development') {
+		context.addIssue({
+			code: 'custom',
+			path: ['SSO_DUMMY_LOGIN_ENABLED'],
+			message: 'Remote SSO dummy login is only available in development.'
 		});
 	}
 });

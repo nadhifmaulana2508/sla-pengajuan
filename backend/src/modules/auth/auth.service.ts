@@ -5,9 +5,19 @@ import { z } from 'zod';
 export interface SsoConfig {
 	baseUrl: string;
 	appCode: string;
+	appToken: string;
 	timeoutMs: number;
 	connectIp?: string;
 }
+
+export type SsoEmployee = {
+	employee_id: string;
+	full_name: string;
+	kode: string | null;
+	job_position: string | null;
+	unit_kerja?: string | null;
+	branch_name?: string | null;
+};
 
 const profileSchema = z.object({
 	kode: z.string().nullable().optional(),
@@ -30,6 +40,27 @@ const loginResponseSchema = z.object({
 const profileResponseSchema = z.object({
 	status: z.number(),
 	data: profileSchema
+});
+
+const employeeSchema = z.object({
+	employee_id: z.string().trim().min(1).max(80),
+	full_name: z.string().trim().min(1).max(160),
+	kode: z.union([z.string(), z.number().transform(String)]).nullable().optional(),
+	job_position: z.string().nullable().optional(),
+	unit_kerja: z.string().nullable().optional(),
+	branch_name: z.string().nullable().optional()
+}).transform((employee) => ({
+	employee_id: employee.employee_id,
+	full_name: employee.full_name,
+	kode: employee.kode === undefined || employee.kode === null ? null : String(employee.kode),
+	job_position: employee.job_position ?? null,
+	unit_kerja: employee.unit_kerja ?? null,
+	branch_name: employee.branch_name ?? null
+}));
+
+const employeeSearchResponseSchema = z.object({
+	status: z.number(),
+	data: z.array(employeeSchema).max(50)
 });
 
 export type SsoProfile = z.infer<typeof profileSchema>;
@@ -105,6 +136,9 @@ export function createSsoClient(config: SsoConfig, fetcher: typeof fetch = confi
 	const baseUrl = config.baseUrl.endsWith('/') ? config.baseUrl : `${config.baseUrl}/`;
 
 	async function request(path: string, init: RequestInit, failureMessage: string): Promise<unknown> {
+		if (!config.appToken) {
+			throw new SsoAuthError(502, 'Token aplikasi SSO belum diatur pada environment backend.');
+		}
 		let response: Response;
 
 		try {
@@ -112,6 +146,8 @@ export function createSsoClient(config: SsoConfig, fetcher: typeof fetch = confi
 				...init,
 				headers: {
 					accept: 'application/json',
+					App: config.appCode,
+					...(config.appToken ? { 'X-App-Token': config.appToken } : {}),
 					...init.headers
 				},
 				signal: AbortSignal.timeout(config.timeoutMs)
@@ -145,7 +181,7 @@ export function createSsoClient(config: SsoConfig, fetcher: typeof fetch = confi
 				{
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ id_peg: idPeg, password, app: config.appCode })
+					body: JSON.stringify({ id_peg: idPeg, password })
 				},
 				'ID pegawai, password, atau akses aplikasi SSO tidak sesuai.'
 			);
@@ -157,6 +193,43 @@ export function createSsoClient(config: SsoConfig, fetcher: typeof fetch = confi
 
 			const profile = await this.whoami(loginResult.data.data.token);
 			return { token: loginResult.data.data.token, profile };
+		},
+
+		async loginDummy(idPeg: string): Promise<{ token: string; profile: SsoProfile }> {
+			const body = await request(
+				'api/auth/login-dummy',
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ id_peg: idPeg })
+				},
+				'ID pegawai tidak tersedia untuk uji login dummy SSO.'
+			);
+
+			const loginResult = loginResponseSchema.safeParse(body);
+			if (!loginResult.success || loginResult.data.status !== 200) {
+				throw new SsoAuthError(502, 'Respons login dummy SSO tidak sesuai.');
+			}
+
+			const profile = await this.whoami(loginResult.data.data.token);
+			return { token: loginResult.data.data.token, profile };
+		},
+
+		async searchEmployees(query: string): Promise<SsoEmployee[]> {
+			const trimmed = query.trim();
+			const isEmployeeId = /^[\d-]+$/.test(trimmed) && /\d/.test(trimmed);
+			const params = new URLSearchParams(isEmployeeId ? { id_peg: trimmed } : { nama: trimmed });
+			const body = await request(
+				`api/simpeg/pegawai/search?${params.toString()}`,
+				{ method: 'GET' },
+				'Pencarian pegawai di SSO belum berhasil.'
+			);
+
+			const result = employeeSearchResponseSchema.safeParse(body);
+			if (!result.success || result.data.status !== 200) {
+				throw new SsoAuthError(502, 'Respons pencarian pegawai dari SSO tidak sesuai.');
+			}
+			return result.data.data;
 		},
 
 		async whoami(token: string): Promise<SsoProfile> {

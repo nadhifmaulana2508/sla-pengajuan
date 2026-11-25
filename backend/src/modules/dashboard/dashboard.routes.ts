@@ -19,7 +19,8 @@ dashboardRouter.get('/management-requests', async (request, response) => {
 			request.query.to,
 			request.query.sla_status,
 			request.query.page,
-			request.query.page_size
+			request.query.page_size,
+			request.query.q
 		);
 		const data = await getManagementRequests(response.locals.slaEmployeeId, filters);
 		response.status(200).json({ status: 200, message: 'Pemantauan tiket berhasil dimuat.', data });
@@ -48,7 +49,14 @@ dashboardRouter.get('/branch-follow-up', async (request, response) => {
 
 dashboardRouter.get('/', async (request, response) => {
 	try {
-		const filters = parseDashboardFilters(request.query.from, request.query.to, request.query.korwil, request.query.division_id);
+		const filters = parseDashboardFilters(
+			request.query.from,
+			request.query.to,
+			request.query.korwil,
+			request.query.division_id,
+			request.query.status,
+			request.query.work_catalog_id
+		);
 		const dashboard = await getDashboard(response.locals.slaEmployeeId, filters);
 		response.status(200).json({ status: 200, message: 'Dashboard berhasil dimuat.', data: dashboard });
 	} catch (error) {

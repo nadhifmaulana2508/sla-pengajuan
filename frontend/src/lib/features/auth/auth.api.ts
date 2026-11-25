@@ -27,12 +27,31 @@ type DummyUsersResponse = {
 	data: DummyUserOption[];
 };
 
+type SsoDummyStatusResponse = {
+	status: number;
+	message: string;
+	data: { enabled: boolean };
+};
+
 let pendingProfileRequest: { token: string; promise: Promise<AuthenticatedProfile> } | null = null;
 
 export async function loginWithSso(idPeg: string, password: string) {
 	const response = await apiRequest<LoginResponse>('auth/login', {
 		method: 'POST',
 		body: { id_peg: idPeg, password }
+	});
+	return response.data;
+}
+
+export async function fetchSsoDummyLoginStatus(): Promise<boolean> {
+	const response = await apiRequest<SsoDummyStatusResponse>('auth/sso-dummy-login-status');
+	return response.data.enabled;
+}
+
+export async function loginWithSsoDummy(idPeg: string) {
+	const response = await apiRequest<LoginResponse>('auth/sso-dummy-login', {
+		method: 'POST',
+		body: { id_peg: idPeg }
 	});
 	return response.data;
 }
@@ -61,4 +80,8 @@ export function fetchCurrentProfile(token: string): Promise<AuthenticatedProfile
 
 	pendingProfileRequest = { token, promise };
 	return promise;
+}
+
+export async function recordLogout(token: string): Promise<void> {
+	await apiRequest('auth/logout', { method: 'POST', token });
 }

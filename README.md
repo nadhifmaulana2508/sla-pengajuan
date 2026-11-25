@@ -31,19 +31,18 @@ Catatan progres dan keputusan terbuka ada di PROJECT_STATUS.md. Kebutuhan bisnis
 - Dashboard global dapat difilter berdasarkan tanggal, Korwil, dan Divisi Pusat.
 - Halaman /management/branch-follow-up menampilkan semua status tiket, lokasi penanganan terbaru, umur, SLA, filter status/Cabang/Korwil/Divisi, dan pagination.
 - Notifikasi aplikasi mencatat event workflow, unread count, dan tindakan tandai sudah dibaca.
-- Pengajuan kredit di bawah Rp250 juta ditolak. Untuk nilai yang memenuhi batas, Cabang dapat memakai form Pemasaran dengan tujuan Korwil atau Pusat; pilihan tujuan menentukan penanganan dan ambang form (default Rp500 juta) hanya menjadi panduan nilai.
+- Pengajuan kredit di bawah Rp200 juta ditolak. Nilai Rp200 juta sampai di bawah Rp500 juta otomatis ditangani Korwil; mulai Rp500 juta otomatis menuju Divisi Pemasaran setelah diperiksa Korwil.
 - Admin global dapat menerbitkan semua form. Petugas Divisi hanya dapat menerbitkan form divisinya jika Admin mengaktifkan izin kelola form pada assignment.
 - Setiap penerbitan membuat versi form baru; tiket mempertahankan jawaban dari versi saat diajukan.
 - Pengelola form dapat membuat semua kolom tambahan menjadi satu kelompok berulang, dengan batas 2–20 kelompok per pengajuan.
-- Admin memilih alur pada menu **Master pekerjaan**. Katalog lama memakai jalur melalui Korwil sampai Admin mengubah pengaturannya.
+- Admin memilih alur pada menu **Master pekerjaan** untuk pekerjaan selain Pengajuan Kredit. Katalog lama memakai jalur melalui Korwil sampai Admin mengubah pengaturannya; Pengajuan Kredit mengikuti nominal dan selalu diperiksa Korwil lebih dulu.
 
 ## Role dan cakupan akses
 
 | Role | Cakupan utama | Akses utama |
 |---|---|---|
 | branch_user | Kantor Cabang dari profil SSO | Membuat, melihat, dan menjawab revisi pengajuan kantornya |
-| korwil_staff | Korwil hasil pemetaan kantor/profil SSO | Melihat antrean/riwayat, claim, meminta kelengkapan, meneruskan, menyelesaikan, atau menolak sesuai tahap |
-| korwil_approver | Korwil hasil pemetaan kantor/profil SSO | Persetujuan atau tindakan Korwil sesuai assignment dan tahap workflow |
+| korwil_staff | Korwil hasil pemetaan kantor/profil SSO | Melihat antrean/riwayat, mengambil, meminta kelengkapan, meneruskan, menyelesaikan, atau menolak sesuai tahap |
 | division_staff | Divisi Pusat hasil pemetaan unit_kerja SSO | Melihat antrean/riwayat divisinya; mengelola form jika diberi izin Admin |
 | supervisor | Global | Dashboard dan detail baca-saja |
 | management | Global | Dashboard, filter, pemantauan Cabang, dan detail baca-saja |
@@ -62,9 +61,9 @@ Identitas SSO saja tidak memberi akses. Akun harus aktif dan memiliki assignment
     Kedua jalur berakhir pada Divisi Pusat; permintaan kelengkapan kembali ke Cabang
     dan jawaban Cabang dikirim ke unit yang meminta.
 
-- Pengajuan kredit di bawah Rp250 juta ditolak tanpa membuat tiket.
-- Dengan form Pengajuan Kredit, nilai minimal Rp250 juta dapat dikirim ke Korwil untuk ditangani sampai selesai.
-- Jika Cabang memilih tujuan Pusat, tiket menuju Pemasaran langsung atau melalui Korwil sesuai routing katalog, terlepas dari ambang panduan form.
+- Pengajuan kredit di bawah Rp200 juta ditolak tanpa membuat tiket.
+- Dengan form Pengajuan Kredit, nilai Rp200 juta sampai di bawah Rp500 juta ditangani Korwil.
+- Mulai Rp500 juta, backend menetapkan Pemasaran sebagai tujuan dan tiket selalu masuk Korwil lebih dahulu untuk diperiksa.
 - Penolakan dan penyelesaian memerlukan alasan atau ringkasan hasil.
 - Seluruh handoff, revisi, claim, dan keputusan tercatat dalam timeline.
 
@@ -155,7 +154,7 @@ Untuk mencoba seluruh role tanpa akun SSO, aktifkan `DUMMY_AUTH_ENABLED=true` di
 
     npm.cmd run db:seed-dummy-users
 
-Restart backend. Halaman login akan menampilkan pilihan akun uji untuk role Admin, Pengguna Cabang, Petugas Korwil, Penyetuju Korwil, Petugas Divisi Pusat, Supervisor, dan Manajemen. Sembilan akun Petugas Divisi tersedia, satu per divisi; semuanya diberi izin kelola form pada divisinya untuk mencoba menu tersebut. Akun ini memakai data sintetis tanpa password; aksesnya tetap diperiksa melalui assignment lokal. Selama UAT saat ini, backend `NODE_ENV=production` menerima login dummy hanya bila `DUMMY_AUTH_ENABLED=true` dan `DB_NAME=sla_pengajuan` atau nama database berakhiran `_staging`. Batasi akses aplikasi UAT ke VPN/IP tepercaya dan setel `DUMMY_AUTH_ENABLED=false` sebelum go-live.
+Restart backend. Jika akun aktif tersedia, halaman login menampilkan switch SSO dan Akun demo; SSO tetap menjadi pilihan awal. Pilihan akun demo hilang ketika backend tidak mengaktifkan fitur ini. Daftar akun uji mencakup role Admin, Pengguna Cabang, Petugas Korwil, Petugas Divisi Pusat, Supervisor, dan Manajemen. Sembilan akun Petugas Divisi tersedia, satu per divisi; semuanya diberi izin kelola form pada divisinya untuk mencoba menu tersebut. Akun ini memakai data sintetis tanpa password; aksesnya tetap diperiksa melalui assignment lokal. Selama UAT saat ini, backend `NODE_ENV=production` menerima login dummy hanya bila `DUMMY_AUTH_ENABLED=true` dan `DB_NAME=sla_pengajuan` atau nama database berakhiran `_staging`. Untuk menonaktifkan seluruh akun demo, setel `DUMMY_AUTH_ENABLED=false` lalu restart backend; ini juga menolak sesi demo yang masih tersimpan. Batasi akses aplikasi UAT ke VPN/IP tepercaya dan matikan flag sebelum go-live.
 
 Isi SLA_INITIAL_ADMIN_EMPLOYEE_ID di backend/.env, kemudian jalankan sekali per database:
 

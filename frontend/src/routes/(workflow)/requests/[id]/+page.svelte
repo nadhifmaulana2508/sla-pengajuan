@@ -9,18 +9,18 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
-	import { Separator } from '#lib/components/ui/separator/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import SearchableSelect from '#lib/components/SearchableSelect.svelte';
 	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
 	import { authSession, clearAuthenticatedSession } from '#lib/features/auth/auth.store.js';
+	import { buildXlsxWorkbook } from '#lib/utils/xlsx.js';
 	import {
-		downloadRequestAttachment, fetchRequest, fetchRequestAttachmentBlob, fetchRequestRejectionReasons, finishCentral, finishKorwil, forwardKorwilRequest, formatDate, formatElapsed,
+		convertPhotoToWebp, downloadRequestAttachment, fetchRequest, fetchRequestAttachmentBlob, fetchRequestRejectionReasons, finishCentral, finishKorwil, forwardKorwilRequest, formatDate, formatElapsed,
 		requestCentralDocuments, requestKorwilDocuments, slaStatusLabels, statusLabels, submitRevision
 	} from '#lib/features/requests/requests.api.js';
-	import type { RequestRejectionReason, RevisionDocumentCategory, RevisionFieldTarget } from '#lib/features/requests/requests.api.js';
-	import { ArrowDownToLine, ArrowLeft, Building2, Check, ChevronDown, Clock3, Eye, FileText, Send, X } from '@lucide/svelte';
+import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCategory, RevisionFieldTarget } from '#lib/features/requests/requests.api.js';
+	import { Activity, ArrowDownToLine, ArrowLeft, ArrowRight, Building2, Check, Clock3, Eye, FileText, Send, X } from '@lucide/svelte';
 
 	type Detail = Awaited<ReturnType<typeof fetchRequest>>['data'];
 	type FormAnswer = Detail['form_answer_groups'][number]['answers'][number];
@@ -29,6 +29,11 @@
 	let token = $state<string | null>(null);
 	let role = $state<string | null>(null);
 	let detail = $state<Detail | null>(null);
+	let currentRevisionIsInHistory = $derived.by(() => {
+		if (!detail || !detail.revision_request) return false;
+		const revisionNumber = detail.revision_request.revision_number;
+		return detail.revision_history.some((revision) => revision.revision_number === revisionNumber);
+	});
 	let isLoading = $state(true);
 	let errorMessage = $state('');
 	let actionError = $state('');
@@ -41,13 +46,16 @@
 	let previewUrl = $state('');
 	let previewFilename = $state('');
 	let previewAttachmentId = $state<number | null>(null);
-	let sessionDetailsOpen = $state(false);
-	let timelineOpen = $state(false);
+	let activityOpen = $state(false);
+	let activityView = $state<'flow' | 'process'>('flow');
+	let answerPage = $state(1);
 	let actionText = $state('');
 	let requestedRevisionFields = $state<RevisionFieldTarget[]>([]);
 	let requestedRevisionDocuments = $state<RevisionDocumentCategory[]>([]);
-	let revisionValues = $state<Record<string, string | number>>({});
+	let revisionValues = $state<Record<string, string | number | string[]>>({});
 	let revisionFiles = $state<Partial<Record<RevisionDocumentCategory, File>>>({});
+	let revisionFormFiles = $state<Record<string, File[]>>({});
+	let pendingRevisionPhotoConversions = $state(0);
 	let beritaAcaraFile = $state<File | null>(null);
 	let rejectionReasons = $state<RequestRejectionReason[]>([]);
 	let rejectionReasonId = $state('');
@@ -66,12 +74,17 @@
 			{ kind: 'inoffice_letter_number', label: 'Nomor surat InOffice' },
 			{ kind: 'inoffice_letter_date', label: 'Tanggal surat InOffice' }
 		];
+		const derivedKeys = new Set(detail.form_fields.filter((field) => field.calculation).map((field) => field.key));
 		if (detail.form_answer_groups.length > 0) {
 			for (const [entryIndex, group] of detail.form_answer_groups.entries()) {
-				for (const answer of group.answers) fields.push({ kind: 'form_field', key: answer.key, entry_index: entryIndex, label: `${group.label} · ${answer.label}` });
+				for (const field of detail.form_fields) {
+					if (!derivedKeys.has(field.key)) fields.push({ kind: 'form_field', key: field.key, entry_index: entryIndex, label: `${group.label} · ${field.label}`, type: field.type });
+				}
 			}
 		} else {
-			for (const answer of detail.form_answers) fields.push({ kind: 'form_field', key: answer.key, label: answer.label });
+			for (const field of detail.form_fields) {
+				if (!derivedKeys.has(field.key)) fields.push({ kind: 'form_field', key: field.key, label: field.label, type: field.type });
+			}
 		}
 		return fields;
 	});
@@ -84,6 +97,11 @@
 		}
 		return [...rows.values()];
 	});
+	const answerPageSize = 5;
+	let answerPageCount = $derived(Math.max(1, Math.ceil((detail?.form_answer_groups.length ?? 0) / answerPageSize)));
+	let paginatedAnswerGroups = $derived((detail?.form_answer_groups ?? []).slice((answerPage - 1) * answerPageSize, answerPage * answerPageSize));
+	let answerPageStart = $derived(detail?.form_answer_groups.length ? (answerPage - 1) * answerPageSize + 1 : 0);
+	let answerPageEnd = $derived(Math.min(answerPage * answerPageSize, detail?.form_answer_groups.length ?? 0));
 	const requestId = page.params.id ?? '';
 	let totals = $derived.by(() => {
 		const grouped = new Map<string, number>();
@@ -105,8 +123,8 @@
 			: Math.max(0, Math.floor((now - new Date(detail.request.submitted_at).getTime()) / 1000))
 		: 0);
 	let latestTimelineEvent = $derived(detail?.timeline.at(-1) ?? null);
-	let backHref = $derived(role === 'branch_user' ? '/requests' : role === 'division_staff' ? '/inbox/central' : role === 'korwil_staff' || role === 'korwil_approver' ? '/inbox/korwil' : '/dashboard');
-	let backLabel = $derived(role === 'branch_user' ? 'Daftar pengajuan' : role === 'division_staff' ? 'Antrean Divisi' : role === 'korwil_staff' || role === 'korwil_approver' ? 'Antrean Korwil' : 'Beranda');
+	let backHref = $derived(role === 'branch_user' ? '/requests' : role === 'division_staff' ? '/inbox/central' : role === 'korwil_staff' ? '/inbox/korwil' : '/dashboard');
+	let backLabel = $derived(role === 'branch_user' ? 'Daftar pengajuan' : role === 'division_staff' ? 'Antrean Divisi' : role === 'korwil_staff' ? 'Antrean Korwil' : 'Beranda');
 
 	onMount(() => {
 		const unsubscribe = authSession.subscribe((session) => { token = session.token; role = session.profile?.sla_access.role ?? null; });
@@ -130,7 +148,7 @@
 	async function load(): Promise<void> {
 		if (!token) { await goto('/'); return; }
 		isLoading = true; errorMessage = '';
-		try { detail = (await fetchRequest(token, requestId)).data; now = Date.now(); }
+		try { detail = (await fetchRequest(token, requestId)).data; now = Date.now(); answerPage = 1; }
 		catch (error) {
 			if (error instanceof ApiError && error.status === 401) { clearAuthenticatedSession(); await goto('/'); return; }
 			errorMessage = error instanceof ApiError ? error.message : 'Detail belum dapat dimuat. Coba lagi.';
@@ -218,7 +236,7 @@
 		return `${target.kind}:${target.key ?? ''}:${target.entry_index ?? 'single'}`;
 	}
 
-	function currentRevisionValue(target: RevisionFieldTarget): string | number {
+	function currentRevisionValue(target: RevisionFieldTarget): string | number | string[] {
 		if (!detail) return '';
 		if (target.kind === 'subject') return detail.request.subject;
 		if (target.kind === 'description') return detail.request.description;
@@ -235,16 +253,61 @@
 		return detail?.form_fields.find((field) => field.key === target.key)?.type ?? 'text';
 	}
 
+	function revisionUploadKey(target: RevisionFieldTarget): string {
+		return `${target.entry_index ?? 's'}:${target.key ?? ''}`;
+	}
+
+	async function selectRevisionFiles(target: RevisionFieldTarget, input: HTMLInputElement): Promise<void> {
+		const files = [...(input.files ?? [])];
+		const type = answerType(target);
+		if (type === 'images' && files.length > 4) { input.value = ''; actionError = 'Maksimal 4 foto untuk setiap kolom.'; return; }
+		try {
+			actionError = '';
+			const convertsPhoto = type === 'image' || type === 'images';
+			if (convertsPhoto) pendingRevisionPhotoConversions += 1;
+			const prepared = type === 'image' || type === 'images'
+				? await Promise.all(files.map(convertPhotoToWebp))
+				: files.map((file) => {
+					if (file.size > 10 * 1024 * 1024) throw new Error('Ukuran setiap dokumen maksimal 10 MB.');
+					return file;
+				});
+			revisionFormFiles = { ...revisionFormFiles, [revisionUploadKey(target)]: prepared };
+		} catch (error) {
+			input.value = '';
+			actionError = error instanceof Error ? error.message : 'File belum dapat diproses.';
+		} finally {
+			if (type === 'image' || type === 'images') pendingRevisionPhotoConversions = Math.max(0, pendingRevisionPhotoConversions - 1);
+		}
+	}
+
+	function revisionUploadSelections(): FormUploadSelection[] {
+		return Object.entries(revisionFormFiles).flatMap(([key, files]) => {
+			if (!files.length) return [];
+			const [entry, fieldKey] = key.split(':');
+			return [{ fieldKey: fieldKey ?? '', entryIndex: entry === 's' ? null : Number(entry), files }];
+		});
+	}
+
 	function updateRevisionValue(target: RevisionFieldTarget, value: string): void {
 		const key = revisionTargetId(target);
 		revisionValues = { ...revisionValues, [key]: value };
 	}
 
-	function attachmentLabel(category: string): string {
+	function attachmentLabel(category: string, fieldKey?: string | null): string {
 		if (category === 'inoffice_letter') return 'Surat InOffice';
 		if (category === 'berita_acara') return 'Berita Acara';
 		if (category === 'supporting_document') return 'Dokumen pendukung';
+		if (category === 'form_field') return detail?.form_fields.find((field) => field.key === fieldKey)?.label ?? 'Lampiran form';
 		return 'Lampiran';
+	}
+
+	function attachmentTypeLabel(mimeType: string): string {
+		if (mimeType === 'application/pdf') return 'PDF';
+		if (mimeType === 'application/msword') return 'Word';
+		if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'Word';
+		if (mimeType === 'text/plain') return 'TXT';
+		if (mimeType === 'image/webp') return 'Foto WebP';
+		return 'File';
 	}
 
 	function decisionLabel(type: string): string {
@@ -292,7 +355,33 @@
 		if ((answer.type ?? fallbackType) === 'currency') {
 			return rupiahFormatter.format(Number(answer.value));
 		}
-		return String(answer.value);
+		return Array.isArray(answer.value) ? answer.value.join(' · ') : String(answer.value);
+	}
+
+	function downloadGroupedAnswersExcel(): void {
+		if (!detail) return;
+		const rows = [
+			['No', ...groupedAnswerRows.map((row) => tableFieldLabel(row.label))],
+			...detail.form_answer_groups.map((group, index) => [
+				String(index + 1),
+				...groupedAnswerRows.map((row) => formatAnswer(answerFor(group, row.key), row.type))
+			])
+		];
+		const workbookBytes = buildXlsxWorkbook(rows);
+		const workbookBuffer = new ArrayBuffer(workbookBytes.byteLength);
+		new Uint8Array(workbookBuffer).set(workbookBytes);
+		const workbook = new Blob([workbookBuffer], {
+			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+		});
+		const downloadUrl = URL.createObjectURL(workbook);
+		const link = document.createElement('a');
+		const safeRequestNumber = detail.request.request_number.replace(/[^a-zA-Z0-9_-]/g, '_');
+		link.href = downloadUrl;
+		link.download = `${safeRequestNumber}-data-rekening.xlsx`;
+		document.body.append(link);
+		link.click();
+		link.remove();
+		window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
 	}
 
 	function timelineLabel(action: string, status: string, unitToType: string): string {
@@ -308,7 +397,7 @@
 
 	let approvalText = $derived.by(() => {
 		if (!detail) return '';
-		if (selectedAction === 'forward') return `Saya telah memeriksa dan menyetujui penerusan pengajuan ${detail.request.request_number} ke ${detail.request.nama_divisi ?? 'Divisi Pusat'}.`;
+		if (selectedAction === 'forward') return `Saya telah memeriksa dan menyetujui penerusan pengajuan ${detail.request.request_number} ke Divisi Terkait.`;
 		const letter = detail.request.inoffice_letter_number
 			? ` atas surat InOffice nomor ${detail.request.inoffice_letter_number}${detail.request.inoffice_letter_date ? ` tanggal ${formatDateOnly(detail.request.inoffice_letter_date)}` : ''}`
 			: '';
@@ -324,6 +413,7 @@
 		rejectionReasonId = '';
 		rejectionReasons = [];
 		revisionFiles = {};
+		revisionFormFiles = {};
 		requestedRevisionFields = [];
 		requestedRevisionDocuments = [];
 		revisionValues = {};
@@ -359,12 +449,17 @@
 
 	async function submitAction(): Promise<void> {
 		if (!token || !detail || !selectedAction) return;
+		if (selectedAction === 'revision' && pendingRevisionPhotoConversions > 0) { actionError = 'Tunggu sampai proses kompresi foto selesai.'; return; }
 		const text = actionText.trim();
 		if (text.length < 3) { actionError = 'Isi keterangan minimal 3 karakter.'; return; }
 		if (selectedAction === 'request-documents' && requestedRevisionFields.length + requestedRevisionDocuments.length === 0) {
 			actionError = 'Pilih setidaknya satu kolom atau dokumen yang perlu dilengkapi.'; return;
 		}
 		if (selectedAction === 'reject' && !rejectionReasonId) { actionError = 'Pilih alasan penolakan.'; return; }
+		if (selectedAction === 'revision' && (detail?.revision_request?.fields ?? []).some((target) => {
+			const type = answerType(target);
+			return target.kind === 'form_field' && ['document', 'image', 'images'].includes(type) && !(revisionFormFiles[revisionUploadKey(target)]?.length);
+		})) { actionError = 'Unggah file pada setiap kolom form yang diminta.'; return; }
 		if (['forward', 'complete'].includes(selectedAction) && !approvalConfirmed) { actionError = 'Centang konfirmasi persetujuan sebelum melanjutkan.'; return; }
 		actionBusy = true;
 		actionError = '';
@@ -376,12 +471,13 @@
 				const updates = fields.map((target) => {
 					const raw = revisionValues[revisionTargetId(target)] ?? '';
 					const type = target.kind === 'form_field' ? answerType(target) : 'text';
+					if (type === 'document' || type === 'image' || type === 'images') return { ...target, value: '' };
 					const value = type === 'number' || type === 'currency'
 						? String(raw).trim() === '' ? '' : Number(raw)
 						: String(raw);
 					return { ...target, value };
 				});
-				const result = await submitRevision(token, detail.request.id, { response: text, updates, files: revisionFiles });
+				const result = await submitRevision(token, detail.request.id, { response: text, updates, files: revisionFiles, formFiles: revisionUploadSelections() });
 				revisionResumed = result.data.resumed_to_previous_handler;
 				returnedToKorwil = result.data.returned_to_korwil;
 			}
@@ -428,15 +524,18 @@
 
 <svelte:head><title>Detail Pengajuan | Sistem SLA</title></svelte:head>
 
-<section class="app-page-stack" aria-labelledby="page-title">
-	<a class="back-link" href={backHref}><ArrowLeft class="size-4" aria-hidden="true" />{backLabel}</a>
+<section class="app-page-stack request-detail-page" aria-labelledby="page-title">
+	<div class="detail-topbar">
+		<a class="back-link" href={backHref}><ArrowLeft class="size-4" aria-hidden="true" />{backLabel}</a>
+		{#if detail}<Button type="button" variant="outline" class="min-h-11" onclick={() => (activityOpen = true)}><Activity class="size-4" aria-hidden="true" />Aktivitas</Button>{/if}
+	</div>
 	{#if isLoading}
 		<Card.Root role="status" aria-live="polite"><Card.Content class="min-h-28 justify-center text-sm text-muted-foreground">Memuat detail pengajuan…</Card.Content></Card.Root>
 	{:else if errorMessage}
 		<Alert.Root variant="destructive"><Alert.Title>Detail belum dapat dimuat</Alert.Title><Alert.Description>{errorMessage}</Alert.Description><Alert.Action><Button variant="outline" class="min-h-11" onclick={() => void load()}>Coba lagi</Button></Alert.Action></Alert.Root>
 	{:else if detail}
 		{@const item = detail.request}
-		<AppPageHeading id="page-title" meta={`${item.request_number} · ${formatDate(item.submitted_at)}`} title={item.subject} description={`${item.nama_kantor} · Korwil ${item.korwil}`} flush>
+		<AppPageHeading id="page-title" meta={`${item.request_number} · ${formatDate(item.submitted_at)}`} title={item.subject} titleCharacterLimit={50} description={`${item.nama_kantor} · Korwil ${item.korwil}`} actionsBelowTitle flush>
 			{#snippet actions()}
 				<div class="heading-badges">
 					<Badge variant={item.status === 'rejected' ? 'destructive' : item.status.startsWith('in_progress') ? 'default' : 'secondary'} class={item.status === 'rejected' ? 'status-badge status-badge--risk' : ''}>{statusLabels[item.status] ?? item.status}</Badge>
@@ -445,19 +544,18 @@
 			{/snippet}
 		</AppPageHeading>
 		{#if actionNotice}<Alert.Root><Alert.Title>Perubahan tersimpan</Alert.Title><Alert.Description>{actionNotice}</Alert.Description></Alert.Root>{/if}
-		{#if detail.capabilities.can_request_documents || detail.capabilities.can_forward_to_central || detail.capabilities.can_complete || detail.capabilities.can_reject || detail.capabilities.can_submit_revision}
-			<Card.Root size="sm"><Card.Header><Card.Title>Tindakan pengajuan</Card.Title><Card.Description>{detail.capabilities.can_submit_revision ? 'Perbarui item yang diminta dan kirim pada tiket yang sama.' : 'Keputusan dan perpindahan tiket dicatat pada histori.'}</Card.Description></Card.Header><Card.Content class="action-list">
-				{#if detail.capabilities.can_request_documents}<Button variant="outline" class="min-h-11" onclick={() => void openAction('request-documents')}><FileText class="size-4" aria-hidden="true" />Minta kelengkapan</Button>{/if}
-				{#if detail.capabilities.can_forward_to_central}<Button class="min-h-11" onclick={() => void openAction('forward')}><Send class="size-4" aria-hidden="true" />Setujui dan teruskan</Button>{/if}
-				{#if detail.capabilities.can_complete}<Button class="min-h-11" onclick={() => void openAction('complete')}><Check class="size-4" aria-hidden="true" />Setujui dan selesaikan</Button>{/if}
-				{#if detail.capabilities.can_reject}<Button variant="destructive" class="min-h-11" onclick={() => void openAction('reject')}><X class="size-4" aria-hidden="true" />Tolak</Button>{/if}
-				{#if detail.capabilities.can_submit_revision}<Button class="min-h-11" onclick={() => void openAction('revision')}><Send class="size-4" aria-hidden="true" />Kirim pelengkapan</Button>{/if}
-			</Card.Content></Card.Root>
+		{#if detail.capabilities.can_request_documents || detail.capabilities.can_forward_to_central || detail.capabilities.can_complete || detail.capabilities.can_reject}
+			<Card.Root size="sm" class="action-card"><Card.Header class="action-header">
+				<div class="action-copy"><Card.Title>Tindakan pengajuan</Card.Title><Card.Description>Keputusan dan perpindahan tiket dicatat pada histori.</Card.Description></div>
+				<div class="action-list">
+					{#if detail.capabilities.can_request_documents}<Button variant="outline" class="min-h-11" onclick={() => void openAction('request-documents')}><FileText class="size-4" aria-hidden="true" />Minta kelengkapan</Button>{/if}
+					{#if detail.capabilities.can_forward_to_central}<Button class="min-h-11" onclick={() => void openAction('forward')}><Send class="size-4" aria-hidden="true" />Setujui dan teruskan</Button>{/if}
+					{#if detail.capabilities.can_complete}<Button class="min-h-11" onclick={() => void openAction('complete')}><Check class="size-4" aria-hidden="true" />Setujui dan selesaikan</Button>{/if}
+					{#if detail.capabilities.can_reject}<Button variant="destructive" class="min-h-11" onclick={() => void openAction('reject')}><X class="size-4" aria-hidden="true" />Tolak</Button>{/if}
+				</div>
+			</Card.Header></Card.Root>
 		{/if}
-		{#if detail.revision_request && item.status === 'waiting_branch_revision'}
-			<Card.Root size="sm" class="revision-summary"><Card.Header><Card.Title>Yang perlu dilengkapi · Putaran {detail.revision_request.revision_number}</Card.Title><Card.Description>{detail.revision_request.note}</Card.Description></Card.Header><Card.Content><ul>{#each detail.revision_request.fields as field}<li>{field.label}</li>{/each}{#each detail.revision_request.documents as document}<li>{attachmentLabel(document)} (PDF)</li>{/each}</ul></Card.Content></Card.Root>
-		{/if}
-		<div class="detail-grid">
+		<div class="detail-grid" class:detail-grid--with-aside={detail.decisions.length > 0}>
 			<div class="main-column">
 				<Card.Root size="sm"><Card.Header><Card.Title><FileText class="mr-2 inline size-4" aria-hidden="true" />Uraian pengajuan</Card.Title><Card.Description>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : item.nama_pekerjaan ? `Kewenangan Korwil · Form ${item.nama_pekerjaan}` : 'Kewenangan Korwil'}</Card.Description></Card.Header><Card.Content><p class="description">{item.description}</p></Card.Content></Card.Root>
 				{#if detail.form_answers.length > 0 || detail.form_answer_groups.length > 0}
@@ -467,8 +565,21 @@
 							<Table.Root label="Data rekening atau fasilitas" class="answer-table-scroll" tableClass="answer-comparison-table">
 								<Table.Caption class="sr-only">Daftar rekening atau fasilitas yang diajukan.</Table.Caption>
 								<Table.Header><Table.Row><Table.Head scope="col" class="answer-index-heading">No</Table.Head>{#each groupedAnswerRows as row (row.key)}<Table.Head scope="col" class="answer-value-heading">{tableFieldLabel(row.label)}</Table.Head>{/each}</Table.Row></Table.Header>
-								<Table.Body>{#each detail.form_answer_groups as group, index (group.label)}<Table.Row><Table.Cell class="answer-index-cell">{index + 1}</Table.Cell>{#each groupedAnswerRows as row (row.key)}<Table.Cell class="answer-value-cell">{formatAnswer(answerFor(group, row.key), row.type)}</Table.Cell>{/each}</Table.Row>{/each}</Table.Body>
+								<Table.Body>{#each paginatedAnswerGroups as group, index (group.label)}<Table.Row><Table.Cell class="answer-index-cell">{answerPageStart + index}</Table.Cell>{#each groupedAnswerRows as row (row.key)}<Table.Cell class="answer-value-cell">{formatAnswer(answerFor(group, row.key), row.type)}</Table.Cell>{/each}</Table.Row>{/each}</Table.Body>
 							</Table.Root>
+							<div class="answer-table-footer">
+								<p class="answer-table-count">Menampilkan {answerPageStart}–{answerPageEnd} dari {detail.form_answer_groups.length} rekening/fasilitas</p>
+								<div class="answer-table-actions">
+									<Button type="button" variant="outline" class="min-h-11" onclick={downloadGroupedAnswersExcel}><ArrowDownToLine class="size-4" aria-hidden="true" />Ekspor Excel</Button>
+									{#if answerPageCount > 1}
+										<nav class="answer-pagination" aria-label="Halaman data rekening">
+											<Button type="button" variant="outline" class="min-h-11" disabled={answerPage <= 1} onclick={() => (answerPage = Math.max(1, answerPage - 1))}>Sebelumnya</Button>
+											<span>Halaman {answerPage} dari {answerPageCount}</span>
+											<Button type="button" variant="outline" class="min-h-11" disabled={answerPage >= answerPageCount} onclick={() => (answerPage = Math.min(answerPageCount, answerPage + 1))}>Berikutnya</Button>
+										</nav>
+									{/if}
+								</div>
+							</div>
 						{:else if detail.form_answer_groups.length === 1}
 							{#each detail.form_answer_groups as group (group.label)}<section class="answer-group"><h3>{group.label}</h3><dl class="answer-list">{#each group.answers as answer (answer.key)}<div><dt>{answer.label}</dt><dd>{formatAnswer(answer)}</dd></div>{/each}</dl></section>{/each}
 						{:else}
@@ -479,37 +590,111 @@
 				{#if item.inoffice_letter_number || item.inoffice_letter_date || detail.attachments.length > 0}
 					<Card.Root size="sm"><Card.Header><Card.Title>Surat dan lampiran</Card.Title><Card.Description>Dokumen privat pengajuan dan pelengkapan.</Card.Description></Card.Header><Card.Content class="letter-detail">
 						{#if item.inoffice_letter_number || item.inoffice_letter_date}<dl class="answer-list"><div><dt>Nomor surat InOffice</dt><dd>{item.inoffice_letter_number || 'Tidak diisi'}</dd></div><div><dt>Tanggal surat</dt><dd>{item.inoffice_letter_date ? formatDateOnly(item.inoffice_letter_date) : 'Tidak diisi'}</dd></div></dl>{/if}
-						{#each detail.attachments as attachment (attachment.id)}<div class="attachment-row"><div><strong>{attachmentLabel(attachment.category)} · {attachment.original_filename}</strong><p>PDF · {new Intl.NumberFormat('id-ID').format(attachment.size_bytes / 1024)} KB · {formatDate(attachment.created_at)}</p></div><div class="attachment-actions"><Button variant="outline" class="min-h-11" disabled={previewBusy === attachment.id} onclick={() => void previewAttachment(attachment)}>{#if previewBusy === attachment.id}Memuat…{:else}<Eye class="size-4" aria-hidden="true" />Lihat{/if}</Button><Button variant="outline" class="min-h-11" disabled={downloadBusy === attachment.id} onclick={() => void downloadAttachment(attachment)}>{#if downloadBusy === attachment.id}Mengunduh…{:else}<ArrowDownToLine class="size-4" aria-hidden="true" />Unduh PDF{/if}</Button></div></div>{/each}
+						{#each detail.attachments as attachment (attachment.id)}<div class="attachment-row"><div><strong>{attachmentLabel(attachment.category, attachment.form_field_key)} · {attachment.original_filename}</strong><p>{attachmentTypeLabel(attachment.mime_type)} · {new Intl.NumberFormat('id-ID').format(attachment.size_bytes / 1024)} KB · {formatDate(attachment.created_at)}</p></div><div class="attachment-actions">{#if attachment.mime_type === 'application/pdf'}<Button variant="outline" class="min-h-11" disabled={previewBusy === attachment.id} onclick={() => void previewAttachment(attachment)}>{#if previewBusy === attachment.id}Memuat…{:else}<Eye class="size-4" aria-hidden="true" />Lihat{/if}</Button>{/if}<Button variant="outline" class="min-h-11" disabled={downloadBusy === attachment.id} onclick={() => void downloadAttachment(attachment)}>{#if downloadBusy === attachment.id}Mengunduh…{:else}<ArrowDownToLine class="size-4" aria-hidden="true" />Unduh file{/if}</Button></div></div>{/each}
 						{#if downloadError || previewError}<Alert.Root variant="destructive"><Alert.Description>{downloadError || previewError}</Alert.Description></Alert.Root>{/if}
 					</Card.Content></Card.Root>
 				{/if}
-				{#if detail.revision_history.length > 0}
+				{#if detail.revision_history.length > 0 || (detail.revision_request && item.status === 'waiting_branch_revision')}
 					<Card.Root size="sm"><Card.Header><Card.Title>Riwayat pelengkapan</Card.Title><Card.Description>Setiap putaran menyimpan permintaan dan snapshot data sebelum serta sesudah perubahan.</Card.Description></Card.Header><Card.Content class="revision-history-list">
-						{#each detail.revision_history as revision (revision.id)}<article class="revision-history-item"><div class="decision-heading"><strong>Putaran {revision.revision_number}</strong><span>{formatDate(revision.requested_at)}</span></div><p class="muted-copy">Diminta oleh {revision.requested_by_name ?? 'Petugas'}: {revision.request_note}</p>{#if revision.snapshot_after}<div class="revision-diff">{#each revision.fields as field (revisionTargetId(field))}<div><span>{field.label}</span><strong>{displaySnapshotValue(snapshotValue(revision.snapshot_before, field), field.type)} <span aria-hidden="true">→</span> {displaySnapshotValue(snapshotValue(revision.snapshot_after, field), field.type)}</strong></div>{/each}</div>{#if revision.response_note}<p class="muted-copy">Jawaban Cabang: {revision.response_note}</p>{/if}<p class="muted-copy">Dikirim oleh {revision.response_by_name ?? 'Pegawai'} · {revision.submitted_at ? formatDate(revision.submitted_at) : ''}</p>{:else}<Badge variant="outline">Menunggu pelengkapan Cabang</Badge>{/if}{#each detail.attachments.filter((attachment) => attachment.revision_id === revision.id) as attachment (attachment.id)}<div class="attachment-row"><div><strong>{attachmentLabel(attachment.category)} · {attachment.original_filename}</strong></div><Button variant="outline" class="min-h-10" disabled={downloadBusy === attachment.id} onclick={() => void downloadAttachment(attachment)}><ArrowDownToLine class="size-4" aria-hidden="true" />Unduh PDF</Button></div>{/each}</article>{/each}
+						{#each detail.revision_history as revision (revision.id)}
+							<article class="revision-history-item">
+								<div class="decision-heading"><strong>Putaran {revision.revision_number}</strong><span>{formatDate(revision.requested_at)}</span></div>
+								<p class="muted-copy">Diminta oleh {revision.requested_by_name ?? 'Petugas'}: {revision.request_note}</p>
+								{#if revision.snapshot_after}
+									<div class="revision-diff">{#each revision.fields as field (revisionTargetId(field))}<div><span>{field.label}</span><strong>{displaySnapshotValue(snapshotValue(revision.snapshot_before, field), field.type)} <span aria-hidden="true">→</span> {displaySnapshotValue(snapshotValue(revision.snapshot_after, field), field.type)}</strong></div>{/each}</div>
+									{#if revision.response_note}<p class="muted-copy">Jawaban Cabang: {revision.response_note}</p>{/if}
+									<p class="muted-copy">Dikirim oleh {revision.response_by_name ?? 'Pegawai'} · {revision.submitted_at ? formatDate(revision.submitted_at) : ''}</p>
+								{:else}
+									<Badge variant="outline">Menunggu pelengkapan Cabang</Badge>
+									{#if detail.revision_request?.revision_number === revision.revision_number}
+										<div class="revision-pending-details">
+											<h3>Yang perlu dilengkapi</h3>
+											<ul>{#each detail.revision_request.fields as field}<li>{field.label}</li>{/each}{#each detail.revision_request.documents as document}<li>{attachmentLabel(document)} (PDF)</li>{/each}</ul>
+											{#if detail.capabilities.can_submit_revision}<Button class="min-h-11 justify-self-start" variant="outline" onclick={() => void openAction('revision')}><FileText class="size-4" aria-hidden="true" />Buka form pelengkapan</Button>{/if}
+										</div>
+									{/if}
+								{/if}
+								{#each detail.attachments.filter((attachment) => attachment.revision_id === revision.id) as attachment (attachment.id)}<div class="attachment-row"><div><strong>{attachmentLabel(attachment.category, attachment.form_field_key)} · {attachment.original_filename}</strong><p>{attachmentTypeLabel(attachment.mime_type)}</p></div><Button variant="outline" class="min-h-10" disabled={downloadBusy === attachment.id} onclick={() => void downloadAttachment(attachment)}><ArrowDownToLine class="size-4" aria-hidden="true" />Unduh file</Button></div>{/each}
+							</article>
+						{/each}
+						{#if detail.revision_request && item.status === 'waiting_branch_revision' && !currentRevisionIsInHistory}
+							<article class="revision-history-item">
+								<div class="decision-heading"><strong>Putaran {detail.revision_request.revision_number}</strong><span>{formatDate(detail.revision_request.requested_at)}</span></div>
+								<p class="muted-copy">{detail.revision_request.note}</p>
+								<Badge variant="outline">Menunggu pelengkapan Cabang</Badge>
+								<div class="revision-pending-details">
+									<h3>Yang perlu dilengkapi</h3>
+									<ul>{#each detail.revision_request.fields as field}<li>{field.label}</li>{/each}{#each detail.revision_request.documents as document}<li>{attachmentLabel(document)} (PDF)</li>{/each}</ul>
+									{#if detail.capabilities.can_submit_revision}<Button class="min-h-11 justify-self-start" variant="outline" onclick={() => void openAction('revision')}><FileText class="size-4" aria-hidden="true" />Buka form pelengkapan</Button>{/if}
+								</div>
+							</article>
+						{/if}
 					</Card.Content></Card.Root>
 				{/if}
 			</div>
-			<aside>
-				<Card.Root size="sm"><Card.Header><Card.Title><Clock3 class="mr-2 inline size-4" aria-hidden="true" />Waktu proses</Card.Title><Card.Description>Umur tiket dan akumulasi waktu setiap unit.</Card.Description></Card.Header><Card.Content class="process-overview">
-					<div class="overall-row"><div><strong>Total umur tiket</strong><p>Sejak pertama kali dikirim Cabang</p></div><div class="session-time"><strong>{formatElapsed(overallElapsed)}</strong><Badge variant={item.closed_at ? 'secondary' : 'outline'}>{item.closed_at ? 'Ditutup' : 'Berjalan'}</Badge></div></div>
-					{#if totals.length > 0}<Separator />{#each totals as total (total.key)}<div class="total-row"><span>Total {total.unit}</span><strong>{formatElapsed(total.seconds)}</strong></div>{/each}{/if}
-					{#if detail.sessions.length > 0}<Button type="button" variant="outline" class="min-h-11 disclosure-button" aria-expanded={sessionDetailsOpen} aria-controls="request-session-details" onclick={() => (sessionDetailsOpen = !sessionDetailsOpen)}><span>{sessionDetailsOpen ? 'Tutup rincian sesi' : `Lihat rincian sesi (${detail.sessions.length})`}</span><ChevronDown class={`size-4 transition-transform ${sessionDetailsOpen ? 'rotate-180' : ''}`} aria-hidden="true" /></Button>{/if}
-					{#if sessionDetailsOpen}<div id="request-session-details" class="session-list">
-						{#each detail.sessions as session (session.id)}<div class="session-row"><div><strong>{unitLabel(session.unit_type, session.unit_code)}</strong><p>{sessionDescription(session)}</p>{#if queueWait(session) !== null}<p>Waktu tunggu sebelum diambil: {formatElapsed(queueWait(session))}</p>{/if}</div><div class="session-time"><strong>{formatElapsed(elapsedFor(session))}</strong>{#if session.ended_at}<Badge variant="secondary">Selesai</Badge>{:else if session.started_at}<Badge variant="outline">Berjalan</Badge>{:else}<Badge variant="outline">Menunggu</Badge>{/if}</div></div>{/each}
-					</div>{/if}
-				</Card.Content></Card.Root>
-				<Card.Root size="sm"><Card.Header class="timeline-header"><div class="timeline-heading"><Card.Title><Building2 class="mr-2 inline size-4" aria-hidden="true" />Alur pengajuan</Card.Title><Card.Description>Riwayat perpindahan tercatat dengan nomor yang sama.</Card.Description>{#if latestTimelineEvent}<p class="timeline-latest">Terakhir: {timelineLabel(latestTimelineEvent.action_name, latestTimelineEvent.status_to, latestTimelineEvent.unit_to_type)} · {formatDate(latestTimelineEvent.created_at)}</p>{/if}</div><Button type="button" variant="outline" class="min-h-11 timeline-toggle" aria-expanded={timelineOpen} aria-controls="request-timeline" onclick={() => (timelineOpen = !timelineOpen)}><span>{timelineOpen ? 'Tutup alur' : `Lihat alur (${detail.timeline.length})`}</span><ChevronDown class={`size-4 transition-transform ${timelineOpen ? 'rotate-180' : ''}`} aria-hidden="true" /></Button></Card.Header>{#if timelineOpen}<Card.Content id="request-timeline" class="timeline">
-					{#each detail.timeline as event, index (event.id)}<div class="timeline-item"><span class="timeline-marker">{#if index === detail.timeline.length - 1}<Send class="size-3" aria-hidden="true" />{:else}<Check class="size-3" aria-hidden="true" />{/if}</span><div><strong>{timelineLabel(event.action_name, event.status_to, event.unit_to_type)}</strong><p>{event.actor_name ?? 'Pegawai'} · {formatDate(event.created_at)}</p><small>{event.unit_from_code ? `${event.unit_from_type} ${event.unit_from_code} → ` : 'Dari Cabang → '}{event.unit_to_type} {event.unit_to_code}</small>{#if event.reason}<p>{event.reason}</p>{/if}</div></div>{/each}
-				</Card.Content>{/if}</Card.Root>
-				{#if detail.decisions.length > 0}
+			{#if detail.decisions.length > 0}
+				<aside class="detail-sidebar">
 					<Card.Root size="sm"><Card.Header><Card.Title>Keputusan</Card.Title><Card.Description>Konfirmasi, alasan, dan dokumen yang dicatat saat keputusan dibuat.</Card.Description></Card.Header><Card.Content class="decision-list">
-						{#each detail.decisions as decision (decision.id)}<article class="decision-item"><div class="decision-heading"><strong>{decisionLabel(decision.decision_type)}</strong><span>{formatDate(decision.created_at)}</span></div><p>{decision.actor_name ?? 'Pegawai'} · {unitLabel(decision.unit_type, decision.unit_code)}</p>{#if decision.reason_label_snapshot}<p><strong>Alasan:</strong> {decision.reason_label_snapshot}</p>{/if}<p>{decision.note}</p>{#if decision.confirmation_text}<blockquote>{decision.confirmation_text}</blockquote>{/if}{#if decision.attachment_id && decision.attachment_filename}<Button variant="outline" class="min-h-10" disabled={downloadBusy === decision.attachment_id} onclick={() => void downloadDecisionAttachment(decision.attachment_id!)}><ArrowDownToLine class="size-4" aria-hidden="true" />Berita Acara · {decision.attachment_filename}</Button>{/if}</article>{/each}
+						{#each detail.decisions as decision (decision.id)}<article class="decision-item"><div class="decision-heading"><strong>{decisionLabel(decision.decision_type)}</strong><span>{formatDate(decision.created_at)}</span></div><p>{decision.actor_name ?? 'Pegawai'} &middot; {unitLabel(decision.unit_type, decision.unit_code)}</p>{#if decision.reason_label_snapshot}<p><strong>Alasan:</strong> {decision.reason_label_snapshot}</p>{/if}<p>{decision.note}</p>{#if decision.confirmation_text}<blockquote>{decision.confirmation_text}</blockquote>{/if}{#if decision.attachment_id && decision.attachment_filename}<Button variant="outline" class="min-h-10" disabled={downloadBusy === decision.attachment_id} onclick={() => void downloadDecisionAttachment(decision.attachment_id!)}><ArrowDownToLine class="size-4" aria-hidden="true" />Berita Acara &middot; {decision.attachment_filename}</Button>{/if}</article>{/each}
 					</Card.Content></Card.Root>
-				{/if}
-			</aside>
+				</aside>
+			{/if}
 		</div>
 	{/if}
 </section>
+
+<Dialog.Root bind:open={activityOpen}>
+	<Dialog.Content class="activity-drawer">
+		<Dialog.Header class="activity-drawer-header">
+			<Dialog.Title>Aktivitas pengajuan</Dialog.Title>
+			<Dialog.Description>Status tiket dan waktu penanganan tiap unit.</Dialog.Description>
+			{#if latestTimelineEvent}<p class="activity-latest">Terakhir diperbarui &middot; {formatDate(latestTimelineEvent.created_at)}</p>{/if}
+		</Dialog.Header>
+		<div class="activity-tabs" role="group" aria-label="Tampilan aktivitas pengajuan">
+			<Button type="button" variant="ghost" class="activity-tab min-h-11" aria-pressed={activityView === 'flow'} onclick={() => (activityView = 'flow')}><Building2 class="size-4" aria-hidden="true" />Alur pengajuan <span class="activity-count">{detail?.timeline.length ?? 0}</span></Button>
+			<Button type="button" variant="ghost" class="activity-tab min-h-11" aria-pressed={activityView === 'process'} onclick={() => (activityView = 'process')}><Clock3 class="size-4" aria-hidden="true" />Alur proses <span class="activity-count">{detail?.sessions.length ?? 0}</span></Button>
+		</div>
+		{#if activityView === 'flow'}
+			<div class="activity-drawer-feed" aria-label="Riwayat alur pengajuan">
+				{#if detail?.timeline.length}
+					<div class="activity-timeline">
+						{#each detail.timeline as event, index (event.id)}
+							<article class="activity-event" class:activity-event--latest={index === detail.timeline.length - 1}>
+								<div class="activity-rail" aria-hidden="true">{#if index === 0}<Send class="size-3.5" />{:else}<Check class="size-3.5" />{/if}</div>
+								<div class="activity-event-body">
+									<div class="activity-event-heading"><strong>{timelineLabel(event.action_name, event.status_to, event.unit_to_type)}</strong><time>{formatDate(event.created_at)}</time></div>
+									<div class="activity-transition"><Badge variant="outline">{event.status_from ? statusLabels[event.status_from] ?? event.status_from : 'Pengajuan dibuat'}</Badge><ArrowRight class="size-3.5" aria-hidden="true" /><Badge variant={event.status_to === 'rejected' ? 'destructive' : 'secondary'}>{statusLabels[event.status_to] ?? event.status_to}</Badge></div>
+									<div class="activity-event-meta"><span>{event.actor_name ?? 'Pegawai'}</span><span>{event.unit_from_type ? unitLabel(event.unit_from_type, event.unit_from_code ?? '') : 'Cabang'} <ArrowRight class="size-3" aria-hidden="true" /> {unitLabel(event.unit_to_type, event.unit_to_code)}</span></div>
+									{#if event.reason}<p class="activity-reason">{event.reason}</p>{/if}
+								</div>
+							</article>
+						{/each}
+					</div>
+				{:else}<div class="activity-empty">Belum ada riwayat perpindahan pengajuan.</div>{/if}
+			</div>
+		{:else}
+			<div class="activity-drawer-feed" aria-label="Rincian alur proses">
+				{#if detail}<div class="process-summary"><div><span>Total umur tiket</span><strong>{formatElapsed(overallElapsed)}</strong><small>Sejak pertama kali dikirim Cabang</small></div><Badge variant={detail.request.closed_at ? 'secondary' : 'outline'}>{detail.request.closed_at ? 'Ditutup' : 'Berjalan'}</Badge></div>{/if}
+				{#if totals.length > 0}<div class="process-totals">{#each totals as total (total.key)}<div><span>{total.unit}</span><strong>{formatElapsed(total.seconds)}</strong></div>{/each}</div>{/if}
+				{#if detail?.sessions.length}
+					<div class="activity-timeline session-timeline">
+						{#each detail.sessions as session (session.id)}
+							<article class="activity-event">
+								<div class="activity-rail activity-rail--process" aria-hidden="true"><Clock3 class="size-3.5" /></div>
+								<div class="activity-event-body">
+									<div class="activity-event-heading"><strong>{unitLabel(session.unit_type, session.unit_code)}</strong>{#if session.ended_at}<Badge variant="secondary">Selesai</Badge>{:else if session.started_at}<Badge variant="outline">Berjalan</Badge>{:else}<Badge variant="outline">Menunggu</Badge>{/if}</div>
+									<p class="activity-detail-copy">{sessionDescription(session)}</p>
+									{#if queueWait(session) !== null}<p class="activity-detail-copy">Waktu antre sebelum diambil &middot; {formatElapsed(queueWait(session))}</p>{/if}
+									<strong class="session-duration">{formatElapsed(elapsedFor(session))}</strong>
+								</div>
+							</article>
+						{/each}
+					</div>
+				{:else}<div class="activity-empty">Belum ada sesi proses yang tercatat.</div>{/if}
+			</div>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
 
 <Dialog.Root bind:open={actionDialogOpen}>
 	<Dialog.Content class="action-dialog" showCloseButton={false}>
@@ -537,12 +722,18 @@
 				<div class="revision-request-note"><strong>Catatan petugas</strong><p>{detail.revision_request.note}</p></div>
 				{#each detail.revision_request.fields as target (revisionTargetId(target))}
 					{@const inputType = target.kind === 'form_field' ? answerType(target) : target.kind === 'inoffice_letter_date' ? 'date' : 'text'}
+					{@const selected = revisionFormFiles[revisionUploadKey(target)] ?? []}
 					<div class="revision-input"><label class="action-label" for={`revision-${revisionTargetId(target)}`}>{target.label}</label>
 						{#if target.kind === 'description' || inputType === 'textarea'}
 							<Textarea id={`revision-${revisionTargetId(target)}`} value={String(revisionValues[revisionTargetId(target)] ?? '')} oninput={(event) => updateRevisionValue(target, event.currentTarget.value)} class="min-h-24 resize-y" maxlength={5000} />
 						{:else if inputType === 'select'}
 							{@const field = detail.form_fields.find((item) => item.key === target.key)}
 							<SearchableSelect id={`revision-${revisionTargetId(target)}`} label={target.label} options={(field?.options ?? []).map((value) => ({ value, label: value }))} value={String(revisionValues[revisionTargetId(target)] ?? '')} onValueChange={(value) => updateRevisionValue(target, value)} placeholder="Pilih jawaban" searchPlaceholder={`Cari ${target.label.toLocaleLowerCase('id-ID')}...`} />
+						{:else if inputType === 'document' || inputType === 'image' || inputType === 'images'}
+							{@const isPhoto = inputType === 'image' || inputType === 'images'}
+							<input id={`revision-${revisionTargetId(target)}`} type="file" accept={isPhoto ? 'image/*' : 'application/pdf,.pdf,.doc,.docx,text/plain,.txt'} multiple={inputType === 'images'} required={selected.length === 0} class="min-h-11 file-input" onchange={(event) => void selectRevisionFiles(target, event.currentTarget)} />
+							<p class="muted-copy">{inputType === 'document' ? 'PDF, Word (.doc/.docx), atau TXT · maksimal 10 MB.' : inputType === 'images' ? 'Foto diubah ke WebP otomatis · maksimal 4 file.' : 'Foto diubah ke WebP otomatis.'}</p>
+							{#if selected.length}<p class="muted-copy">Dipilih: {selected.map((file) => file.name).join(' · ')}</p>{/if}
 						{:else}
 							<Input id={`revision-${revisionTargetId(target)}`} type={inputType === 'currency' || inputType === 'number' ? 'number' : inputType} min={inputType === 'currency' ? '0' : undefined} value={String(revisionValues[revisionTargetId(target)] ?? '')} oninput={(event) => updateRevisionValue(target, event.currentTarget.value)} />
 						{/if}
@@ -565,7 +756,7 @@
 		<Textarea id="action-note" bind:value={actionText} class="min-h-32 resize-y" minlength={3} maxlength={selectedAction === 'revision' ? 5000 : 1000} placeholder="Tulis keterangan yang jelas dan dapat ditindaklanjuti" required aria-describedby="action-note-help" />
 		<p id="action-note-help" class="muted-copy">3–{selectedAction === 'revision' ? '5000' : '1000'} karakter. Catatan akan tersimpan di histori tiket.</p>
 		{#if actionError}<Alert.Root variant="destructive"><Alert.Description>{actionError}</Alert.Description></Alert.Root>{/if}
-		<div class="dialog-actions"><Button variant="outline" class="min-h-11" disabled={actionBusy} onclick={() => (actionDialogOpen = false)}>Batal</Button><Button class="min-h-11" variant={selectedAction === 'reject' ? 'destructive' : 'default'} disabled={actionBusy} onclick={() => void submitAction()}>{#if actionBusy}Menyimpan…{:else}{actionTitle()}{/if}</Button></div>
+		<div class="dialog-actions"><Button variant="outline" class="min-h-11" disabled={actionBusy} onclick={() => (actionDialogOpen = false)}>Batal</Button><Button class="min-h-11" variant={selectedAction === 'reject' ? 'destructive' : 'default'} disabled={actionBusy || (selectedAction === 'revision' && pendingRevisionPhotoConversions > 0)} onclick={() => void submitAction()}>{#if actionBusy}Menyimpan…{:else if selectedAction === 'revision' && pendingRevisionPhotoConversions > 0}Memproses foto…{:else}{actionTitle()}{/if}</Button></div>
 	</Dialog.Content>
 </Dialog.Root>
 
@@ -588,15 +779,60 @@
 	.back-link { display:inline-flex; min-height:2.75rem; align-items:center; gap:.45rem; color:var(--muted-foreground); font-size:var(--type-sm); text-decoration:none; }
 	.back-link:hover { color:var(--foreground); }
 	.back-link:focus-visible { outline:3px solid var(--ring); outline-offset:2px; }
-	.detail-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(17rem,.8fr); align-items:start; gap:.8rem; }
-	.main-column, aside { display:grid; gap:.75rem; min-width:0; }
-	.heading-badges { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:.4rem; }
-	:global(.action-list) { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(10rem,100%),max-content)); justify-content:end; align-items:center; gap:.55rem .65rem; }
-	:global(.action-list > button) { min-width:10rem; }
+	.detail-topbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+	.detail-grid { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:.8rem; }
+	.detail-grid--with-aside { grid-template-columns:minmax(0,1.5fr) minmax(18rem,.8fr); }
+	.main-column, aside { display:grid; align-content:start; gap:.75rem; min-width:0; }
+	.detail-sidebar { min-width:0; }
+	.heading-badges { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:.4rem; }
+	:global(.request-detail-page .app-page-heading-copy) { gap:.15rem; }
+	:global(.request-detail-page .app-page-meta) { margin-bottom:.1rem; }
+	:global(.request-detail-page .app-page-description) { line-height:1.35; }
+	:global(.action-header[data-slot='card-header']) { display:flex; align-items:center; justify-content:space-between; gap:1rem 1.5rem; }
+	.action-copy { min-width:0; flex:1 1 16rem; }
+	:global(.action-list) { display:flex; min-width:0; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:.5rem; }
+	:global(.action-list > button) { min-width:0; }
+	:global(.activity-drawer[data-slot='dialog-content']) { position:fixed; inset:0 0 0 auto; left:auto; width:min(32rem,100vw); max-width:none; height:100dvh; max-height:100dvh; grid-template-rows:auto auto minmax(0,1fr); gap:0; overflow:hidden; padding:0 0 env(safe-area-inset-bottom); border-radius:var(--radius) 0 0 var(--radius); transform:none; translate:none; }
+	:global(.activity-drawer-header[data-slot='dialog-header']) { gap:.35rem; padding:1.25rem 3.5rem 1rem 1.25rem; border-bottom:1px solid var(--border); }
+	.activity-latest { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); }
+	.activity-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding-inline:.65rem; border-bottom:1px solid var(--border); background:var(--card); }
+	:global(.activity-tab) { position:relative; min-width:0; justify-content:center; gap:.4rem; padding-inline:.5rem; border-radius:0; color:var(--muted-foreground); white-space:nowrap; }
+	:global(.activity-tab[aria-pressed='true']) { background:transparent; color:var(--foreground); font-weight:650; box-shadow:inset 0 -2px var(--ring); }
+	.activity-count { display:inline-flex; min-width:1.3rem; height:1.3rem; align-items:center; justify-content:center; padding-inline:.3rem; border-radius:999px; background:color-mix(in srgb,var(--foreground) 7%,transparent); color:var(--muted-foreground); font-size:var(--type-xs); font-variant-numeric:tabular-nums; }
+	.activity-drawer-feed { min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:1rem 1.25rem 1.25rem; }
+	.activity-timeline { display:grid; }
+	.activity-event { position:relative; display:grid; grid-template-columns:1.65rem minmax(0,1fr); gap:.75rem; padding:.95rem 0; border-bottom:1px solid var(--border); }
+	.activity-event:first-child { padding-top:0; }
+	.activity-event:last-child { padding-bottom:0; border-bottom:0; }
+	.activity-event:not(:last-child)::before { position:absolute; top:2.45rem; bottom:-.2rem; left:.77rem; width:1px; background:var(--border); content:''; }
+	.activity-rail { z-index:1; display:grid; width:1.65rem; height:1.65rem; place-items:center; border:1px solid var(--border); border-radius:50%; background:var(--card); color:var(--muted-foreground); }
+	.activity-event--latest .activity-rail { border-color:color-mix(in srgb,var(--ring) 55%,var(--border)); background:color-mix(in srgb,var(--ring) 10%,var(--card)); color:var(--ring); }
+	.activity-rail--process { color:var(--muted-foreground); }
+	.activity-event-body { display:grid; min-width:0; align-content:start; gap:.45rem; }
+	.activity-event-heading { display:flex; min-width:0; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.35rem .75rem; }
+	.activity-event-heading strong { min-width:0; overflow-wrap:anywhere; font-size:var(--type-sm); font-weight:650; }
+	.activity-event-heading time { flex:0 0 auto; color:var(--muted-foreground); font-size:var(--type-xs); }
+	.activity-transition { display:flex; min-width:0; flex-wrap:wrap; align-items:center; gap:.35rem; }
+	:global(.activity-transition > svg) { color:var(--muted-foreground); }
+	.activity-event-meta { display:flex; min-width:0; flex-wrap:wrap; gap:.25rem .9rem; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
+	.activity-event-meta span { display:inline-flex; min-width:0; align-items:center; gap:.3rem; overflow-wrap:anywhere; }
+	.activity-reason { margin:0; padding:.6rem .7rem; border-left:2px solid var(--border); border-radius:0 .4rem .4rem 0; background:var(--muted); color:var(--muted-foreground); font-size:var(--type-sm); line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+	.activity-detail-copy { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
+	.activity-empty { display:grid; min-height:7rem; place-items:center; color:var(--muted-foreground); font-size:var(--type-sm); text-align:center; }
+	.process-summary { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.85rem 1rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--muted); }
+	.process-summary > div { display:grid; gap:.15rem; }
+	.process-summary span,.process-summary small { color:var(--muted-foreground); font-size:var(--type-xs); }
+	.process-summary strong { font-size:var(--type-xl); font-variant-numeric:tabular-nums; line-height:1.2; }
+	.process-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr)); gap:.5rem; }
+	.process-totals > div { display:grid; gap:.2rem; padding:.7rem .8rem; border:1px solid var(--border); border-radius:var(--radius); }
+	.process-totals span { color:var(--muted-foreground); font-size:var(--type-xs); }
+	.process-totals strong,.session-duration { font-size:var(--type-sm); font-variant-numeric:tabular-nums; }
 	:global(.action-dialog) { width:min(100% - 2rem, 34rem); max-height:calc(100dvh - 2rem); overflow-y:auto; }
 	.action-label { margin-top:.2rem; font-size:var(--type-sm); font-weight:600; }
 	.action-field, .revision-input { display:grid; min-width:0; gap:.45rem; }
-	:global(.revision-summary ul) { display:grid; gap:.4rem; margin:0; padding-left:1.2rem; color:var(--muted-foreground); font-size:var(--type-sm); }
+	.revision-pending-details { display:grid; gap:.55rem; }
+	.revision-pending-details h3 { margin:0; font-size:var(--type-sm); font-weight:600; }
+	.revision-pending-details ul { display:grid; gap:.4rem; margin:0; padding-left:1.2rem; color:var(--muted-foreground); font-size:var(--type-sm); }
 	.revision-picker, .revision-editor { display:grid; gap:.9rem; }
 	.revision-picker h3 { margin:0; font-size:var(--type-sm); font-weight:600; }
 	.revision-picker p { margin:.2rem 0 0; color:var(--muted-foreground); font-size:var(--type-xs); }
@@ -623,7 +859,7 @@
 	.decision-item:last-child { padding-bottom:0; border-bottom:0; }
 	.decision-heading { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.35rem .7rem; }
 	.decision-heading span, .decision-item p { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
-	.decision-item blockquote { margin:0; padding:.6rem .7rem; border-left:2px solid var(--primary); background:var(--muted); font-size:var(--type-sm); }
+	.decision-item blockquote { margin:0; padding:.6rem .7rem; border-left:2px solid var(--primary); background:var(--muted); font-size:var(--type-sm); white-space:pre-wrap; overflow-wrap:anywhere; }
 	.dialog-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.55rem; }
 	.description { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; }
 	:global(.letter-detail) { gap:.75rem; }
@@ -642,57 +878,51 @@
 	:global(.answer-index-heading), :global(.answer-index-cell) { position:sticky; left:0; z-index:1; width:3.5rem; min-width:3.5rem; background:var(--card); text-align:center; }
 	:global(.answer-value-heading), :global(.answer-value-cell) { width:14rem; min-width:12rem; max-width:22rem; white-space:normal; }
 	:global(.answer-value-cell) { overflow-wrap:anywhere; vertical-align:middle; white-space:pre-wrap; }
+	.answer-table-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.65rem; margin-top:.7rem; }
+	.answer-table-count { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); }
+	.answer-table-actions, .answer-pagination { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:.45rem; }
+	.answer-pagination span { padding:0 .2rem; color:var(--muted-foreground); font-size:var(--type-xs); }
 	.answer-list div { display:grid; grid-template-columns:minmax(8rem,.7fr) minmax(0,1.3fr); gap:.65rem; padding-bottom:.5rem; border-bottom:1px solid var(--border); }
 	.answer-list div:last-child { padding-bottom:0; border-bottom:0; }
 	.answer-list dt { color:var(--muted-foreground); font-size:var(--type-sm); }
 	.answer-list dd { min-width:0; margin:0; overflow-wrap:anywhere; font-size:var(--type-sm); white-space:pre-wrap; }
-	:global(.session-list) { gap:.65rem; }
-	:global(.process-overview) { display:grid; gap:.65rem; }
-	.session-row, .total-row, .overall-row { display:flex; justify-content:space-between; align-items:flex-start; gap:.8rem; }
-	.session-row > div:first-child { min-width:0; }
-	.session-row p { margin:.25rem 0 0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
-	.session-row strong, .total-row strong, .overall-row strong { font-size:var(--type-sm); }
-	.overall-row > div:first-child { min-width:0; }
-	.overall-row p { margin:.25rem 0 0; color:var(--muted-foreground); font-size:var(--type-xs); }
-	.session-time { display:grid; justify-items:end; gap:.3rem; white-space:nowrap; }
-	.total-row { align-items:center; color:var(--muted-foreground); font-size:var(--type-sm); }
-	.total-row strong { color:var(--foreground); }
-	:global(.disclosure-button) { width:100%; justify-content:space-between; }
 	.muted-copy { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
-	:global(.timeline) { gap:0; }
-	:global(.timeline-header[data-slot='card-header']) { display:flex; align-items:flex-start; justify-content:space-between; gap:.7rem; }
-	.timeline-heading { display:grid; min-width:0; gap:.4rem; }
-	.timeline-latest { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.45; }
-	:global(.timeline-toggle) { flex:none; }
-	.timeline-item { position:relative; display:grid; grid-template-columns:1.6rem minmax(0,1fr); gap:.55rem; padding:0 0 .8rem; }
-	.timeline-item:not(:last-child)::after { position:absolute; top:1.55rem; bottom:0; left:.68rem; width:1px; background:var(--border); content:''; }
-	.timeline-marker { z-index:1; display:grid; width:1.45rem; height:1.45rem; place-items:center; border:1px solid var(--border); border-radius:50%; background:var(--card); color:var(--muted-foreground); }
-	.timeline-item strong { font-size:var(--type-sm); }
-	.timeline-item p { margin:.25rem 0 0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
-	.timeline-item small { display:block; margin-top:.3rem; color:var(--muted-foreground); font-size:var(--type-xs); overflow-wrap:anywhere; }
 	:global(.pdf-preview-dialog) { width:min(92vw,68rem); height:min(90dvh,56rem); max-width:none; max-height:none; grid-template-rows:auto minmax(0,1fr) auto; gap:.75rem; overflow:hidden; padding:1rem; }
 	:global(.pdf-preview-header[data-slot='dialog-header']) { padding-right:2.25rem; }
 	:global(.pdf-preview-header [data-slot='dialog-title']) { overflow-wrap:anywhere; }
 	.pdf-preview-frame { width:100%; height:100%; min-height:0; border:1px solid var(--border); border-radius:calc(var(--radius) - 2px); background:var(--muted); }
 	.pdf-preview-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.5rem; }
-	@media(max-width:56rem) { .detail-grid { grid-template-columns:minmax(0,1fr); } }
-	@media(max-width:32rem) { .answer-list div { grid-template-columns:minmax(0,1fr); gap:.25rem; } }
+	@media(max-width:56rem) {
+		.detail-grid--with-aside { grid-template-columns:minmax(0,1fr); }
+		:global(.action-header[data-slot='card-header']) { align-items:stretch; flex-direction:column; justify-content:flex-start; gap:.75rem; }
+		.action-copy { flex:0 1 auto; }
+		:global(.action-list) { width:100%; justify-content:flex-start; }
+	}
+	@media(max-width:32rem) {
+		.answer-list div, .revision-diff div { grid-template-columns:minmax(0,1fr); gap:.25rem; }
+	}
 	@media(max-width:40rem) {
 		.heading-badges { justify-content:flex-start; }
-		:global(.action-list) { grid-template-columns:repeat(2,minmax(0,1fr)); justify-content:stretch; }
-		:global(.action-list > button) { width:100%; min-width:0; }
+		:global(.request-detail-page .app-page-title-row) { display:grid; grid-template-columns:minmax(0,1fr) 2.75rem; align-items:start; gap:.2rem .25rem; }
+		:global(.request-detail-page .app-page-title) { width:100%; min-width:0; }
+		:global(.request-detail-page .app-page-title-row > button.app-page-info-trigger) { grid-column:2; grid-row:1; align-self:start; justify-self:end; }
+		:global(.action-list) { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr)); justify-content:stretch; }
+		:global(.action-list > button) { width:100%; min-width:0; white-space:normal; }
+		.activity-event-heading { align-items:flex-start; }
+		.activity-event-meta { flex-direction:column; gap:.25rem; }
+		.answer-table-footer { align-items:flex-start; flex-direction:column; }
+		.answer-table-actions { width:100%; justify-content:space-between; }
+		.answer-pagination { flex:1; justify-content:space-between; }
 	}
 	@media(max-width:26rem) {
 		:global(.action-list) { grid-template-columns:1fr; }
-		.session-row, .overall-row { flex-direction:column; gap:.55rem; }
-		.session-time { display:flex; align-items:center; justify-content:space-between; width:100%; white-space:normal; }
-		.session-time strong, .total-row strong { white-space:nowrap; }
-		.total-row { align-items:flex-start; }
-		.total-row span { min-width:0; overflow-wrap:anywhere; }
+		:global(.activity-tab) { gap:.25rem; padding-inline:.25rem; font-size:var(--type-xs); }
+		.process-summary { align-items:flex-start; }
+		.answer-table-actions { flex-direction:column; align-items:stretch; }
+		.answer-pagination { width:100%; flex-wrap:nowrap; }
+		.answer-pagination :global(button) { flex:1; min-width:0; }
 		:global(.attachment-actions) { width:100%; }
 		:global(.attachment-actions button) { flex:1; }
-		:global(.timeline-header[data-slot='card-header']) { flex-direction:column; }
-		:global(.timeline-toggle) { width:100%; justify-content:space-between; }
 		:global(.pdf-preview-dialog) { width:calc(100vw - 1rem); height:calc(100dvh - 1rem); padding:.75rem; }
 		.pdf-preview-actions :global(button) { flex:1; }
 	}

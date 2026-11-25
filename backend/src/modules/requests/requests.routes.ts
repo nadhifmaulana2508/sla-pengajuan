@@ -5,20 +5,21 @@ import path from 'node:path';
 import { requireRequestIdentity } from '../auth/request-auth.middleware.js';
 import {
 	getRequestAttachmentForDownload, getRequestDetail, getRequestOptions, listBranchRequests, listRequestRejectionReasons,
-	RequestWorkflowError, submitBranchRevision, submitRequest
+	RequestWorkflowError, submitBranchRevision, submitRequest, type FormUploadInput
 } from './requests.service.js';
 import type { RevisionDocumentCategory } from './requests.service.js';
-import { readPrivatePdf } from './private-attachments.js';
+import { readPrivateFormFile, readPrivatePdf } from './private-attachments.js';
 
 const MAX_INOFFICE_PDF_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_FILES = 40;
 const requestUpload = multer({
 	storage: multer.memoryStorage(),
-	limits: { fileSize: MAX_INOFFICE_PDF_BYTES, files: 1, fields: 1, parts: 2, fieldSize: 1024 * 1024 }
-}).single('inoffice_letter');
+	limits: { fileSize: MAX_INOFFICE_PDF_BYTES, files: MAX_UPLOAD_FILES, fields: 1, parts: MAX_UPLOAD_FILES + 1, fieldSize: 1024 * 1024 }
+}).any();
 const revisionUpload = multer({
 	storage: multer.memoryStorage(),
-	limits: { fileSize: MAX_INOFFICE_PDF_BYTES, files: 2, fields: 1, parts: 3, fieldSize: 1024 * 1024 }
-}).fields([{ name: 'inoffice_letter', maxCount: 1 }, { name: 'supporting_document', maxCount: 1 }]);
+	limits: { fileSize: MAX_INOFFICE_PDF_BYTES, files: MAX_UPLOAD_FILES, fields: 1, parts: MAX_UPLOAD_FILES + 1, fieldSize: 1024 * 1024 }
+}).any();
 
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
 	const [year = 0, month = 0, day = 0] = value.split('-').map(Number);
@@ -83,6 +84,22 @@ function isValidInOfficePdf(file: Express.Multer.File): boolean {
 		file.buffer.subarray(0, 5).toString('ascii') === '%PDF-';
 }
 
+function toPrivateFile(file: Express.Multer.File) {
+	return { buffer: file.buffer, originalname: file.originalname, mimetype: file.mimetype, size: file.size };
+}
+
+function parseFormUploads(files: Express.Multer.File[]): FormUploadInput[] | null {
+	const uploads: FormUploadInput[] = [];
+	for (const file of files) {
+		const match = /^form_file:(s|\d{1,2}):([a-z][a-z0-9_]{1,63})$/.exec(file.fieldname);
+		if (!match) return null;
+		const entryIndex = match[1] === 's' ? null : Number(match[1]);
+		if (entryIndex !== null && (!Number.isSafeInteger(entryIndex) || entryIndex > 19)) return null;
+		uploads.push({ fieldKey: match[2]!, entryIndex, file: toPrivateFile(file) });
+	}
+	return uploads;
+}
+
 requestRouter.get('/options', async (_request, response) => {
 	try {
 		const data = await getRequestOptions(response.locals.slaEmployeeId);
@@ -116,19 +133,26 @@ async function createRequestHandler(request: import('express').Request, response
 		response.status(400).json({ status: 400, message: submitValidationMessage(parsed.error), data: null });
 		return;
 	}
-	if (request.file && !isValidInOfficePdf(request.file)) {
+	const uploadedFiles = Array.isArray(request.files) ? request.files as Express.Multer.File[] : [];
+	const inofficeLetter = uploadedFiles.find((file) => file.fieldname === 'inoffice_letter');
+	if (uploadedFiles.filter((file) => file.fieldname === 'inoffice_letter').length > 1) {
+		response.status(400).json({ status: 400, message: 'Unggah maksimal satu surat InOffice.', data: null });
+		return;
+	}
+	const formUploads = parseFormUploads(uploadedFiles.filter((file) => file.fieldname !== 'inoffice_letter'));
+	if (uploadedFiles.length > MAX_UPLOAD_FILES || formUploads === null) {
+		response.status(400).json({ status: 400, message: 'Nama kolom lampiran tidak valid atau jumlah file melebihi batas.', data: null });
+		return;
+	}
+	if (inofficeLetter && !isValidInOfficePdf(inofficeLetter)) {
 		response.status(400).json({ status: 400, message: 'Lampiran surat InOffice harus berupa file PDF yang valid.', data: null });
 		return;
 	}
 	try {
 		const data = await submitRequest(response.locals.slaEmployeeId, {
 			...parsed.data,
-			inoffice_letter: request.file ? {
-				buffer: request.file.buffer,
-				originalname: request.file.originalname,
-				mimetype: request.file.mimetype,
-				size: request.file.size
-			} : null
+			inoffice_letter: inofficeLetter ? toPrivateFile(inofficeLetter) : null,
+			form_files: formUploads
 		});
 		response.status(201).json({
 			status: 201,
@@ -146,10 +170,10 @@ requestRouter.post('/', (request, response) => {
 			const tooLarge = uploadError instanceof MulterError && uploadError.code === 'LIMIT_FILE_SIZE';
 			const payloadTooLarge = uploadError instanceof MulterError && uploadError.code === 'LIMIT_FIELD_VALUE';
 			const message = tooLarge
-				? 'Ukuran PDF surat InOffice maksimal 10 MB.'
+				? 'Ukuran setiap file maksimal 10 MB.'
 				: payloadTooLarge
 					? 'Data pengajuan terlalu besar. Periksa kolom form lalu coba lagi.'
-					: 'Unggah satu file PDF surat InOffice saja.';
+					: 'Periksa jumlah dan nama file yang diunggah. Maksimal 40 file per pengajuan.';
 			response.status(tooLarge || payloadTooLarge ? 413 : 400).json({
 				status: tooLarge || payloadTooLarge ? 413 : 400,
 				message,
@@ -167,7 +191,7 @@ requestRouter.post('/:id/revision', (request, response) => {
 	revisionUpload(request, response, (uploadError: unknown) => {
 		if (uploadError) {
 			const tooLarge = uploadError instanceof MulterError && uploadError.code === 'LIMIT_FILE_SIZE';
-			const message = tooLarge ? 'Ukuran setiap PDF maksimal 10 MB.' : 'Unggah satu PDF untuk setiap dokumen yang diminta.';
+			const message = tooLarge ? 'Ukuran setiap file maksimal 10 MB.' : 'Periksa jumlah dan nama file revisi. Maksimal 40 file.';
 			response.status(tooLarge ? 413 : 400).json({ status: tooLarge ? 413 : 400, message, data: null });
 			return;
 		}
@@ -191,11 +215,23 @@ async function submitRevisionHandler(request: import('express').Request, respons
 		response.status(400).json({ status: 400, message: 'Periksa kembali catatan dan kolom revisi yang dikirim.', data: null });
 		return;
 	}
-	const uploaded = (request.files ?? {}) as Record<string, Express.Multer.File[]>;
+	const uploadedFiles = Array.isArray(request.files) ? request.files as Express.Multer.File[] : [];
 	const fileRows: Partial<Record<RevisionDocumentCategory, Express.Multer.File>> = {
-		inoffice_letter: uploaded.inoffice_letter?.[0],
-		supporting_document: uploaded.supporting_document?.[0]
+		inoffice_letter: uploadedFiles.find((file) => file.fieldname === 'inoffice_letter'),
+		supporting_document: uploadedFiles.find((file) => file.fieldname === 'supporting_document')
 	};
+	if (uploadedFiles.filter((file) => file.fieldname === 'inoffice_letter').length > 1 ||
+		uploadedFiles.filter((file) => file.fieldname === 'supporting_document').length > 1) {
+		response.status(400).json({ status: 400, message: 'Unggah maksimal satu file untuk setiap dokumen standar.', data: null });
+		return;
+	}
+	const standardFieldNames = new Set(['inoffice_letter', 'supporting_document']);
+	const formUploadFiles = uploadedFiles.filter((file) => !standardFieldNames.has(file.fieldname));
+	const formUploads = parseFormUploads(formUploadFiles);
+	if (formUploads === null || uploadedFiles.length > MAX_UPLOAD_FILES) {
+		response.status(400).json({ status: 400, message: 'Nama kolom lampiran tidak valid atau jumlah file melebihi batas.', data: null });
+		return;
+	}
 	for (const file of Object.values(fileRows)) {
 		if (file && !isValidInOfficePdf(file)) {
 			response.status(400).json({ status: 400, message: 'Setiap lampiran revisi harus berupa file PDF yang valid.', data: null });
@@ -209,7 +245,8 @@ async function submitRevisionHandler(request: import('express').Request, respons
 		const data = await submitBranchRevision(response.locals.slaEmployeeId, id, {
 			response: parsed.data.response,
 			updates: parsed.data.updates,
-			files
+			files,
+			form_files: formUploads
 		});
 		const message = data.returned_to_korwil
 			? 'Perubahan nilai kredit dikirim ke antrean Korwil untuk diperiksa ulang.'
@@ -250,14 +287,16 @@ requestRouter.get('/:id/attachments/:attachmentId', async (request, response) =>
 	}
 	try {
 		const attachment = await getRequestAttachmentForDownload(response.locals.slaEmployeeId, requestId, attachmentId);
-		const pdf = await readPrivatePdf(attachment.storage_key);
-		const safeFallback = attachment.original_filename.replace(/[^\x20-\x7e]|["\\;]/g, '_').slice(0, 150) || 'surat-inoffice.pdf';
+		const file = attachment.category === 'form_field'
+			? await readPrivateFormFile(attachment.storage_key, attachment.storage_encoding)
+			: await readPrivatePdf(attachment.storage_key);
+		const safeFallback = attachment.original_filename.replace(/[^\x20-\x7e]|["\\;]/g, '_').slice(0, 150) || 'lampiran';
 		const encodedName = encodeURIComponent(attachment.original_filename).replace(/['()]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
-		response.setHeader('Content-Type', 'application/pdf');
+		response.setHeader('Content-Type', attachment.category === 'form_field' ? attachment.mime_type : 'application/pdf');
 		response.setHeader('Content-Disposition', `attachment; filename="${safeFallback}"; filename*=UTF-8''${encodedName}`);
 		response.setHeader('X-Content-Type-Options', 'nosniff');
 		response.setHeader('Cache-Control', 'private, no-store');
-		response.send(pdf);
+		response.send(file);
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 			response.status(404).json({ status: 404, message: 'File lampiran tidak ditemukan di penyimpanan privat.', data: null });

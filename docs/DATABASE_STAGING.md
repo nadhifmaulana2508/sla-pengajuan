@@ -11,7 +11,7 @@ npm.cmd run db:upgrade
 npm.cmd run db:export:dev-seed
 ```
 
-Exporter hanya menerima database lokal dengan `NODE_ENV=development` dan `DUMMY_AUTH_ENABLED=true`. Snapshot tersimpan di `src/db/dev-seeders/local-snapshot.json`; lampiran tersimpan di `src/db/dev-seeders/private-uploads/`. Identitas akun yang tidak ditandai sebagai akun dummy diganti dengan identitas uji sintetis.
+Exporter hanya menerima database lokal dengan `NODE_ENV=development`, `DUMMY_AUTH_ENABLED=true`, dan host MySQL lokal. Jalankan `npm run db:upgrade` lebih dulu supaya schema lokal dan migration terbaru sama. Snapshot tersimpan di `src/db/dev-seeders/local-snapshot.json`; lampiran tersimpan di `src/db/dev-seeders/private-uploads/`. Exporter menyalin seluruh tabel dan lampiran lokal, tetapi hanya menyamarkan kolom profil pengguna untuk akun non-dummy. Pastikan jawaban form, nama/isi tiket, rekap, komentar, dan file lampiran juga hanya berisi data contoh sintetis sebelum menyimpan snapshot ke Git. Pastikan snapshot memiliki tabel `request_recaps`, `request_recap_rows`, dan `request_recap_proposals`; bila belum ada, ekspor ulang dari database lokal yang sudah dimigrasikan. Bila belum ada contoh rekap, buat rekap contoh lewat aplikasi lokal sebelum ekspor.
 
 Setelah memastikan snapshot hanya memuat data uji, commit dan push:
 
@@ -27,6 +27,12 @@ Di terminal aaPanel, sebelum sinkronisasi, buat backup database staging. Passwor
 
 ```bash
 mysqldump --single-transaction --routines --triggers --hex-blob --host=127.0.0.1 --port=3306 --user=sla_staging --password sla_pengajuan_staging > /tmp/sla-staging-before-seed.sql
+```
+
+Seeder juga mengosongkan `PRIVATE_UPLOAD_DIR` sebelum menyalin lampiran fixture. Backup folder tersebut dari path yang sama dengan konfigurasi backend aaPanel; contoh bila nilainya `/www/private/sla-pengajuan/uploads`:
+
+```bash
+tar -czf /tmp/sla-staging-uploads-before-seed.tar.gz -C /www/private/sla-pengajuan/uploads .
 ```
 
 ## 3. Pull dan seed di aaPanel
@@ -69,28 +75,17 @@ DUMMY_AUTH_ENABLED=true
 
 Simpan pengaturan tersebut di environment backend aaPanel atau `backend/.env`, lalu restart backend. Setelah uji selesai, ubah `DUMMY_AUTH_ENABLED=false` dan restart lagi.
 
-Setelah itu jalankan:
+Setelah itu jalankan satu perintah dari root repository:
 
 ```bash
 cd /www/wwwroot/sla-pengajuan
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-
-cd backend
-npm ci
-npm run db:replace:prod
-npm run build
-
-cd ../frontend
-npm ci
-npm run build
+DEPLOY_WITH_LOCAL_SEED=true bash scripts/deploy-aapanel.sh
 ```
 
-`db:replace:prod` menjalankan migrasi dan seed kantor, lalu mengganti seluruh tabel dari snapshot. Perintah ini hanya menerima database dengan nama berakhiran `_staging`, memastikan daftar tabel dan kolom cocok sebelum menghapus data, serta menyalin ulang lampiran privat. Nama command tidak berarti database production boleh ditimpa. Setelah build berhasil, restart backend dan frontend lewat aaPanel/PM2. Periksa dashboard, detail tiket, dan lampiran.
+`db:replace:prod` menjalankan migrasi dan seed kantor, memeriksa kecocokan tabel serta kolom, lalu mengganti seluruh isi tabel dari snapshot, termasuk tiket dan rekap, serta menyalin ulang lampiran privat. Jika struktur snapshot tidak cocok, command berhenti sebelum mengosongkan tabel. Command hanya menerima database bernama akhiran `_staging`; nama command tidak berarti database production boleh ditimpa. Jalankan sebelum `npm run prod`, kemudian restart backend dan frontend lewat aaPanel/PM2. Periksa dashboard, detail tiket, halaman rekap, dan lampiran.
 
 ## 4. Pull code tanpa reset data
 
-Jika ingin mempertahankan perubahan uji yang dibuat langsung di staging, jangan jalankan `db:replace:prod`. Pull code, lalu jalankan `npm run db:upgrade` untuk menerapkan migrasi/seed acuan saja sebelum build.
+Jika ingin mempertahankan perubahan uji yang dibuat langsung di staging, jangan aktifkan `DEPLOY_WITH_LOCAL_SEED`. Jalankan `bash scripts/deploy-aapanel.sh`; script menarik code, menerapkan migration/seed acuan, build, dan restart tanpa menyalin atau menghapus tiket dan rekap.
 
 Pada database production final, jangan aktifkan `DUMMY_AUTH_ENABLED`. Pada UAT `sla_pengajuan` dan staging, setel kembali ke `false` setelah pengujian selesai. `db:replace:prod` menolak database yang tidak memakai akhiran `_staging`; command tersebut mengganti semua data aplikasi staging dengan snapshot.

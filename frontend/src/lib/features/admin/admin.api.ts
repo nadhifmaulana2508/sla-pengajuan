@@ -26,6 +26,7 @@ export type WorkCatalog = {
 	form_fields?: WorkFormField[];
 	form_repeatable?: RepeatableFormConfig | null;
 	form_credit_routing?: CreditRoutingConfig | null;
+	available_fields?: WorkFormCatalogField[];
 };
 
 export type RepeatableFormConfig = { label: string; max_entries: number };
@@ -34,16 +35,37 @@ export type CreditRoutingConfig = { marketing_threshold_amount: number };
 export type WorkFormField = {
 	key: string;
 	label: string;
-	type: 'text' | 'textarea' | 'number' | 'currency' | 'date' | 'select';
+	type: 'text' | 'textarea' | 'number' | 'currency' | 'date' | 'select' | 'document' | 'image' | 'images';
 	required: boolean;
 	options?: string[];
 	min_value?: number;
 	max_value?: number;
 	system?: boolean;
 	requires_korwil_review?: boolean;
+	catalog_field_id?: number;
+	calculation?: { operation: 'sum'; fields: string[] };
 };
 
 export type WorkFormFieldInput = Omit<WorkFormField, 'key' | 'system'>;
+export type WorkFormCatalogField = {
+	id: number;
+	division_id: number | null;
+	key: string;
+	label: string;
+	type: WorkFormField['type'];
+	options: string[] | null;
+	calculation: WorkFormField['calculation'] | null;
+	is_standard: boolean;
+	is_derived: boolean;
+};
+export type WorkFormFieldSelection = {
+	catalog_field_id: number;
+	required: boolean;
+	requires_korwil_review: boolean;
+	min_value?: number;
+	max_value?: number;
+};
+export type WorkFormFieldPublishInput = WorkFormFieldInput | WorkFormFieldSelection;
 
 export type WorkCatalogInput = {
 	divisi_id: number;
@@ -84,6 +106,15 @@ export type AdminUser = {
 	nama_divisi: string | null;
 	is_active: boolean;
 	assignments: AdminUserAssignment[];
+};
+
+export type SsoEmployeeCandidate = {
+	employee_id: string;
+	full_name: string;
+	kode: string | null;
+	job_position: string | null;
+	unit_kerja?: string | null;
+	branch_name?: string | null;
 };
 
 export type AdminAccessRole = { id: number; kode: string; nama_role: string };
@@ -133,6 +164,25 @@ type PublishFormResponse = {
 export type ManagedRejectionReason = {
 	id: number; scope_type: 'system' | 'division' | 'catalog'; division_id: number | null; work_catalog_id: number | null;
 	code: string; label: string; is_active: boolean; sort_order: number;
+};
+
+export type AdminActivityLog = {
+	id: number;
+	source: 'api' | 'access';
+	created_at: string;
+	method: string;
+	path: string;
+	status_code: number;
+	action: string | null;
+	actor: { employee_id: string; full_name: string | null };
+	target: { employee_id: string; full_name: string | null } | null;
+};
+
+export type AdminActivityLogFilters = { q?: string; method?: string; from?: string; to?: string; page?: number; page_size?: number };
+export type AdminActivityLogData = {
+	filters: { q: string | null; method: string | null; from: string | null; to: string | null; page: number; pageSize: number };
+	pagination: { page: number; page_size: number; total: number; total_pages: number };
+	logs: AdminActivityLog[];
 };
 
 type AdminUsersResponse = {
@@ -204,7 +254,7 @@ export async function fetchFormManagementWorkspace(token: string) {
 export async function publishWorkForm(
 	token: string,
 	catalogId: number,
-	fields: WorkFormFieldInput[],
+	fields: WorkFormFieldPublishInput[],
 	repeatable: RepeatableFormConfig | null,
 	creditRouting: CreditRoutingConfig | null
 ) {
@@ -212,6 +262,16 @@ export async function publishWorkForm(
 		method: 'POST',
 		token,
 		body: { fields, repeatable, credit_routing: creditRouting }
+	});
+}
+
+export async function createManagedFormField(
+	token: string,
+	catalogId: number,
+	input: { label: string; type: WorkFormField['type']; options?: string[] }
+) {
+	return apiRequest<{ status: number; message: string; data: WorkFormCatalogField }>(`forms/manage/${catalogId}/fields`, {
+		method: 'POST', token, body: input
 	});
 }
 
@@ -248,10 +308,44 @@ export async function fetchAdminUsersWorkspace(token: string) {
 	return response.data;
 }
 
+export async function searchSsoEmployees(token: string, query: string) {
+	const params = new URLSearchParams({ q: query });
+	return apiRequest<{ status: number; message: string; data: SsoEmployeeCandidate[] }>(
+		`admin/users/sso-search?${params.toString()}`,
+		{ token }
+	);
+}
+
+export async function importSsoEmployee(token: string, employeeId: string) {
+	return apiRequest<{
+		status: number;
+		message: string;
+		data: { id: number; auto_role_code: string | null; auto_scope_label: string | null };
+	}>(
+		'admin/users/sso-import',
+		{ method: 'POST', token, body: { employee_id: employeeId } }
+	);
+}
+
 export async function updateAdminUserAccess(token: string, userId: number, input: AdminUserAccessInput) {
 	return apiRequest<MutationResponse>(`admin/users/${userId}/access`, {
 		method: 'PUT',
 		token,
 		body: input
 	});
+}
+
+export async function fetchAdminActivityLogs(token: string, filters: AdminActivityLogFilters = {}) {
+	const params = new URLSearchParams();
+	if (filters.q) params.set('q', filters.q);
+	if (filters.method && filters.method !== 'all') params.set('method', filters.method);
+	if (filters.from) params.set('from', filters.from);
+	if (filters.to) params.set('to', filters.to);
+	if (filters.page) params.set('page', String(filters.page));
+	if (filters.page_size) params.set('page_size', String(filters.page_size));
+	const query = params.toString();
+	return apiRequest<{ status: number; message: string; data: AdminActivityLogData }>(
+		`admin/activity-logs${query ? `?${query}` : ''}`,
+		{ token }
+	);
 }

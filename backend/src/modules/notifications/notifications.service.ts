@@ -16,7 +16,7 @@ const visibleNotificationFilter = `AND EXISTS (
 			AND scope.kode_kantor = request.kode_kantor
 			AND account.kode_kantor = request.kode_kantor AND account.kode_kantor <> '000'
 			AND account_office.is_active = 1 AND scoped_office.is_active = 1)
-		OR (role.kode IN ('korwil_staff', 'korwil_approver') AND scope.scope_type = 'korwil'
+		OR (role.kode = 'korwil_staff' AND scope.scope_type = 'korwil'
 			AND scope.korwil = request.korwil)
 		OR (role.kode = 'division_staff' AND scope.scope_type = 'division'
 			AND scope.divisi_id = request.central_division_id
@@ -51,7 +51,7 @@ export async function notifyUnitMembers(connection: PoolConnection, input: {
 				sql: `SELECT DISTINCT recipient.id FROM users recipient
 					INNER JOIN user_role_scopes scope ON scope.user_id = recipient.id AND scope.is_active = 1
 					INNER JOIN roles role ON role.id = scope.role_id AND role.is_active = 1
-					WHERE recipient.is_active = 1 AND role.kode IN ('korwil_staff', 'korwil_approver')
+					WHERE recipient.is_active = 1 AND role.kode = 'korwil_staff'
 						AND scope.scope_type = 'korwil' AND scope.korwil = ?`,
 				values: [input.unitCode]
 			}

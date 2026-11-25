@@ -83,7 +83,7 @@
 		<div class="request-list">
 			{#each requests as item (item.id)}
 				<Card.Root class="request-card" size="sm"><Card.Header class="request-header"><div class="request-copy"><p class="request-number">{item.request_number} · {formatDate(item.submitted_at)}</p><Card.Title class="break-words text-base">{item.subject}</Card.Title><Card.Description>{item.nama_kantor} · kode {item.kode_kantor}</Card.Description></div><Badge variant="outline">{statusLabels[item.status] ?? item.status}</Badge></Card.Header>
-					<Card.Content class="request-footer"><div class="metadata"><span>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : 'Kewenangan Korwil'}</span><span><Clock3 class="size-3.5" aria-hidden="true" />Umur total · {formatElapsed(Number(item.overall_elapsed_seconds))}</span><span>Lokasi sekarang · {item.current_unit_type === 'central' ? item.nama_divisi ?? 'Divisi Pusat' : item.current_unit_type === 'korwil' ? `Korwil ${item.current_unit_code}` : `Cabang ${item.nama_kantor}`}</span></div><div class="actions"><Button variant="outline" class="min-h-11" href={`/requests/${item.id}`}>Detail <ArrowRight class="size-4" aria-hidden="true" /></Button></div></Card.Content>
+					<Card.Content class="request-footer request-footer--history"><div class="metadata"><span>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : 'Kewenangan Korwil'}</span><span><Clock3 class="size-3.5" aria-hidden="true" />Umur total · {formatElapsed(Number(item.overall_elapsed_seconds))}</span><span>Lokasi sekarang · {item.current_unit_type === 'central' ? item.nama_divisi ?? 'Divisi Pusat' : item.current_unit_type === 'korwil' ? `Korwil ${item.current_unit_code}` : `Cabang ${item.nama_kantor}`}</span></div><div class="actions"><Button variant="outline" class="min-h-11" href={`/requests/${item.id}`}>Detail <ArrowRight class="size-4" aria-hidden="true" /></Button></div></Card.Content>
 				</Card.Root>
 			{/each}
 		</div>
@@ -110,9 +110,32 @@
 	:global(.request-footer) { flex-direction:row; align-items:center; justify-content:space-between; gap:.75rem; padding: .25rem .9rem .75rem; }
 	.metadata { display:flex; min-width:0; flex-wrap:wrap; align-items:center; gap:.35rem 1rem; color:var(--muted-foreground); font-size:var(--type-sm); }
 	.metadata span { display:flex; align-items:center; gap:.4rem; }
-	.actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.5rem; }
+	.actions { display:flex; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; gap:.4rem; }
 	:global(.empty-state) { min-height:clamp(9rem, 16vw, 13rem); align-items:center; justify-content:center; gap:.5rem; text-align:center; }
 	:global(.empty-state h2) { margin:0; font-size:var(--type-lg); }
 	:global(.empty-state p) { max-width:27rem; margin:0; color:var(--muted-foreground); line-height:1.6; }
-	@media(max-width:640px) { .view-switch { display: grid; width: 100%; grid-template-columns: 1fr 1fr; } :global(.request-header) { grid-template-columns:minmax(0,1fr); align-items:start; } :global(.request-footer) { flex-direction:column; align-items:stretch; } .metadata { align-items:flex-start; flex-direction:column; gap:.45rem; } .actions { display:grid; grid-template-columns:1fr; } }
+	@media(max-width:640px) {
+		.view-switch { display:grid; width:100%; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.25rem; padding:.25rem; border:1px solid var(--border); border-radius:var(--radius); background:color-mix(in srgb,var(--muted) 72%,var(--card)); }
+		.view-switch :global(button) { width:100%; min-width:0; justify-content:center; border-radius:calc(var(--radius) - .2rem); }
+		.view-switch :global(button[aria-pressed='true']) { box-shadow:0 1px 2px rgb(0 0 0 / .12); }
+		:global(.app-page-stack > .app-page-heading .app-page-heading-action) { width:max-content; max-width:100%; padding-top:0; }
+		.view-description { max-width:38rem; margin:0; line-height:1.55; }
+		:global(.empty-state) { display:grid; min-height:11rem; align-content:center; justify-items:center; padding:1.15rem; border-radius:var(--radius); }
+		.request-list { gap:.75rem; }
+		:global(.request-header) { align-items:flex-start; gap:.5rem .75rem; }
+		:global(.request-footer) { flex-direction:column; align-items:stretch; gap:.65rem; }
+		.metadata { display:grid; grid-template-columns:minmax(0,1fr); gap:.5rem; }
+		.metadata span { align-items:flex-start; }
+		.actions { display:grid; width:100%; grid-template-columns:repeat(auto-fit,minmax(min(10rem,100%),1fr)); }
+		:global(.request-footer--history) { flex-direction:row; align-items:flex-end; gap:.5rem; }
+		:global(.request-footer--history .metadata) { flex:1 1 auto; gap:.25rem; font-size:var(--type-xs); }
+		:global(.request-footer--history .metadata span) { min-width:0; overflow-wrap:anywhere; }
+		:global(.request-footer--history .actions) { display:flex; width:auto; flex:0 0 auto; align-self:flex-end; }
+		:global(.request-footer--history .actions [data-slot='button']) { width:auto; padding-inline:.7rem; }
+	}
+	@media(max-width:24rem) {
+		.view-switch :global(button) { gap:.35rem; padding-inline:.4rem; font-size:var(--type-sm); }
+		:global(.request-header) { grid-template-columns:minmax(0,1fr); }
+		:global(.request-header > [data-slot='badge']) { justify-self:start; }
+	}
 </style>

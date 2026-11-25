@@ -16,17 +16,20 @@
 	import { authSession, clearAuthenticatedSession, updateProfile } from '#lib/features/auth/auth.store.js';
 	import { fetchCurrentProfile } from '#lib/features/auth/auth.api.js';
 	import {
-		createManagedRejectionReason, fetchFormManagementWorkspace, fetchManagedRejectionReasons, publishWorkForm,
+		createManagedFormField, createManagedRejectionReason, fetchFormManagementWorkspace, fetchManagedRejectionReasons, publishWorkForm,
 		setManagedRejectionReasonActive, type CreditRoutingConfig, type ManagedRejectionReason, type WorkCatalog,
-		type WorkFormField, type WorkFormFieldInput, type RepeatableFormConfig
+		type WorkFormCatalogField, type WorkFormField, type WorkFormFieldPublishInput, type RepeatableFormConfig
 	} from '#lib/features/admin/admin.api.js';
 	import { Plus, Trash2 } from '@lucide/svelte';
 
 	type FieldEditor = {
+		catalogFieldId: number | null;
+		key: string | null;
 		label: string;
 		type: WorkFormField['type'];
 		required: boolean;
 		requires_korwil_review: boolean;
+		isDerived: boolean;
 		min_value: string;
 		max_value: string;
 		options_text: string;
@@ -38,21 +41,26 @@
 		{ value: 'number', label: 'Angka' },
 		{ value: 'currency', label: 'Nominal rupiah' },
 		{ value: 'date', label: 'Tanggal' },
-		{ value: 'select', label: 'Pilihan' }
+		{ value: 'select', label: 'Pilihan' },
+		{ value: 'document', label: 'Dokumen (PDF, Word, TXT)' },
+		{ value: 'image', label: 'Satu foto' },
+		{ value: 'images', label: 'Beberapa foto (maks. 4)' }
 	];
-
-	function emptyField(): FieldEditor {
-		return { label: '', type: 'text', required: false, requires_korwil_review: false, min_value: '', max_value: '', options_text: '' };
-	}
 
 	let token = $state<string | null>(null);
 	let catalogs = $state<WorkCatalog[]>([]);
 	let catalogId = $state('');
 	let fields = $state<FieldEditor[]>([]);
+	let fieldToAdd = $state('');
+	let customFieldLabel = $state('');
+	let customFieldType = $state<WorkFormField['type']>('text');
+	let customFieldOptions = $state('');
+	let isCreatingField = $state(false);
+	let fieldCatalogError = $state('');
+	let fieldCatalogStatus = $state('');
 	let repeatableEnabled = $state(false);
 	let repeatableLabel = $state('Data rekening/fasilitas');
 	let repeatableMaxEntries = $state('10');
-	let marketingThresholdAmount = $state('500000000');
 	let isLoading = $state(true);
 	let isPublishing = $state(false);
 	let loadError = $state('');
@@ -68,6 +76,11 @@
 	let reasonStatus = $state('');
 	let selectedCatalog = $derived(catalogs.find((item) => String(item.id) === catalogId) ?? null);
 	let maxCustomFields = $derived(selectedCatalog?.system_key === 'credit_application' ? 39 : 40);
+	let availableFieldsToAdd = $derived((selectedCatalog?.available_fields ?? [])
+		.filter((field) => !field.is_derived && !fields.some((selected) => selected.catalogFieldId === field.id)));
+	let availableFieldItems = $derived(availableFieldsToAdd.map((field) => ({
+		value: String(field.id), label: `${field.label} · ${field.is_standard ? 'Field baku' : 'Field khusus'}`
+	})));
 	let catalogItems = $derived(catalogs.map((item) => ({
 		value: String(item.id),
 		label: `${item.nama_pekerjaan} · ${item.nama_divisi}`
@@ -110,19 +123,30 @@
 
 	function loadFieldsForCatalog(id: string, source = catalogs): void {
 		const catalog = source.find((item) => String(item.id) === id);
-		fields = (catalog?.form_fields ?? []).filter((field) => !field.system).map((field) => ({
-			label: field.label,
-			type: field.type,
-			required: field.required,
-			requires_korwil_review: field.requires_korwil_review ?? false,
-			min_value: field.min_value === undefined ? '' : String(field.min_value),
-			max_value: field.max_value === undefined ? '' : String(field.max_value),
-			options_text: (field.options ?? []).join('\n')
-		}));
+		const availableFields = catalog?.available_fields ?? [];
+		fields = (catalog?.form_fields ?? []).filter((field) => !field.system).map((field) => {
+			const libraryField = availableFields.find((candidate) => candidate.id === field.catalog_field_id) ??
+				availableFields.find((candidate) => candidate.key === field.key && candidate.type === field.type &&
+					Boolean(candidate.calculation) === Boolean(field.calculation));
+			return {
+				catalogFieldId: libraryField?.id ?? null,
+				key: field.key,
+				label: libraryField?.label ?? field.label,
+				type: libraryField?.type ?? field.type,
+				required: field.required,
+				requires_korwil_review: field.requires_korwil_review ?? false,
+				isDerived: Boolean(field.calculation),
+				min_value: field.min_value === undefined ? '' : String(field.min_value),
+				max_value: field.max_value === undefined ? '' : String(field.max_value),
+				options_text: (libraryField?.options ?? field.options ?? []).join('\n')
+			};
+		});
+		fieldToAdd = '';
+		fieldCatalogError = '';
+		fieldCatalogStatus = '';
 		repeatableEnabled = Boolean(catalog?.form_repeatable);
 		repeatableLabel = catalog?.form_repeatable?.label ?? 'Data rekening/fasilitas';
 		repeatableMaxEntries = String(catalog?.form_repeatable?.max_entries ?? 10);
-		marketingThresholdAmount = String(catalog?.form_credit_routing?.marketing_threshold_amount ?? 500_000_000);
 		formError = '';
 		fieldError = null;
 		statusMessage = '';
@@ -168,21 +192,56 @@
 		finally { reasonBusy = false; }
 	}
 
-	function addField(): void {
-		if (fields.length >= maxCustomFields) return;
+	function syncDerivedTotalField(nextFields: FieldEditor[]): FieldEditor[] {
+		const catalogFields = selectedCatalog?.available_fields ?? [];
+		const hasPrincipal = nextFields.some((selected) => catalogFields.find((field) => field.id === selected.catalogFieldId)?.key === 'tunggakan_pokok');
+		const hasInterest = nextFields.some((selected) => catalogFields.find((field) => field.id === selected.catalogFieldId)?.key === 'tunggakan_bunga');
+		const totalField = catalogFields.find((field) => field.key === 'total_tunggakan' && field.is_derived);
+		const withoutDerived = nextFields.filter((field) => !field.isDerived);
+		if (!hasPrincipal || !hasInterest || !totalField || withoutDerived.some((field) => field.catalogFieldId === totalField.id)) return withoutDerived;
+		return [...withoutDerived, {
+			catalogFieldId: totalField.id, key: totalField.key, label: totalField.label, type: totalField.type,
+			required: false, requires_korwil_review: false, isDerived: true,
+			min_value: '', max_value: '', options_text: ''
+		}];
+	}
+
+	function addCatalogField(): void {
+		if (!fieldToAdd || fields.length >= maxCustomFields) return;
+		const catalogField = availableFieldsToAdd.find((field) => String(field.id) === fieldToAdd);
+		if (!catalogField) return;
 		fieldError = null;
-		fields = [...fields, emptyField()];
+		const nextFields = syncDerivedTotalField([...fields, {
+			catalogFieldId: catalogField.id, key: catalogField.key, label: catalogField.label, type: catalogField.type,
+			required: false, requires_korwil_review: false, isDerived: Boolean(catalogField.calculation),
+			min_value: '', max_value: '', options_text: (catalogField.options ?? []).join('\n')
+		}]);
+		if (nextFields.length > maxCustomFields) {
+			formError = `Form ini maksimal memiliki ${maxCustomFields} kolom tambahan, termasuk Total Tunggakan yang dihitung otomatis.`;
+			return;
+		}
+		formError = '';
+		fields = nextFields;
+		fieldToAdd = '';
 	}
 
 	function removeField(index: number): void {
+		if (fields[index]?.isDerived) return;
 		fieldError = null;
-		fields = fields.filter((_, fieldIndex) => fieldIndex !== index);
+		fields = syncDerivedTotalField(fields.filter((_, fieldIndex) => fieldIndex !== index));
 	}
 
-	function parseEditorFields(): WorkFormFieldInput[] {
+	function parseEditorFields(): WorkFormFieldPublishInput[] {
 		return fields.map((field) => {
 			const minimum = field.min_value.trim() === '' ? undefined : Number(field.min_value);
 			const maximum = field.max_value.trim() === '' ? undefined : Number(field.max_value);
+			if (field.catalogFieldId !== null) return {
+				catalog_field_id: field.catalogFieldId,
+				required: field.isDerived ? false : field.required,
+				requires_korwil_review: field.isDerived ? false : field.requires_korwil_review,
+				...(minimum === undefined ? {} : { min_value: minimum }),
+				...(maximum === undefined ? {} : { max_value: maximum })
+			};
 			return {
 				label: field.label.trim(),
 				type: field.type,
@@ -195,6 +254,44 @@
 				} : {})
 			};
 		});
+	}
+
+	async function createCustomField(): Promise<void> {
+		if (!token || !selectedCatalog || isCreatingField) return;
+		const label = customFieldLabel.trim();
+		const options = customFieldType === 'select'
+			? customFieldOptions.split(/\r?\n/).map((option) => option.trim()).filter(Boolean)
+			: undefined;
+		if (!label) { fieldCatalogError = 'Nama field khusus wajib diisi.'; return; }
+		if (customFieldType === 'select' && !options?.length) { fieldCatalogError = 'Tambahkan sedikitnya satu pilihan.'; return; }
+		if (options && new Set(options.map((option) => option.toLocaleLowerCase('id-ID'))).size !== options.length) {
+			fieldCatalogError = 'Pilihan tidak boleh berulang.'; return;
+		}
+		if (fields.length >= maxCustomFields) { fieldCatalogError = `Form sudah mencapai batas ${maxCustomFields} field.`; return; }
+		isCreatingField = true;
+		fieldCatalogError = '';
+		fieldCatalogStatus = '';
+		try {
+			const result = await createManagedFormField(token, selectedCatalog.id, {
+				label, type: customFieldType, ...(options ? { options } : {})
+			});
+			const addedField: WorkFormCatalogField = result.data;
+			catalogs = catalogs.map((catalog) => catalog.divisi_id === selectedCatalog.divisi_id
+				? { ...catalog, available_fields: [...(catalog.available_fields ?? []), addedField] }
+				: catalog);
+			fields = [...fields, {
+				catalogFieldId: addedField.id, key: addedField.key, label: addedField.label, type: addedField.type,
+				required: false, requires_korwil_review: false, isDerived: false,
+				min_value: '', max_value: '', options_text: (addedField.options ?? []).join('\n')
+			}];
+			customFieldLabel = '';
+			customFieldOptions = '';
+			customFieldType = 'text';
+			fieldCatalogStatus = 'Field khusus ditambahkan ke katalog Divisi dan dipilih untuk form ini.';
+		} catch (error) {
+			if (error instanceof ApiError && error.status === 401) { clearAuthenticatedSession(); await goto('/'); return; }
+			fieldCatalogError = error instanceof ApiError ? error.message : 'Field khusus belum dapat ditambahkan. Coba lagi.';
+		} finally { isCreatingField = false; }
 	}
 
 	function focusField(index: number, target: 'label' | 'options' | 'min' = 'label'): void {
@@ -220,30 +317,33 @@
 			formError = `Form ini maksimal memiliki ${maxCustomFields} kolom tambahan.`;
 			return;
 		}
-		const emptyLabelIndex = fields.findIndex((field) => !field.label.trim());
+		const emptyLabelIndex = fields.findIndex((field) => field.catalogFieldId === null && !field.label.trim());
 		if (emptyLabelIndex >= 0) {
 			showFieldError(emptyLabelIndex, 'label wajib diisi atau kolom ini harus dihapus.');
 			return;
 		}
 		const parsedFields = parseEditorFields();
 		for (const [index, field] of parsedFields.entries()) {
-			if (field.type === 'select' && !field.options?.length) {
-				showFieldError(index, 'tambahkan sedikitnya satu opsi pilihan.', 'options');
-				return;
-			}
-			if (field.type === 'select' && (field.options?.length ?? 0) > 50) {
-				showFieldError(index, 'field pilihan maksimal memiliki 50 opsi.', 'options');
-				return;
-			}
-			const options = field.options ?? [];
-			if (new Set(options.map((option) => option.toLocaleLowerCase('id-ID'))).size !== options.length) {
-				showFieldError(index, 'opsi pilihan tidak boleh berulang.', 'options');
-				return;
-			}
-			if ((field.min_value !== undefined && !Number.isFinite(field.min_value)) ||
-				(field.max_value !== undefined && !Number.isFinite(field.max_value))) {
-				showFieldError(index, 'batas minimum atau maksimum harus berupa angka yang valid.', 'min');
-				return;
+			if ('catalog_field_id' in field) {
+				if ((field.min_value !== undefined && !Number.isFinite(field.min_value)) ||
+					(field.max_value !== undefined && !Number.isFinite(field.max_value))) {
+					showFieldError(index, 'batas minimum atau maksimum harus berupa angka yang valid.', 'min');
+					return;
+				}
+			} else {
+				if (field.type === 'select' && !field.options?.length) {
+					showFieldError(index, 'tambahkan sedikitnya satu opsi pilihan.', 'options');
+					return;
+				}
+				if (field.type === 'select' && (field.options?.length ?? 0) > 50) {
+					showFieldError(index, 'field pilihan maksimal memiliki 50 opsi.', 'options');
+					return;
+				}
+				const options = field.options ?? [];
+				if (new Set(options.map((option) => option.toLocaleLowerCase('id-ID'))).size !== options.length) {
+					showFieldError(index, 'opsi pilihan tidak boleh berulang.', 'options');
+					return;
+				}
 			}
 			if (field.min_value !== undefined && field.max_value !== undefined && field.min_value > field.max_value) {
 				showFieldError(index, 'nilai minimum tidak boleh lebih besar dari nilai maksimum.', 'min');
@@ -271,15 +371,9 @@
 			}
 			repeatableConfig = { label: repeatableLabel.trim(), max_entries: maxEntries };
 		}
-		let creditRouting: CreditRoutingConfig | null = null;
-		if (selectedCatalog.system_key === 'credit_application') {
-			const threshold = Number(marketingThresholdAmount);
-			if (!Number.isSafeInteger(threshold) || threshold < 250_000_000) {
-				formError = 'Ambang Pemasaran harus minimal Rp250.000.000.';
-				return;
-			}
-			creditRouting = { marketing_threshold_amount: threshold };
-		}
+		const creditRouting: CreditRoutingConfig | null = selectedCatalog.system_key === 'credit_application'
+			? { marketing_threshold_amount: 500_000_000 }
+			: null;
 		isPublishing = true;
 		formError = '';
 		statusMessage = '';
@@ -376,37 +470,62 @@
 
 				<Card.Root class="editor-card">
 					<Card.Header class="editor-header">
-						<div><Card.Title>Kolom form</Card.Title><Card.Description>Atur jawaban, kewajiban, dan field yang perlu ditinjau Korwil jika berubah.</Card.Description></div>
+						<div><Card.Title>Kolom form</Card.Title><Card.Description>Pilih field katalog, lalu atur kewajiban dan peninjauan Korwil untuk versi form ini.</Card.Description></div>
 						<Badge variant="outline">{fields.length}/{maxCustomFields} kolom tambahan</Badge>
 					</Card.Header>
 					<Card.Content>
 						<form class="editor-form" novalidate onsubmit={publish}>
 							{#if selectedCatalog?.system_key === 'credit_application'}
-								<div class="system-field"><div><strong>Nilai pengajuan kredit</strong><p>Nominal Rupiah · wajib · minimal Rp250.000.000</p></div><Badge variant="secondary">Dikelola sistem</Badge></div>
+								<div class="system-field"><div><strong>Nilai pengajuan kredit</strong><p>Nominal Rupiah · wajib · minimal Rp200.000.000</p></div><Badge variant="secondary">Dikelola sistem</Badge></div>
 								<fieldset class="credit-routing-settings">
-									<legend>Panduan nilai Pemasaran</legend>
-									<div class="field"><Label for="credit-marketing-threshold">Nilai panduan Pemasaran (Rp)</Label><Input id="credit-marketing-threshold" type="number" min="250000000" step="1" bind:value={marketingThresholdAmount} required class="min-h-11" /></div>
-									<p>Nilai ini membantu Cabang menilai pengajuan, tetapi tidak mengubah tujuan tiket. Cabang memilih Korwil atau Pusat saat mengisi pengajuan; batas minimum tetap Rp250.000.000.</p>
+									<legend>Aturan tujuan otomatis</legend>
+									<p>Rp200.000.000 sampai di bawah Rp500.000.000 ditangani Korwil. Mulai Rp500.000.000 otomatis ditujukan ke Pemasaran setelah pemeriksaan Korwil.</p>
 				</fieldset>
 							{/if}
 							{#each fields as field, index (index)}
+								{@const catalogField = selectedCatalog?.available_fields?.find((item) => item.id === field.catalogFieldId)}
 								<fieldset class="field-editor">
 									<legend>Kolom {index + 1}</legend>
-									<Button type="button" variant="outline" class="min-h-11 remove-field" aria-label={`Hapus kolom ${index + 1}`} onclick={() => removeField(index)}><Trash2 class="size-4" aria-hidden="true" /><span>Hapus kolom</span></Button>
+									<Button type="button" variant="outline" class="min-h-11 remove-field" aria-label={`Hapus kolom ${index + 1}`} disabled={field.isDerived} onclick={() => removeField(index)}><Trash2 class="size-4" aria-hidden="true" /><span>{field.isDerived ? 'Otomatis' : 'Hapus dari form'}</span></Button>
 									<div class="field-editor-grid">
-										<div class="field field-label"><Label for={`field-label-${index}`}>Label</Label><Input id={`field-label-${index}`} bind:value={field.label} oninput={() => (fieldError = null)} maxlength={160} required placeholder="Contoh: Nomor rekening pinjaman" class="min-h-11" /></div>
-										<div class="field"><Label for={`field-type-${index}`}>Jenis jawaban</Label><SearchableSelect id={`field-type-${index}`} label="Jenis jawaban" options={fieldTypes} value={field.type} onValueChange={(value) => { field.type = value as typeof field.type; fieldError = null; }} placeholder="Pilih jenis jawaban" searchPlaceholder="Cari jenis jawaban..." /></div>
+										{#if field.catalogFieldId !== null}
+											<div class="catalog-field-heading"><div><strong>{field.label}</strong><Badge variant="outline">{catalogField?.is_standard ? 'Field baku' : 'Field khusus'}</Badge></div><span>{fieldTypes.find((type) => type.value === field.type)?.label ?? field.type}</span></div>
+										{:else}
+											<div class="field field-label"><Label for={`field-label-${index}`}>Field lama</Label><Input id={`field-label-${index}`} bind:value={field.label} oninput={() => (fieldError = null)} maxlength={160} required placeholder="Label field lama" class="min-h-11" /></div>
+											<div class="field"><Label for={`field-type-${index}`}>Jenis jawaban</Label><SearchableSelect id={`field-type-${index}`} label="Jenis jawaban" options={fieldTypes} value={field.type} onValueChange={(value) => { field.type = value as typeof field.type; fieldError = null; }} placeholder="Pilih jenis jawaban" searchPlaceholder="Cari jenis jawaban..." /></div>
+										{/if}
 										{#if field.type === 'number' || field.type === 'currency'}
 											<div class="field"><Label for={`field-min-${index}`}>Nilai minimum <span class="optional">Opsional</span></Label><Input id={`field-min-${index}`} type="number" step="any" bind:value={field.min_value} oninput={() => (fieldError = null)} class="min-h-11" /></div>
 											<div class="field"><Label for={`field-max-${index}`}>Nilai maksimum <span class="optional">Opsional</span></Label><Input id={`field-max-${index}`} type="number" step="any" bind:value={field.max_value} oninput={() => (fieldError = null)} class="min-h-11" /></div>
 										{/if}
-										{#if field.type === 'select'}<div class="field field-options"><Label for={`field-options-${index}`}>Pilihan, satu per baris</Label><Textarea id={`field-options-${index}`} bind:value={field.options_text} oninput={() => (fieldError = null)} rows={3} class="min-h-24" placeholder={'Baru\nBerjalan\nSelesai'} /></div>{/if}
-										<div class="field-required"><Checkbox id={`field-required-${index}`} bind:checked={field.required} class="size-5" /><Label for={`field-required-${index}`}>Wajib diisi</Label></div>
-										<div class="field-required"><Checkbox id={`field-korwil-review-${index}`} bind:checked={field.requires_korwil_review} class="size-5" /><Label for={`field-korwil-review-${index}`}>Periksa ulang lewat Korwil jika berubah saat revisi</Label></div>
+										{#if field.type === 'select'}<div class="field field-options"><Label for={`field-options-${index}`}>{field.catalogFieldId !== null ? 'Pilihan baku' : 'Pilihan, satu per baris'}</Label>{#if field.catalogFieldId !== null}<div class="readonly-options">{#each (catalogField?.options ?? field.options_text.split('\n')) as option (option)}<Badge variant="outline">{option}</Badge>{/each}</div>{:else}<Textarea id={`field-options-${index}`} bind:value={field.options_text} oninput={() => (fieldError = null)} rows={3} class="min-h-24" placeholder={'Baru\nBerjalan\nSelesai'} />{/if}</div>{/if}
+										{#if field.isDerived}
+											<p class="derived-note">Total dihitung otomatis dari Tunggakan Pokok + Tunggakan Bunga.</p>
+										{:else}<div class="field-required"><Checkbox id={`field-required-${index}`} bind:checked={field.required} class="size-5" /><Label for={`field-required-${index}`}>Wajib diisi</Label></div>{/if}
+										{#if !field.isDerived}<div class="field-required"><Checkbox id={`field-korwil-review-${index}`} bind:checked={field.requires_korwil_review} class="size-5" /><Label for={`field-korwil-review-${index}`}>Periksa ulang lewat Korwil jika berubah saat revisi</Label></div>{/if}
 									</div>
 									{#if fieldError?.index === index}<p class="field-error" role="alert">Kolom {index + 1}: {fieldError.message}</p>{/if}
 								</fieldset>
 							{/each}
+							<fieldset class="field-library">
+								<legend>Tambah dari katalog field</legend>
+				<p>Pilih field baku atau field khusus Divisi yang sudah dibuat. Nama dan tipe field katalog tetap.</p>
+								{#if availableFieldItems.length > 0}
+									<div class="field-library-add"><SearchableSelect id="field-library-select" label="Pilih field katalog" options={availableFieldItems} value={fieldToAdd} onValueChange={(value) => (fieldToAdd = value)} placeholder="Pilih field" searchPlaceholder="Cari field..." /><Button type="button" variant="outline" class="min-h-11" disabled={!fieldToAdd || fields.length >= maxCustomFields} onclick={addCatalogField}><Plus class="size-4" aria-hidden="true" />Tambahkan field</Button></div>
+								{:else}<p class="field-hint">Semua field katalog yang tersedia sudah dipakai atau belum dibuat.</p>{/if}
+								<div class="custom-field-create">
+									<strong>Buat field khusus</strong>
+									<div class="custom-field-grid">
+										<div class="field"><Label for="custom-field-label">Nama field</Label><Input id="custom-field-label" bind:value={customFieldLabel} maxlength={160} class="min-h-11" placeholder="Contoh: Nomor memo" /></div>
+										<div class="field"><Label for="custom-field-type">Jenis jawaban</Label><SearchableSelect id="custom-field-type" label="Jenis jawaban field khusus" options={fieldTypes} value={customFieldType} onValueChange={(value) => { customFieldType = value as typeof customFieldType; customFieldOptions = ''; }} placeholder="Pilih jenis jawaban" searchPlaceholder="Cari jenis jawaban..." /></div>
+										{#if customFieldType === 'select'}<div class="field custom-field-options"><Label for="custom-field-options">Pilihan, satu per baris</Label><Textarea id="custom-field-options" bind:value={customFieldOptions} rows={3} class="min-h-24" placeholder={'Baru\nBerjalan\nSelesai'} /></div>{/if}
+										<Button type="button" variant="outline" class="min-h-11" disabled={isCreatingField || !customFieldLabel.trim() || fields.length >= maxCustomFields} onclick={() => void createCustomField()}>{isCreatingField ? 'Menyimpan…' : 'Simpan field khusus'}</Button>
+									</div>
+									<p class="field-hint">Field khusus disimpan pada Divisi ini dan dapat dipakai ulang untuk pekerjaan lainnya.</p>
+								</div>
+								{#if fieldCatalogError}<p class="field-error" role="alert">{fieldCatalogError}</p>{/if}
+								{#if fieldCatalogStatus}<p class="save-status" role="status" aria-live="polite">{fieldCatalogStatus}</p>{/if}
+							</fieldset>
 							<section class="repeatable-settings" aria-labelledby="repeatable-title">
 								<div class="repeatable-toggle">
 									<Checkbox id="repeatable-enabled" bind:checked={repeatableEnabled} disabled={selectedCatalog?.system_key === 'credit_application' || fields.length === 0} class="size-5" />
@@ -427,7 +546,6 @@
 									<p class="repeatable-hint">Cabang mengisi satu kelompok terlebih dahulu, lalu dapat menambahkan kelompok sampai batas ini (2–20).</p>
 								{/if}
 							</section>
-							<Button type="button" variant="outline" class="min-h-11 add-field" disabled={fields.length >= maxCustomFields} onclick={addField}><Plus class="size-4" aria-hidden="true" />Tambah kolom</Button>
 							{#if fields.length >= maxCustomFields}<p class="field-limit-note" role="status">Batas {maxCustomFields} kolom tambahan sudah tercapai{selectedCatalog?.system_key === 'credit_application' ? ' karena nilai kredit dihitung sebagai kolom sistem' : ''}.</p>{/if}
 							{#if formError}<Alert.Root variant="destructive"><Alert.Title>Form belum diterbitkan</Alert.Title><Alert.Description>{formError}</Alert.Description></Alert.Root>{/if}
 							<div class="publish-note"><strong>Penerbitan membuat versi baru.</strong><span>Tiket yang sudah ada tetap memakai field dan jawaban dari versi sebelumnya.</span></div>
@@ -471,8 +589,23 @@
 	.field-editor legend { padding:0 .35rem 0 .35rem; color:var(--muted-foreground); font-size:var(--type-xs); font-weight:600; }
 	.field-error { margin:.75rem 0 0; padding:.6rem .7rem; border-left:2px solid var(--destructive); background:color-mix(in srgb,var(--destructive) 8%,var(--card)); color:var(--destructive); font-size:var(--type-sm); line-height:1.5; }
 	.field-editor-grid { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(10rem,.8fr); align-items:end; gap:.85rem; }
+	.catalog-field-heading { display:grid; gap:.35rem; align-content:end; min-height:2.75rem; }
+	.catalog-field-heading > div { display:flex; flex-wrap:wrap; align-items:center; gap:.45rem; }
+	.catalog-field-heading strong { overflow-wrap:anywhere; font-size:var(--type-sm); }
+	.catalog-field-heading > span { color:var(--muted-foreground); font-size:var(--type-xs); }
+	.readonly-options { display:flex; flex-wrap:wrap; gap:.4rem; }
+	.derived-note { grid-column:1 / -1; margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
 	.field-options { grid-column:1 / -1; }
 	.field-required { display:flex; min-height:2.75rem; align-items:center; gap:.6rem; }
+	.field-library { display:grid; gap:.75rem; margin:0; padding:.9rem; border:1px solid var(--border); border-radius:var(--radius); }
+	.field-library legend { padding:0 .35rem; font-size:var(--type-sm); font-weight:600; }
+	.field-library > p { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
+	.field-library-add { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:.65rem; }
+	.custom-field-create { display:grid; gap:.65rem; margin-top:.2rem; padding-top:.8rem; border-top:1px solid var(--border); }
+	.custom-field-create > strong { font-size:var(--type-sm); }
+	.custom-field-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(10rem,.7fr); align-items:end; gap:.65rem; }
+	.custom-field-options { grid-column:1 / -1; }
+	.custom-field-grid :global(button) { grid-column:1 / -1; justify-self:start; }
 	.repeatable-settings { display:grid; gap:.75rem; padding:.9rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--muted); }
 	.repeatable-toggle { display:flex; align-items:flex-start; gap:.65rem; }
 	.repeatable-toggle > div { display:grid; gap:.25rem; }
@@ -485,7 +618,6 @@
 	.credit-routing-settings { display:grid; gap:.65rem; margin:0; padding:.9rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--muted); }
 	.credit-routing-settings legend { padding:0 .35rem; color:var(--muted-foreground); font-size:var(--type-xs); font-weight:600; }
 	.credit-routing-settings p { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
-	:global(.add-field) { justify-self:start; }
 	.publish-note { display:grid; gap:.2rem; padding:.8rem; border-left:2px solid var(--primary); background:var(--muted); font-size:var(--type-sm); line-height:1.5; }
 	.publish-note span { color:var(--muted-foreground); }
 	.form-actions { display:flex; justify-content:flex-end; padding-top:.2rem; }
@@ -498,8 +630,10 @@
 		.form-admin-content { padding-inline:.8rem; }
 		.field-editor { padding:3rem .8rem .8rem; }
 		.field-editor-grid { grid-template-columns:minmax(0,1fr); }
+		.field-library-add,.custom-field-grid { grid-template-columns:minmax(0,1fr); }
+		.custom-field-options,.custom-field-grid :global(button) { grid-column:auto; }
 		.field-options { grid-column:auto; }
-		:global(.add-field),.form-actions :global(button) { width:100%; }
+		.field-library-add :global(button),.custom-field-grid :global(button),.form-actions :global(button) { width:100%; }
 		.form-actions { display:grid; }
 		.system-field { align-items:flex-start; flex-direction:column; }
 	}

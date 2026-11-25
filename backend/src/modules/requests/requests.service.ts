@@ -6,9 +6,13 @@ import { resolveSlaAccessDetails } from '../auth/access.service.js';
 import { DEFAULT_SLA_MINUTES, getSlaStatus, type SlaStatus } from '../../shared/sla.js';
 import { parseFormDefinition, REPEATABLE_FORM_ANSWERS_KEY, validateFormAnswers, type FormDefinition, type ValidatedFormAnswers } from '../forms/form-schema.js';
 import { DEFAULT_CREDIT_ROUTING_CONFIG } from '../forms/form-schema.js';
-import { removePrivatePdf, storePrivatePdf, type PrivatePdfFile, type StoredPrivatePdf } from './private-attachments.js';
+import {
+	removePrivateFormFile, removePrivatePdf, storePrivateFormFile, storePrivatePdf,
+	type PrivatePdfFile, type StoredPrivateFormFile, type StoredPrivatePdf
+} from './private-attachments.js';
 
-const CREDIT_MINIMUM_AMOUNT = 250_000_000;
+const CREDIT_MINIMUM_AMOUNT = 200_000_000;
+const CREDIT_MARKETING_THRESHOLD = 500_000_000;
 
 export class RequestWorkflowError extends Error {
 	constructor(public readonly statusCode: number, message: string) {
@@ -53,10 +57,83 @@ export type RevisionFieldTarget = {
 	type?: FormDefinition['fields'][number]['type'];
 };
 export type RevisionDocumentCategory = 'inoffice_letter' | 'supporting_document';
+export type FormUploadInput = { fieldKey: string; entryIndex: number | null; file: PrivatePdfFile };
+
+function isUploadField(type: string): boolean {
+	return type === 'document' || type === 'image' || type === 'images';
+}
+
+function validateFormUpload(fieldType: string, file: PrivatePdfFile): void {
+	const extension = file.originalname.split('.').at(-1)?.toLocaleLowerCase('en-US');
+	const bytes = file.buffer;
+	if (file.size <= 0 || file.size > 10 * 1024 * 1024 || file.size !== bytes.length) throw new RequestWorkflowError(400, 'Setiap file form harus berukuran maksimal 10 MB.');
+	if (fieldType === 'image') {
+		if (extension !== 'webp' || file.mimetype !== 'image/webp' || bytes.toString('ascii', 0, 4) !== 'RIFF' || bytes.toString('ascii', 8, 12) !== 'WEBP') {
+			throw new RequestWorkflowError(400, 'Foto harus dikonversi ke format WebP sebelum dikirim.');
+		}
+		return;
+	}
+	if (fieldType === 'images') {
+		if (extension !== 'webp' || file.mimetype !== 'image/webp' || bytes.toString('ascii', 0, 4) !== 'RIFF' || bytes.toString('ascii', 8, 12) !== 'WEBP') {
+			throw new RequestWorkflowError(400, 'Semua foto harus dikonversi ke format WebP sebelum dikirim.');
+		}
+		return;
+	}
+	const valid = extension === 'pdf' && file.mimetype === 'application/pdf' && bytes.subarray(0, 5).toString('ascii') === '%PDF-'
+		|| extension === 'doc' && file.mimetype === 'application/msword' && bytes.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]))
+		|| extension === 'docx' && file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && bytes.subarray(0, 4).toString('hex') === '504b0304'
+		|| extension === 'txt' && file.mimetype === 'text/plain' && !bytes.includes(0);
+	if (!valid) throw new RequestWorkflowError(400, 'Dokumen harus berupa PDF, Word (.doc/.docx), atau TXT yang valid.');
+}
+
+function prepareFormUploads(definition: FormDefinition, answersInput: Record<string, unknown>, uploads: FormUploadInput[], allowExistingFileAnswers = false) {
+	const answers = JSON.parse(JSON.stringify(answersInput)) as Record<string, unknown>;
+	const entries = definition.repeatable
+		? Array.isArray(answers[REPEATABLE_FORM_ANSWERS_KEY]) ? answers[REPEATABLE_FORM_ANSWERS_KEY] as Record<string, unknown>[] : []
+		: [answers];
+	if (entries.some((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry))) throw new RequestWorkflowError(400, 'Baris data pada form tidak valid.');
+	const allowed = new Map<string, { type: string; max: number }>();
+	for (const [index, row] of entries.entries()) {
+		for (const field of definition.fields) {
+			if (!isUploadField(field.type)) continue;
+			const entryIndex = definition.repeatable ? index : null;
+			const signature = `${entryIndex ?? 's'}:${field.key}`;
+			allowed.set(signature, { type: field.type, max: field.type === 'images' ? 4 : 1 });
+			const priorValue = row[field.key];
+			const hasPriorValue = priorValue !== undefined && priorValue !== '' && !(Array.isArray(priorValue) && priorValue.length === 0);
+			if (!allowExistingFileAnswers && hasPriorValue) throw new RequestWorkflowError(400, 'Nama file harus berasal dari unggahan, bukan isian teks form.');
+		}
+	}
+	const grouped = new Map<string, FormUploadInput[]>();
+	for (const upload of uploads) {
+		const signature = `${upload.entryIndex ?? 's'}:${upload.fieldKey}`;
+		const target = allowed.get(signature);
+		if (!target) throw new RequestWorkflowError(400, 'Ada file yang tidak sesuai dengan kolom form.');
+		validateFormUpload(target.type, upload.file);
+		const files = grouped.get(signature) ?? [];
+		files.push(upload);
+		if (files.length > target.max) throw new RequestWorkflowError(400, target.type === 'images' ? 'Maksimal 4 foto untuk setiap kolom.' : 'Kolom ini hanya menerima satu file.');
+		grouped.set(signature, files);
+	}
+	for (const [signature, files] of grouped) {
+		const [entryKey, fieldKey] = signature.split(':');
+		const row = entryKey === 's' ? answers : entries[Number(entryKey)];
+		if (!row) throw new RequestWorkflowError(400, 'Baris form untuk lampiran tidak ditemukan.');
+		const field = definition.fields.find((candidate) => candidate.key === fieldKey)!;
+		const names = files.map(({ file }) => file.originalname);
+		row[field.key] = field.type === 'images' ? names : names[0];
+	}
+	return { answers, uploads };
+}
 
 function decodeJson<T>(value: unknown, fallback: T): T {
 	if (typeof value !== 'string') return (value ?? fallback) as T;
 	try { return JSON.parse(value) as T; } catch { return fallback; }
+}
+
+function isFormAnswerValue(value: unknown): value is string | number | string[] {
+	return typeof value === 'string' || typeof value === 'number' ||
+		Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
 const revisionMetaLabels: Record<Exclude<RevisionFieldTarget['kind'], 'form_field'>, string> = {
@@ -113,7 +190,7 @@ async function getActiveKorwilUser(employeeId: string, connection?: PoolConnecti
 	}
 	const assignment = rows.find((row) =>
 		row.scope_type === 'korwil' &&
-		['korwil_staff', 'korwil_approver'].includes(row.role_code ?? '') &&
+		row.role_code === 'korwil_staff' &&
 		row.assigned_korwil === currentKorwil
 	);
 	if (!currentKorwil || currentKorwil === 'pusat' || !assignment) {
@@ -200,9 +277,12 @@ export async function submitRequest(employeeId: string, input: {
 	work_catalog_id: number | null; form_version_id?: number | null;
 	form_answers?: Record<string, unknown>; subject: string; description: string;
 	inoffice_letter_number?: string | null; inoffice_letter_date?: string | null; inoffice_letter?: PrivatePdfFile | null;
+	form_files?: FormUploadInput[];
 }) {
 	const connection = await mysqlPool.getConnection();
 	let storedAttachment: StoredPrivatePdf | null = null;
+	const storedFormAttachments: StoredPrivateFormFile[] = [];
+	let formUploadsToStore: FormUploadInput[] = [];
 	try {
 		await connection.beginTransaction();
 		const branch = await getActiveBranch(employeeId, connection);
@@ -245,18 +325,18 @@ export async function submitRequest(employeeId: string, input: {
 
 		const isCreditApplication = catalog?.system_key === 'credit_application';
 		if (catalog && isCreditApplication) {
-			const validDestination = input.authority_type === 'central'
-				? input.central_division_id === Number(catalog.divisi_id)
-				: input.central_division_id === null;
-			if (catalog.division_code !== 'pemasaran' || !validDestination) {
-				throw new RequestWorkflowError(400, 'Pilih form Pengajuan Kredit dari Pemasaran. Divisi tujuan hanya diisi jika kewenangan Pusat dipilih.');
+			if (catalog.division_code !== 'pemasaran' ||
+				(input.central_division_id !== null && input.central_division_id !== Number(catalog.divisi_id))) {
+				throw new RequestWorkflowError(400, 'Pilih form Pengajuan Kredit dari Pemasaran.');
 			}
 			if (catalog.form_version_id === null) throw new RequestWorkflowError(409, 'Form pengajuan kredit belum diterbitkan. Hubungi Admin atau Divisi Pemasaran.');
 			if (input.form_version_id !== Number(catalog.form_version_id)) throw new RequestWorkflowError(409, 'Form kredit sudah diperbarui. Muat ulang halaman lalu isi kembali.');
 			const definition = parseFormDefinition(catalog.definition_json);
 			let validatedAnswers: ValidatedFormAnswers;
+			const prepared = prepareFormUploads(definition, input.form_answers ?? {}, input.form_files ?? []);
+			formUploadsToStore = prepared.uploads;
 			try {
-				validatedAnswers = validateFormAnswers(definition, input.form_answers ?? {});
+				validatedAnswers = validateFormAnswers(definition, prepared.answers);
 			} catch (error) {
 				throw new RequestWorkflowError(400, error instanceof Error ? error.message : 'Periksa kembali isian form kredit.');
 			}
@@ -266,14 +346,15 @@ export async function submitRequest(employeeId: string, input: {
 			formAnswers = validatedAnswers;
 			const amount = validatedAnswers.credit_amount;
 			if (typeof amount !== 'number' || amount < CREDIT_MINIMUM_AMOUNT) {
-				throw new RequestWorkflowError(400, 'Pengajuan kredit harus bernilai minimal Rp250.000.000.');
+				throw new RequestWorkflowError(400, 'Pengajuan kredit harus bernilai minimal Rp200.000.000.');
 			}
 			creditAmount = amount;
-			resolvedAuthority = input.authority_type;
-			resolvedDivisionId = input.authority_type === 'central' ? Number(catalog.divisi_id) : null;
+			resolvedAuthority = amount >= CREDIT_MARKETING_THRESHOLD ? 'central' : 'korwil';
+			resolvedDivisionId = resolvedAuthority === 'central' ? Number(catalog.divisi_id) : null;
 			workCatalogId = Number(catalog.id);
 			formVersionId = Number(catalog.form_version_id);
 		} else if (input.authority_type === 'korwil') {
+			if (input.form_files?.length) throw new RequestWorkflowError(400, 'Lampiran form harus terhubung ke jenis pekerjaan yang aktif.');
 			if (input.central_division_id !== null || input.work_catalog_id !== null) {
 				throw new RequestWorkflowError(400, 'Divisi dan jenis pekerjaan hanya diisi untuk pengajuan ke Pusat.');
 			}
@@ -289,18 +370,21 @@ export async function submitRequest(employeeId: string, input: {
 				const answerInput = input.form_answers ?? {};
 				const legacyEmptyForm = definition.fields.length === 0 && input.form_version_id == null && Object.keys(answerInput).length === 0;
 				if (!legacyEmptyForm && input.form_version_id !== Number(catalog.form_version_id)) throw new RequestWorkflowError(409, 'Form pekerjaan sudah diperbarui. Muat ulang halaman lalu isi kembali.');
+				const prepared = prepareFormUploads(definition, answerInput, input.form_files ?? []);
+				formUploadsToStore = prepared.uploads;
 				try {
-					formAnswers = validateFormAnswers(definition, answerInput);
+					formAnswers = validateFormAnswers(definition, prepared.answers);
 				} catch (error) {
 					throw new RequestWorkflowError(400, error instanceof Error ? error.message : 'Periksa kembali isian form pekerjaan.');
 				}
 				formVersionId = Number(catalog.form_version_id);
-			} else if ((input.form_version_id ?? null) !== null || Object.keys(input.form_answers ?? {}).length > 0) {
+			} else if ((input.form_version_id ?? null) !== null || Object.keys(input.form_answers ?? {}).length > 0 || input.form_files?.length) {
 				throw new RequestWorkflowError(409, 'Form pekerjaan belum aktif atau sudah berubah. Muat ulang halaman.');
 			}
 		}
 
-		const initialUnitType = resolvedAuthority === 'central' && catalog?.routing_flow === 'branch_central'
+		const isCreditToMarketing = isCreditApplication && resolvedAuthority === 'central';
+		const initialUnitType = resolvedAuthority === 'central' && !isCreditToMarketing && catalog?.routing_flow === 'branch_central'
 			? 'central'
 			: 'korwil';
 		const initialUnitCode = initialUnitType === 'central' ? catalog?.division_code : branch.korwil;
@@ -331,6 +415,18 @@ export async function submitRequest(employeeId: string, input: {
 					storedAttachment.sizeBytes, storedAttachment.sha256, branch.id]
 			);
 		}
+		for (const upload of formUploadsToStore) {
+			const stored = await storePrivateFormFile(upload.file);
+			storedFormAttachments.push(stored);
+			await connection.execute(
+				`INSERT INTO request_attachments
+					(request_id, category, storage_key, original_filename, mime_type, storage_encoding, size_bytes, sha256,
+					 uploaded_by_user_id, form_field_key, form_entry_index)
+				VALUES (?, 'form_field', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				[requestId, stored.storageKey, stored.originalFilename, stored.mimeType, stored.storageEncoding, stored.sizeBytes,
+					stored.sha256, branch.id, upload.fieldKey, upload.entryIndex]
+			);
+		}
 		await connection.execute(
 			`INSERT INTO request_assignments (request_id, unit_type, unit_code) VALUES (?, ?, ?)`,
 			[requestId, initialUnitType, initialUnitCode]
@@ -357,10 +453,12 @@ export async function submitRequest(employeeId: string, input: {
 		});
 		await connection.commit();
 		storedAttachment = null;
+		storedFormAttachments.length = 0;
 		return { id: requestId, request_number: requestNumber, routed_to: initialUnitType, unit_code: initialUnitCode };
 	} catch (error) {
 		await connection.rollback().catch(() => undefined);
 		if (storedAttachment) await removePrivatePdf(storedAttachment.storageKey).catch(() => undefined);
+		await Promise.all(storedFormAttachments.map((attachment) => removePrivateFormFile(attachment.storageKey).catch(() => undefined)));
 		throw error;
 	} finally {
 		connection.release();
@@ -506,7 +604,7 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 	const formDefinition = parseFormDefinition(formRows[0]?.definition_json);
 	const formAnswers = formDefinition.fields.flatMap((field) => {
 		const value = answerValues[field.key];
-		return typeof value === 'string' || typeof value === 'number'
+		return isFormAnswerValue(value)
 			? [{ key: field.key, label: field.label, type: field.type, value }]
 			: [];
 	});
@@ -516,7 +614,7 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 			if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
 			const answers = formDefinition.fields.flatMap((field) => {
 				const value = (entry as Record<string, unknown>)[field.key];
-				return typeof value === 'string' || typeof value === 'number'
+				return isFormAnswerValue(value)
 					? [{ key: field.key, label: field.label, type: field.type, value }]
 					: [];
 			});
@@ -544,9 +642,9 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 	);
 	const [attachmentRows] = await mysqlPool.execute<Array<RowDataPacket & {
 		id: number; category: string; revision_id: number | null; original_filename: string; mime_type: string;
-		size_bytes: number; created_at: Date;
+		size_bytes: number; created_at: Date; form_field_key: string | null; form_entry_index: number | null;
 	}>>(
-		`SELECT id, category, revision_id, original_filename, mime_type, size_bytes, created_at
+		`SELECT id, category, revision_id, original_filename, mime_type, size_bytes, created_at, form_field_key, form_entry_index
 		FROM request_attachments WHERE request_id = ? ORDER BY created_at, id`, [requestId]
 	);
 	const [revisionRows] = await mysqlPool.execute<Array<RowDataPacket & {
@@ -657,7 +755,8 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 			...attachment,
 			id: Number(attachment.id),
 			revision_id: attachment.revision_id === null ? null : Number(attachment.revision_id),
-			size_bytes: Number(attachment.size_bytes)
+			size_bytes: Number(attachment.size_bytes),
+			form_entry_index: attachment.form_entry_index === null ? null : Number(attachment.form_entry_index)
 		})),
 		sessions,
 		timeline,
@@ -668,9 +767,9 @@ export async function getRequestDetail(employeeId: string, requestId: number) {
 export async function getRequestAttachmentForDownload(employeeId: string, requestId: number, attachmentId: number) {
 	await getRequestDetail(employeeId, requestId);
 	const [rows] = await mysqlPool.execute<Array<RowDataPacket & {
-		id: number; storage_key: string; original_filename: string;
+		id: number; storage_key: string; original_filename: string; category: string; mime_type: string; storage_encoding: 'identity' | 'gzip';
 	}>>(
-		`SELECT id, storage_key, original_filename FROM request_attachments
+		`SELECT id, storage_key, original_filename, category, mime_type, storage_encoding FROM request_attachments
 		WHERE request_id = ? AND id = ? LIMIT 1`,
 		[requestId, attachmentId]
 	);
@@ -910,7 +1009,7 @@ async function addDecision(connection: PoolConnection, input: {
 }
 
 function approvalConfirmation(request: LockedRequest, decisionType: 'forwarded' | 'approved' = 'approved'): string {
-	if (decisionType === 'forwarded') return `Saya telah memeriksa dan menyetujui penerusan pengajuan ${request.request_number} ke Divisi Pusat.`;
+	if (decisionType === 'forwarded') return `Saya telah memeriksa dan menyetujui penerusan pengajuan ${request.request_number} ke Divisi Terkait.`;
 	const letter = request.inoffice_letter_number
 		? ` atas surat InOffice nomor ${request.inoffice_letter_number}${request.inoffice_letter_date ? ` tanggal ${request.inoffice_letter_date}` : ''}`
 		: '';
@@ -954,6 +1053,7 @@ async function createRevisionRequest(connection: PoolConnection, requestId: numb
 		}
 		const field = definition.fields.find((candidate) => candidate.key === item.key);
 		if (!field) throw new RequestWorkflowError(400, 'Kolom form yang dipilih sudah tidak tersedia.');
+		if (field.calculation) throw new RequestWorkflowError(400, 'Kolom hasil perhitungan tidak dapat diminta untuk revisi secara langsung.');
 		const entryIndex = definition.repeatable ? item.entry_index : null;
 		if (definition.repeatable && (!Number.isInteger(entryIndex) || entryIndex! < 0 || entryIndex! >= entryCount)) {
 			throw new RequestWorkflowError(400, 'Baris data yang dipilih untuk revisi tidak valid.');
@@ -1393,16 +1493,18 @@ export async function submitBranchRevision(employeeId: string, requestId: number
 	response: string;
 	updates: Array<{ kind: string; key?: string; entry_index?: number | null; value: unknown }>;
 	files: Partial<Record<RevisionDocumentCategory, PrivatePdfFile>>;
+	form_files?: FormUploadInput[];
 }) {
 	const [pendingRows] = await mysqlPool.execute<Array<RowDataPacket & { id: number }>>(
 		`SELECT id FROM request_revisions WHERE request_id = ? AND status = 'requested' ORDER BY id DESC LIMIT 1`, [requestId]
 	);
 	if (!pendingRows[0]) {
-		if (input.updates.length || Object.keys(input.files).length) throw new RequestWorkflowError(409, 'Permintaan revisi terstruktur tidak ditemukan.');
+		if (input.updates.length || Object.keys(input.files).length || input.form_files?.length) throw new RequestWorkflowError(409, 'Permintaan revisi terstruktur tidak ditemukan.');
 		return submitBranchRevisionTextOnly(employeeId, requestId, input.response);
 	}
 	const connection = await mysqlPool.getConnection();
 	const storedAttachments: StoredPrivatePdf[] = [];
+	const storedFormAttachments: StoredPrivateFormFile[] = [];
 	try {
 		await connection.beginTransaction();
 		const request = await lockRequest(connection, requestId);
@@ -1475,6 +1577,11 @@ export async function submitBranchRevision(employeeId: string, requestId: number
 			} else if (target.kind === 'form_field') {
 				const field = definition.fields.find((candidate) => candidate.key === target.key);
 				if (!field) throw new RequestWorkflowError(409, 'Kolom form pada tiket tidak ditemukan.');
+				if (isUploadField(field.type)) {
+					if (update.value !== '') throw new RequestWorkflowError(400, 'Kolom unggah file tidak menerima nama file sebagai isian teks.');
+					if (field.requires_korwil_review) substantiveChange = true;
+					continue;
+				}
 				let previousValue: unknown;
 				if (definition.repeatable) {
 					const entries = Array.isArray(nextAnswers[REPEATABLE_FORM_ANSWERS_KEY])
@@ -1500,6 +1607,21 @@ export async function submitBranchRevision(employeeId: string, requestId: number
 			} else throw new RequestWorkflowError(400, 'Jenis kolom revisi tidak dikenal.');
 		}
 		if (received.size !== allowed.size) throw new RequestWorkflowError(400, 'Lengkapi semua kolom yang diminta sebelum mengirim revisi.');
+		const requestedFileTargets = new Set(requestedFields.flatMap((target) => {
+			if (target.kind !== 'form_field') return [];
+			const field = definition.fields.find((candidate) => candidate.key === target.key);
+			return field && isUploadField(field.type) ? [`${target.entry_index ?? 's'}:${target.key}`] : [];
+		}));
+		for (const upload of input.form_files ?? []) {
+			if (!requestedFileTargets.has(`${upload.entryIndex ?? 's'}:${upload.fieldKey}`)) throw new RequestWorkflowError(400, 'Unggahan harus cocok dengan kolom file yang diminta untuk revisi.');
+		}
+		for (const target of requestedFileTargets) {
+			if (!(input.form_files ?? []).some((upload) => `${upload.entryIndex ?? 's'}:${upload.fieldKey}` === target)) {
+				throw new RequestWorkflowError(400, 'Unggah file pada semua kolom file yang diminta untuk revisi.');
+			}
+		}
+		const preparedFormUploads = prepareFormUploads(definition, nextAnswers, input.form_files ?? [], true);
+		nextAnswers = preparedFormUploads.answers;
 		for (const category of requestedDocuments) {
 			if (!input.files[category]) throw new RequestWorkflowError(400, `Unggah dokumen ${category === 'inoffice_letter' ? 'surat InOffice' : 'pendukung'} yang diminta.`);
 		}
@@ -1538,6 +1660,18 @@ export async function submitBranchRevision(employeeId: string, requestId: number
 					(request_id, revision_id, category, storage_key, original_filename, mime_type, size_bytes, sha256, uploaded_by_user_id)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				[requestId, revision.id, category, stored.storageKey, stored.originalFilename, stored.mimeType, stored.sizeBytes, stored.sha256, branch.id]
+			);
+		}
+		for (const upload of preparedFormUploads.uploads) {
+			const stored = await storePrivateFormFile(upload.file);
+			storedFormAttachments.push(stored);
+			await connection.execute(
+				`INSERT INTO request_attachments
+					(request_id, revision_id, category, storage_key, original_filename, mime_type, storage_encoding, size_bytes, sha256,
+					 uploaded_by_user_id, form_field_key, form_entry_index)
+				VALUES (?, ?, 'form_field', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				[requestId, revision.id, stored.storageKey, stored.originalFilename, stored.mimeType, stored.storageEncoding,
+					stored.sizeBytes, stored.sha256, branch.id, upload.fieldKey, upload.entryIndex]
 			);
 		}
 		const snapshotAfter = {
@@ -1589,10 +1723,12 @@ export async function submitBranchRevision(employeeId: string, requestId: number
 		else await notifyRequestUnit(connection, request, historyId, targetType, targetCode, 'revision_submitted',
 			substantiveChange ? 'Perubahan substansi masuk ke antrean Korwil' : 'Kelengkapan masuk ke antrean unit');
 		await connection.commit();
+		storedFormAttachments.length = 0;
 		return { id: requestId, status: nextStatus, resumed_to_previous_handler: resumedHandlerId !== null, returned_to_korwil: substantiveChange };
 	} catch (error) {
 		await connection.rollback().catch(() => undefined);
 		for (const attachment of storedAttachments) await removePrivatePdf(attachment.storageKey).catch(() => undefined);
+		for (const attachment of storedFormAttachments) await removePrivateFormFile(attachment.storageKey).catch(() => undefined);
 		throw error;
 	} finally { connection.release(); }
 }

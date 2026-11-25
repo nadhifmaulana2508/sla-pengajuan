@@ -35,7 +35,7 @@ Daftar awal sembilan Divisi Pusat sudah dicatat. Aturan bisnis yang belum disahk
 | Akumulasi waktu | Waktu unit dijumlahkan dari semua sesi unit tersebut |
 | Revisi berkas | Cabang melengkapi tiket yang sama dan mengirim kembali langsung ke unit yang meminta; timer unit itu dimulai sebagai sesi baru |
 | Revisi substansi | Jika isi pengajuan berubah secara material, pengajuan kembali ke Korwil untuk diperiksa ulang |
-| Kredit | Di bawah Rp250 juta ditolak. Cabang dapat memakai form Pengajuan Kredit Pemasaran untuk tujuan Korwil atau Pusat; kewenangan yang dipilih menentukan tujuan, sedangkan ambang Pemasaran pada versi form menjadi panduan nilai |
+| Kredit | Di bawah Rp200 juta ditolak. Rp200 juta sampai di bawah Rp500 juta otomatis ditangani Korwil; mulai Rp500 juta otomatis menuju Divisi Pemasaran setelah diperiksa Korwil |
 
 ## 1. Latar belakang dan masalah
 
@@ -147,16 +147,15 @@ Jenis pekerjaan dan Divisi Pusat harus saling membatasi. Cabang tidak boleh memi
 | Peran | Hak utama | Cakupan |
 |---|---|---|
 | Pengguna Cabang | Membuat pengajuan, melihat pengajuan Cabang, melengkapi revisi, dan mengirim jawaban | Satu Cabang |
-| Petugas Korwil | Melihat antrean Korwil, mengambil, memproses, mengembalikan, dan meneruskan pengajuan | Korwil dan Cabang di bawahnya |
-| Penyetuju Korwil | Menyetujui penerusan ke Pusat, meminta perbaikan, atau menolak dengan alasan | Korwil dan Cabang di bawahnya |
+| Petugas Korwil | Melihat antrean Korwil, mengambil, memproses, meminta kelengkapan, meneruskan, menyelesaikan, atau menolak pengajuan sesuai tahap | Korwil dan Cabang di bawahnya |
 | Petugas Divisi Pusat | Melihat antrean divisi, mengambil, memproses, meminta kelengkapan, dan menyelesaikan; dapat mengelola form bila diberi izin Admin | Satu Divisi Pusat |
 | Supervisor | Melihat antrean dan kinerja unit, serta mengatur penugasan sesuai kewenangan | Wilayah atau divisi terkait |
 | Admin | Mengelola pengguna, organisasi, katalog pekerjaan, aturan SLA, konfigurasi, dan semua form pekerjaan | Seluruh sistem |
 | Manajemen | Melihat ringkasan status, SLA, backlog, dan histori sesuai hak akses | Seluruh organisasi atau cakupan yang ditetapkan |
 
-Hak akses diperiksa di sisi server pada setiap akses dan tindakan. Menyembunyikan menu saja tidak cukup untuk membatasi data. Admin mengaktifkan akun dan menetapkan role, tetapi tidak memilih cakupan untuk role organisasi. Cakupan Pengguna Cabang mengikuti kode kantor SSO yang cocok dengan `master_kantor` aktif. Cakupan Petugas Korwil mengikuti Korwil dari mapping kantor aktif; untuk profil berkantor Pusat atau tanpa mapping kantor, sistem mencocokkan informasi organisasi SSO (`unit_kerja`, `branch_name`, dan `job_position`) dengan Korwil yang dikenal. Cakupan Petugas Divisi Pusat mengikuti `unit_kerja` yang cocok dengan nama atau alias SSO pada `master_divisi` aktif. Admin dapat mengubah nama divisi dan daftar alias `unit_kerja` dari master Divisi Pusat; alias unik lintas divisi dan hanya dipakai untuk pemetaan profil, bukan untuk memberikan role. Admin dapat memberi izin terpisah untuk mengelola form kepada Petugas Divisi Pusat. Izin itu hanya berlaku pada divisi yang cocok dengan profil SSO dan assignment aktif; Admin global dapat mengelola semua form. Backend memeriksa izin dan cakupan pada setiap penerbitan. Cakupan diperbarui ketika profil tersinkron. Jika organisasi tidak dapat dipetakan, role tetap tersimpan tetapi akses workflow ditolak sampai profil SSO cocok. SSO tidak otomatis mengaktifkan akun atau memberikan role.
+Hak akses diperiksa di sisi server pada setiap akses dan tindakan. Menyembunyikan menu saja tidak cukup untuk membatasi data. Saat Admin mengimpor pegawai dari direktori SSO, sistem otomatis memberi assignment khusus pegawai Kantor Pusat (`kode = '000'`) jika organisasinya cocok: `unit_kerja` yang cocok dengan divisi memberi role Petugas Divisi, atau informasi organisasi yang cocok dengan Korwil memberi role Petugas Korwil jika tidak ada alias divisi yang cocok. Untuk pegawai Cabang, Admin tetap memilih role Pengguna Cabang dan backend menetapkan cakupan kantor dari kode SSO. Role Admin, Supervisor, Manajemen, dan Penyetuju Korwil tidak pernah diberikan otomatis. Seluruh akun hasil impor tetap nonaktif sampai Admin mengaktifkannya. Admin tidak memilih cakupan untuk role organisasi. Alias `IT` dipetakan ke Divisi Operasional. Cakupan Pengguna Cabang mengikuti kode kantor SSO yang cocok dengan `master_kantor` aktif. Cakupan Petugas Korwil mengikuti Korwil dari mapping kantor aktif; untuk profil berkantor Pusat atau tanpa mapping kantor, sistem mencocokkan informasi organisasi SSO (`unit_kerja`, `branch_name`, dan `job_position`) dengan Korwil yang dikenal. Cakupan Petugas Divisi Pusat mengikuti `unit_kerja` yang cocok dengan nama atau alias SSO pada `master_divisi` aktif. Admin dapat mengubah nama divisi dan daftar alias `unit_kerja` dari master Divisi Pusat; alias unik lintas divisi dan dipakai sebagai pemetaan profil. Admin dapat memberi izin terpisah untuk mengelola form kepada Petugas Divisi Pusat. Izin itu hanya berlaku pada divisi yang cocok dengan profil SSO dan assignment aktif; Admin global dapat mengelola semua form. Backend memeriksa izin dan cakupan pada setiap penerbitan. Cakupan diperbarui ketika profil tersinkron. Jika organisasi tidak dapat dipetakan, akun tetap nonaktif dan akses workflow ditolak sampai profil SSO cocok.
 
-Untuk MVP, Petugas Korwil atau Penyetuju Korwil yang mengambil tiket dapat menjalankan tindakan yang tersedia pada tahap Korwil. Pemisahan persetujuan formal antar-role belum dimodelkan sebagai tahap antrean tersendiri dan wajib ditinjau sebelum produksi.
+Sistem hanya memiliki satu peran Korwil, yaitu Petugas Korwil. Petugas Korwil yang mengambil tiket dapat menjalankan tindakan yang tersedia pada tahap Korwil, termasuk menyetujui penerusan ke Pusat. Persetujuan dan aktornya dicatat pada histori keputusan tiket.
 
 Pengajuan dimiliki kantor Cabang, bukan pegawai yang membuatnya. Identitas pembuat tetap disimpan untuk audit. Pegawai baru yang telah diberi role Pengguna Cabang di kantor tersebut dapat melihat dan melanjutkan tiket yang dibuat pegawai sebelumnya. Saat pegawai rotasi dan data SSO terbaru tersinkron, cakupan role-nya mengikuti kantor baru; histori dan pengajuan tetap pada kantor asal.
 
@@ -174,7 +173,38 @@ Pengajuan dimiliki kantor Cabang, bukan pegawai yang membuatnya. Identitas pembu
 - Data tambahan sesuai jenis pekerjaan.
 - Lampiran sesuai aturan katalog.
 
-Admin atau Petugas Divisi Pusat yang diberi izin dapat menyusun dan menerbitkan form dinamis untuk katalog pekerjaan. Tipe field MVP: teks singkat, teks panjang, angka, nominal Rupiah, tanggal, dan pilihan. Input nominal Rupiah menampilkan pemisah ribuan Indonesia (contoh `2.500.000`), sedangkan nilai yang divalidasi dan dikirim tetap numerik tanpa pemisah. Setiap field dapat ditandai wajib serta memiliki batas angka atau daftar pilihan. Penerbitan membuat versi baru; tiket menyimpan versi dan jawaban yang digunakan saat dikirim agar perubahan berikutnya tidak mengubah histori tiket.
+Admin atau Petugas Divisi Pusat yang diberi izin dapat menyusun dan menerbitkan form dinamis untuk katalog pekerjaan. Pengelola memilih field baku global atau field khusus yang tersimpan dalam katalog Divisi; setiap field yang dipakai masuk ke snapshot definisi versi form. Tipe field MVP: teks singkat, teks panjang, angka, nominal Rupiah, tanggal, pilihan, dokumen, satu foto, dan beberapa foto. Field dokumen menerima PDF, Word (`.doc`/`.docx`), atau TXT dengan batas 10 MB per file. Field foto menerima satu gambar; field beberapa foto menerima maksimal empat gambar. Total seluruh lampiran dalam satu pengajuan atau revisi dibatasi 40 file dan 10 MB per file. Foto dikonversi di browser ke WebP dengan dimensi maksimal 1.800 px dan kualitas 82%. Dokumen dicoba dikompres saat disimpan di storage privat; hasil kompresi dipakai hanya jika lebih kecil. File dan metadata nama disimpan sebagai lampiran privat yang tetap mengikuti versi form dan pemeriksaan akses tiket. Saat revisi, Cabang hanya dapat mengganti field file yang diminta; file dan snapshot sebelumnya tetap tersimpan. Input nominal Rupiah menampilkan pemisah ribuan Indonesia (contoh `2.500.000`), sedangkan nilai yang divalidasi dan dikirim tetap numerik tanpa pemisah. Setiap field dapat ditandai wajib serta memiliki batas angka atau daftar pilihan. Penerbitan membuat versi baru; tiket menyimpan versi dan jawaban yang digunakan saat dikirim agar perubahan berikutnya tidak mengubah histori tiket.
+
+### Rancangan katalog field baku dan rekap Hapus Buku
+
+Field baku tersedia secara global dan memiliki identitas, nama, serta tipe tetap. Form memilih field yang diperlukan. Field khusus dibuat pada katalog Divisi dan dapat dipakai ulang oleh semua jenis pekerjaan pada Divisi tersebut. Nama atau tipe field yang sudah dibuat tidak diubah di tempat; field dapat dihentikan penggunaannya dan diganti field baru tanpa mengubah snapshot tiket lama. Field yang tidak diminta oleh versi form suatu tiket ditampilkan pada rekap sebagai tidak diminta.
+
+Daftar awal katalog Hapus Buku yang disepakati:
+
+| Field | Tipe / aturan |
+| --- | --- |
+| Rekening | Teks |
+| Nama debitur | Teks singkat |
+| Baki debet | Nominal Rupiah, input manual |
+| Saldo bank | Nominal Rupiah, input manual dan terpisah dari baki debet |
+| Kolektibilitas | Pilihan: `L`, `DP`, `KL`, `D`, `M` |
+| Nilai CKPN | Nominal Rupiah, input manual |
+| Tunggakan pokok | Nominal Rupiah, input manual |
+| Tunggakan bunga | Nominal Rupiah, input manual |
+| Total tunggakan | Nilai turunan tunggakan pokok + tunggakan bunga; dihitung setelah kedua nilai tersedia dan tidak diinput ulang |
+
+Field tersebut dapat digunakan dalam kelompok data berulang sehingga satu pengajuan dapat memuat beberapa rekening. Total tunggakan dihitung per kelompok rekening ketika tunggakan pokok dan bunga sama-sama tersedia. Rekap Hapus Buku meratakan setiap rekening menjadi satu baris, menghubungkan baris ke tiket sumber, dan menampilkan field baku maupun field khusus yang dipilih pada form. Katalog field dan Rekap MVP sudah diimplementasikan.
+
+### Rekap pemantauan proses Divisi
+
+- Petugas Divisi Pusat dapat membuat rekap dari tiket pekerjaan dalam divisinya. Nama pekerjaan/katalog boleh berbeda selama definisi template form pada snapshot tiket sama secara struktur. Tiket sumber harus benar-benar pernah dirutekan ke Divisi tersebut menurut `request_status_histories`; tiket berstatus `rejected` tidak dapat dipilih. Divisi memilih tiket secara eksplisit saat penerbitan atau saat menambah tiket ke rekap terbit, sehingga tiket yang belum disetujui untuk masuk pemantauan tidak otomatis ditambahkan. Satu tiket sumber hanya boleh dimasukkan ke satu rekap; setelah masuk, tiket tidak tersedia untuk rekap lain.
+- Setiap tiket sumber mempertahankan snapshot jawaban dan versi form yang dipakai. Form dengan kelompok data berulang menghasilkan satu baris rekap per kelompok. Field yang tidak tersedia pada versi form tiket tetap kosong; perubahan versi form tidak mengubah snapshot rekap.
+- Saat membuat rekap, Divisi memilih kolom form yang ditampilkan dan dapat menambah kolom pemantauan bertipe teks, angka, tanggal, atau dropdown. Setiap kolom pemantauan dapat mengizinkan Cabang mengusulkan perubahan.
+- Divisi dapat mengedit rekap yang masih berstatus terbit: mengganti nama, memilih kolom sumber yang terlihat, mengganti label kolom pemantauan, menambah kolom, serta memperbarui pilihan dropdown selama tidak menghapus nilai yang sedang dipakai atau usulan pending. Tipe dan key kolom lama tidak dapat diubah atau dihapus. Izin usulan Cabang dapat diubah jika tidak ada usulan pending untuk kolom itu. Perubahan pengaturan tidak mengubah snapshot jawaban tiket.
+- Divisi dalam scope-nya melihat seluruh baris rekap. Pengguna Cabang hanya dapat melihat baris dari kode kantor sendiri. Cabang tidak dapat mengubah snapshot jawaban form; perubahan kolom pemantauan dikirim sebagai usulan dengan alasan.
+- Maksimal satu usulan perubahan per baris dapat menunggu. Nilai resmi rekap hanya berubah setelah petugas Divisi dalam scope yang sesuai menyetujui usulan. Usulan yang ditolak tidak mengubah nilai; alasan dan status usulan tetap tersimpan sebagai riwayat.
+- Divisi dapat menambahkan tiket eligible yang belum pernah direkap ke rekap berstatus terbit jika snapshot form-nya memakai struktur template yang sama. Tiket yang sudah masuk ke rekap mana pun, ditolak, atau di luar scope Divisi tidak dapat ditambahkan. Tampilan tersimpan, group-by/pivot, dan ekspor belum didukung.
+- Daftar rekap dapat difilter berdasarkan nama rekap/pekerjaan/divisi dan status. Baris dalam rekap dapat dicari berdasarkan isi yang dapat dilihat pengguna dan difilter berdasarkan status tiket, kantor, pekerjaan, serta nilai kolom dropdown. Filter hanya menyaring hasil di dalam cakupan akses pengguna.
 
 Batas editor MVP adalah 40 kolom tambahan per katalog. Pengajuan Kredit menyediakan maksimal 39 kolom tambahan karena satu kolom wajib untuk nilai kredit yang dikelola sistem. Setiap field pilihan dapat memuat maksimal 50 opsi unik.
 
@@ -200,16 +230,18 @@ Setiap katalog pekerjaan Pusat memiliki pengaturan jalur yang dikelola Admin:
 
 Kedua pilihan berlaku untuk seluruh pekerjaan dalam katalog, sehingga Admin dapat mengatur alur setiap jenis pekerjaan secara terpisah. Pilihan ini mengatur urutan pengajuan ke Divisi Pusat; pekerjaan yang memang ditangani Korwil tetap mengikuti kewenangan dan tahap Korwil.
 
+Pengecualian: Pengajuan Kredit tidak memakai `routing_flow` katalog. Backend memilih Korwil untuk Rp200 juta sampai di bawah Rp500 juta, dan menetapkan Pemasaran sebagai tujuan untuk nilai mulai Rp500 juta dengan pemeriksaan Korwil terlebih dahulu.
+
 Pengaturan ini berlaku untuk pekerjaan baru maupun yang sudah ada. Migrasi awal mempertahankan perilaku lama dengan memilih `Cabang → Korwil → Pusat` pada semua katalog. Backend membaca jalur dari katalog aktif; pilihan jalur tidak dikirim atau dipercayakan kepada browser. Pada jalur langsung, sesi Divisi Pusat tercatat saat masuk antrean dan timer proses mulai ketika petugas mengambil tiket. Umur total tiket tetap mulai saat Cabang mengirim.
 
 ### Pengajuan kredit
 
-- Field nilai kredit wajib diisi dan dikunci sebagai field sistem. Form Pemasaran dapat dipakai dengan memilih kewenangan Korwil maupun Pusat.
-- Nilai di bawah Rp250 juta ditolak dan tidak membuat tiket.
-- Nilai Rp250 juta atau lebih dengan kewenangan Korwil masuk ke Korwil dan dapat ditangani sampai selesai di sana; tiket tetap menyimpan form dan jawaban Pengajuan Kredit Pemasaran.
-- Dengan kewenangan Pusat, tiket menuju Pemasaran melalui routing katalog Pengajuan Kredit: langsung dari Cabang atau setelah pemeriksaan Korwil.
-- Backend memvalidasi kewenangan, tujuan, form, versi, jawaban, dan batas minimum. Ambang Pemasaran pada versi form aktif (default Rp500 juta) hanya menjadi panduan nilai dan tidak mengganti kewenangan yang dipilih Cabang.
-- Tiket menyimpan versi form yang dipakai agar jawaban dan panduan versi lama tetap dapat ditampilkan.
+- Field nilai kredit wajib diisi dan dikunci sebagai field sistem pada form Pengajuan Kredit Pemasaran. Cabang tidak memilih kewenangan untuk form ini; nominal menentukan tujuan otomatis.
+- Nilai di bawah Rp200 juta ditolak dan tidak membuat tiket.
+- Nilai Rp200 juta sampai di bawah Rp500 juta masuk Korwil dan dapat ditangani sampai selesai di sana.
+- Nilai mulai Rp500 juta otomatis menjadi pengajuan Pusat dengan Divisi Pemasaran sebagai tujuan; tiket masuk ke Korwil lebih dahulu untuk diperiksa, lalu Korwil meneruskannya ke Pemasaran.
+- Backend menentukan tujuan dari nilai kredit yang tervalidasi dan mengabaikan pilihan kewenangan/Divisi Pusat dari browser untuk form kredit. Aturan ambang Rp500 juta bersifat tetap dan tidak dapat diubah lewat versi form.
+- Setiap perubahan definisi form menerbitkan versi baru. Tiket baru memakai versi aktif dengan minimum Rp200 juta; versi lama dan jawaban tiket yang sudah dibuat tetap dipertahankan.
 
 ### Katalog sebagai sumber aturan
 
@@ -289,7 +321,7 @@ Saat meminta kelengkapan, Korwil atau Divisi Pusat memilih kolom tertentu dan/at
 
 Form yang dipakai adalah versi saat tiket dibuat. Perubahan sebelum dan sesudah revisi disimpan sebagai snapshot; histori lama tidak ditimpa. Nomor, tujuan, kewenangan, dan jenis pekerjaan tidak dapat diganti lewat pelengkapan. Nilai kredit selalu memerlukan pemeriksaan Korwil jika berubah. Pada editor form, Admin atau pengelola Divisi dapat menandai field lain yang memengaruhi keputusan; penanda disimpan pada versi form dan jika field tersebut berubah saat revisi, tiket kembali ke antrean Korwil. Perubahan perihal atau uraian juga kembali ke Korwil. Perubahan dokumen dan metadata surat saja kembali ke unit yang meminta. Dokumen pelengkapan berupa PDF privat yang diperiksa signature PDF; Surat InOffice dapat diperbarui pada revisi jika diminta.
 
-Form pengajuan baru menerima nomor dan tanggal surat InOffice serta satu PDF opsional (maksimal 10 MB); file disimpan di direktori privat backend dan unduhannya memeriksa hak akses tiket.
+Form pengajuan baru menerima nomor dan tanggal surat InOffice serta satu PDF opsional (maksimal 10 MB); file disimpan di direktori privat backend dan unduhannya memeriksa hak akses tiket. Lampiran field dinamis memakai kebijakan format, konversi WebP, kompresi dokumen, dan batas 10 MB yang ditetapkan pada bagian Form dinamis.
 
 ### Perubahan substansi
 
@@ -382,7 +414,7 @@ Jatuh tempo: Selasa 21:00
 |---|---|---|
 | FR-01 | Hak akses | Pengguna hanya dapat melihat dan mengubah data sesuai peran dan cakupan organisasi |
 | FR-02 | Mapping Cabang | Sistem menentukan Korwil dari kode kantor aktif |
-| FR-03 | Form dinamis | Jenis pekerjaan menentukan kolom, pengulangan kelompok data, dan lampiran yang wajib; backend memvalidasi jumlah serta isi setiap kelompok |
+| FR-03 | Form dinamis | Jenis pekerjaan menentukan kolom, pengulangan kelompok data, dan lampiran yang wajib; backend memvalidasi jumlah serta isi setiap kelompok. Dokumen menerima PDF/Word/TXT; field foto tunggal atau maksimal empat foto mengubah gambar ke WebP dan mengompres dokumen pada penyimpanan privat |
 | FR-04 | Dropdown tujuan | Divisi Pusat hanya muncul jika kewenangan Pusat dipilih |
 | FR-05 | Dropdown pekerjaan | Jenis pekerjaan hanya menampilkan pekerjaan aktif milik divisi yang dipilih |
 | FR-06 | Routing awal | Backend membaca jalur dari katalog aktif. Jalur melalui Korwil masuk ke Korwil pemetaan Cabang; jalur langsung masuk ke Divisi Pusat tujuan |
@@ -397,14 +429,17 @@ Jatuh tempo: Selasa 21:00
 | FR-15 | Timeline | Pengguna yang berhak dapat melihat histori status, unit, petugas, komentar, lampiran, dan alasan |
 | FR-16 | Dashboard antrean | Unit dapat melihat pengajuan yang menunggu diambil, sedang diproses, dikembalikan, dan melewati SLA |
 | FR-17 | Konfigurasi katalog dan form | Admin mengelola katalog serta semua form; Petugas Divisi Pusat yang diberi izin dapat menerbitkan form untuk divisinya. Tiket menyimpan versi dan jawaban form |
-| FR-18 | Audit log | Sistem mencatat pelaku, waktu, tindakan, status asal, status tujuan, unit asal, unit tujuan, dan alasan |
+| FR-18 | Audit log proses | Sistem mencatat pelaku, waktu, tindakan, status asal, status tujuan, unit asal, unit tujuan, dan alasan pada histori tiket |
 | FR-19 | Surat InOffice | Form pengajuan menerima nomor surat maksimal 100 karakter, tanggal valid, dan satu PDF opsional maksimal 10 MB; file privat hanya dapat diunduh oleh pengguna yang berhak melihat tiket |
-| FR-20 | Revisi terstruktur | Unit memilih kolom/dokumen yang diminta; Cabang hanya dapat mengubah pilihan tersebut. Permintaan, jawaban, lampiran, dan snapshot sebelum/sesudah tetap tersimpan pada tiket yang sama. Perubahan field yang ditandai memengaruhi keputusan kembali ke Korwil |
+| FR-20 | Revisi terstruktur | Unit memilih kolom/dokumen yang diminta; Cabang hanya dapat mengubah pilihan tersebut. Permintaan, jawaban, lampiran, dan snapshot sebelum/sesudah tetap tersimpan pada tiket yang sama. Field upload memakai batas dan format field; gambar tetap dikonversi ke WebP. Perubahan field yang ditandai memengaruhi keputusan kembali ke Korwil |
 | FR-21 | Alasan penolakan | Penolakan memerlukan alasan aktif dari cakupan sistem, Divisi, atau katalog pekerjaan serta catatan penjelas; keputusan menyimpan snapshot alasan |
 | FR-22 | Persetujuan dan Berita Acara | Penerusan/penyelesaian meminta konfirmasi eksplisit; Korwil dan Divisi dapat melampirkan Berita Acara PDF privat, opsional sampai kewajiban ditetapkan pemilik proses |
 | FR-23 | Ringkasan Dashboard | Admin dapat membuka Pemantauan Tiket dari kartu ringkasan, Korwil, atau Divisi dengan filter tanggal, status, kondisi SLA, dan cakupan yang sesuai |
 | FR-24 | Prioritas tiket Dashboard | Daftar terbaru menampilkan lima tiket per halaman; tiket terbuka yang paling mendesak berdasarkan SLA tampil lebih dulu, lalu tiket selesai, lalu ditolak |
 | FR-25 | Ringkasan Direksi | Dashboard peran Manajemen tidak menampilkan kartu Selesai dan Ditolak; kartu ringkasan lain tetap mengarah ke Pemantauan Tiket sesuai filternya |
+| FR-26 | Audit aktivitas pengguna | Admin dapat mencari dan memfilter login/logout berhasil serta request API pengguna menurut pengguna, metode, tanggal, dan hasil; payload dan kredensial tidak disimpan |
+| FR-27 | Filter pekerjaan Dashboard Divisi | Petugas Divisi dapat memfilter tiket yang pernah masuk ke Divisinya menurut jenis pekerjaan dalam Divisi tersebut; semua ringkasan dan daftar mengikuti filter yang sama |
+| FR-28 | Rekap pemantauan proses | Divisi menerbitkan rekap dari tiket yang dipilih; baris mengikuti kelompok data form dan snapshot versinya. Cabang hanya melihat baris kantor sendiri dan mengusulkan perubahan kolom pemantauan untuk persetujuan Divisi |
 
 ## 11. Dashboard dan notifikasi
 
@@ -418,11 +453,11 @@ Menampilkan pengajuan aktif dari 7 Cabang di bawah Korwil tersebut, pengajuan ya
 
 ### Dashboard Divisi Pusat
 
-Menampilkan pengajuan yang saat ini berada di divisi tersebut, pengajuan yang belum diambil, pengajuan yang sedang diproses, permintaan kelengkapan yang menunggu Cabang, dan pengajuan yang melewati SLA. Tampilan Riwayat memuat tiket yang benar-benar pernah masuk ke antrean divisi itu, baik dikirim langsung Cabang atau diteruskan Korwil, dan sudah berpindah dari antrean atau ditutup. Pengajuan yang baru memilih divisi tetapi belum masuk ke antrean divisi tidak termasuk riwayat. Status, lokasi terkini, dan timeline tiket tetap tersedia.
+Menampilkan pengajuan yang saat ini berada di divisi tersebut, pengajuan yang belum diambil, pengajuan yang sedang diproses, permintaan kelengkapan yang menunggu Cabang, dan pengajuan yang melewati SLA. Tampilan Riwayat memuat tiket yang benar-benar pernah masuk ke antrean divisi itu, baik dikirim langsung Cabang atau diteruskan Korwil, dan sudah berpindah dari antrean atau ditutup. Pengajuan yang baru memilih divisi tetapi belum masuk ke antrean divisi tidak termasuk riwayat. Status, lokasi terkini, dan timeline tiket tetap tersedia. Petugas dapat memfilter tiket dalam cakupan divisinya berdasarkan rentang tanggal, jenis pekerjaan dalam Divisi, dan status. Semua hitungan dan daftar mengikuti kombinasi filter yang sama setelah pembatasan cakupan Divisi.
 
 ### Dashboard Supervisor atau Manajemen
 
-Menampilkan pemantauan untuk semua tiket dan seluruh status, bukan hanya tiket yang sedang menunggu jawaban Cabang. Daftar menampilkan status, lokasi penanganan terkini, umur tiket, dan badge SLA; Supervisor atau Manajemen global dapat membuka detail secara baca-saja sampai timeline pengajuan. Filter tersedia berdasarkan status, kondisi SLA, rentang tanggal, Cabang, Korwil, dan Divisi. Dashboard global dan Pemantauan Tiket memakai rentang bawaan 60 hari terakhir, termasuk hari ini; pengguna dapat memperluas tanggal secara manual untuk melihat pengajuan sebelumnya. Kartu ringkasan serta baris Korwil/Divisi membuka daftar pemantauan dengan filter yang sesuai. Daftar terbaru menampilkan lima tiket per halaman dengan tiket terbuka paling mendesak lebih dulu, disusul tiket selesai dan ditolak. Kartu Selesai dan Ditolak tidak tampil pada dashboard peran Manajemen/Direksi. Filter halaman pemantauan dibuka melalui modal ringkas di samping judul.
+Menampilkan pemantauan untuk semua tiket dan seluruh status, bukan hanya tiket yang sedang menunggu jawaban Cabang. Daftar menampilkan status, lokasi penanganan terkini, umur tiket, dan badge SLA; Supervisor atau Manajemen global dapat membuka detail secara baca-saja sampai timeline pengajuan. Filter tersedia berdasarkan status, kondisi SLA, rentang tanggal, Cabang, Korwil, dan Divisi. Pencarian server-side mencakup nomor tiket, uraian pengajuan, kode/nama Cabang, Korwil, Divisi, dan jenis pekerjaan serta ikut membatasi daftar, jumlah, status, dan SLA sebelum pagination; istilah pencarian tidak disimpan dalam URL halaman. Dashboard global dan Pemantauan Tiket memakai rentang bawaan 60 hari terakhir, termasuk hari ini; pengguna dapat memperluas tanggal secara manual untuk melihat pengajuan sebelumnya. Kartu ringkasan serta baris Korwil/Divisi membuka daftar pemantauan dengan filter yang sesuai. Daftar terbaru menampilkan lima tiket per halaman dengan tiket terbuka paling mendesak lebih dulu, disusul tiket selesai dan ditolak. Kartu Selesai dan Ditolak tidak tampil pada dashboard peran Manajemen/Direksi. Filter halaman pemantauan dibuka melalui modal ringkas di samping daftar tiket.
 
 ### Notifikasi MVP
 
@@ -446,15 +481,18 @@ Kanal email atau pesan eksternal ditentukan setelah kebutuhan dan akses organisa
 ## 12. Audit, keamanan, dan kebutuhan nonfungsional
 
 - Semua perpindahan unit, perubahan status, pengambilan, komentar, lampiran, revisi, dan perubahan tujuan dicatat.
+- Semua request API oleh pengguna terautentikasi dicatat untuk Admin, termasuk pembacaan data dan percobaan perubahan, bersama aktor, waktu, metode, path tanpa query, serta kode hasil HTTP. Login SSO/dummy dan logout aplikasi yang berhasil juga dicatat.
+- Halaman Audit aktivitas Admin menggabungkan request API dengan histori perubahan akses pengguna yang sudah tersedia, dan menyediakan pencarian pengguna/path serta filter metode dan tanggal. Log tidak menyimpan body, query string, header, password, bearer token, atau nilai form.
 - Lampiran disimpan privat dan hanya dapat diakses setelah pemeriksaan hak pengguna.
 - Server memeriksa cakupan Cabang atau Divisi Pusat pada setiap request API.
 - Nomor pengajuan tetap sama sepanjang proses dan revisi.
 - Waktu disimpan dengan timezone yang ditetapkan organisasi dan ditampilkan konsisten pada aplikasi.
 - Sistem menampilkan pesan yang jelas jika kode Cabang, Korwil, Divisi Pusat, jenis pekerjaan, atau target SLA belum dikonfigurasi.
 - Payload pengajuan divalidasi dengan skema Zod yang ketat; query SQL menggunakan parameter binding untuk semua nilai dari pengguna.
-- Lampiran surat InOffice memeriksa ekstensi PDF, MIME, dan signature `%PDF-` serta dibatasi 10 MB. File disimpan di `PRIVATE_UPLOAD_DIR`, tidak disajikan sebagai file publik, dan setiap unduhan memeriksa scope tiket. Retensi, backup, pemulihan, logging, dan monitoring perlu ditetapkan sebelum produksi.
+- Lampiran surat InOffice memeriksa ekstensi PDF, MIME, dan signature `%PDF-` serta dibatasi 10 MB. Field dokumen memeriksa format dan signature PDF/Word serta menyimpan TXT tanpa byte NUL; foto hanya diterima setelah signature WebP tervalidasi. File disimpan di `PRIVATE_UPLOAD_DIR`, tidak disajikan sebagai file publik, kompresi dokumen transparan saat unduh, dan setiap unduhan memeriksa scope tiket. Retensi audit dan lampiran, backup, pemulihan, serta pemantauan log perlu ditetapkan sebelum produksi.
 - Target kinerja dan ketersediaan ditetapkan oleh tim IT sesuai infrastruktur yang dipilih.
 - Akun sintetis untuk mencoba seluruh role tersedia melalui `DUMMY_AUTH_ENABLED=true`; akun tersebut ditandai dalam `dummy_users`, memakai data profil tanpa password, dan tetap diperiksa dengan assignment role/scope MySQL. Selama UAT, environment `NODE_ENV=production` boleh memakai login dummy hanya jika nama database tepat `sla_pengajuan` atau berakhiran `_staging`; akses aplikasi UAT dibatasi ke VPN/IP tepercaya. Sebelum go-live, matikan `DUMMY_AUTH_ENABLED` dan gunakan server database development serta production terpisah. Fixture development tidak boleh ditimpa ke database production final.
+- Halaman login memakai SSO sebagai pilihan awal dan menampilkan switch akun demo hanya ketika backend mengembalikan akun dummy aktif. `DUMMY_AUTH_ENABLED=false` menjadi sakelar pemutus untuk daftar, login, dan sesi akun demo; backend harus dimulai ulang setelah konfigurasi diubah.
 
 ## 13. Model data konseptual
 
@@ -479,7 +517,9 @@ Tabel atau entitas awal:
 - `rejection_reasons`: alasan penolakan bawaan sistem, tambahan Divisi, atau khusus katalog pekerjaan.
 - `request_decisions`: keputusan petugas, snapshot alasan, konfirmasi persetujuan, dan tautan Berita Acara.
 - `notifications`: notifikasi aplikasi.
-- `audit_logs`: catatan tindakan yang perlu diaudit.
+- `user_access_audit_logs`: histori perubahan status dan assignment akses pengguna.
+- `user_activity_audit_logs`: aktor, waktu, metode, path API tanpa query, dan kode hasil HTTP.
+- Histori proses pada `request_status_histories`, revisi, keputusan, dan lampiran tetap menjadi catatan rinci aktivitas tiket.
 
 Relasi penting:
 
@@ -513,19 +553,21 @@ SSO perusahaan memverifikasi identitas pegawai. Express menjadi perantara antara
 
 | Operasi | Kontrak dari SSO |
 |---|---|
-| Login | `POST https://apisso.bkkjateng.co.id/api/auth/login` dengan `id_peg`, `password`, dan `app` |
-| Profil pengguna | `GET https://apisso.bkkjateng.co.id/api/auth/whoami` dengan header `Authorization: Bearer <token>` |
-| App code sementara | `simpeg`, sesuai arahan pemilik proyek; ganti setelah app code khusus Sistem SLA terdaftar |
+| Login | `POST /api/auth/login` dengan `id_peg` dan `password`; header `App` dan `X-App-Token` |
+| Login uji | Development saja: `POST /api/auth/login-dummy` dengan `id_peg`, kemudian verifikasi memakai `GET /api/auth/whoami` |
+| Profil pengguna | `GET /api/auth/whoami` dengan header `App`, `X-App-Token`, dan `Authorization: Bearer <token>`; Sistem SLA tidak memakai `POST whoami` |
+| Pencarian pegawai | `GET /api/simpeg/pegawai/search?id_peg=...` atau `?nama=...`; memakai header `App` dan `X-App-Token` |
+| App code | Mengikuti registrasi token environment. Repo mencontohkan `simpeg`; konfigurasi lokal untuk SSO development memakai `monbis` dari test console yang diberikan. Jangan menaruh app code di body login. |
 | Token | Respons login memberikan bearer token yang dipakai untuk meminta profil pengguna |
-| Field profil | `kode`, `employee_id`, `full_name`, `email`, `telp`, `branch_name`, `unit_kerja`, `job_position`, `level`, dan `group_jabatan` |
+| Field profil | Pencarian pegawai mengembalikan `employee_id`, `full_name`, `kode`, dan `job_position`; `unit_kerja` bersifat opsional sampai endpoint direktori menyediakannya. Profil `whoami` memuat `kode`, `employee_id`, `full_name`, `email`, `telp`, `branch_name`, `unit_kerja`, `job_position`, `level`, dan `group_jabatan` |
 
-Alur aplikasi: frontend mengirim kredensial ke endpoint login milik Express; Express meneruskan login ke SSO dan meminta profil melalui `whoami`. Setelah validasi, Express mengembalikan bearer token dan profil yang diperlukan ke frontend. Frontend menyimpan bearer token di `sessionStorage` per-tab agar sesi bertahan saat halaman di-reload, lalu mengirimkannya ke API menggunakan header `Authorization: Bearer <token>`. Setelah reload, profil diminta kembali melalui backend. ID pegawai terakhir boleh diingat di `sessionStorage` untuk mengisi form login; password tidak pernah disimpan. Endpoint Admin memvalidasi token dengan memanggil `whoami`, lalu memeriksa akun lokal dan hak akses SLA. Password dan token tidak boleh masuk ke repository atau log.
+Alur aplikasi: frontend mengirim kredensial ke endpoint login milik Express; Express meneruskan login ke SSO dan meminta profil melalui `whoami`. Setelah profil tersinkron, backend hanya mengembalikan token dan profil jika akun lokal aktif serta memiliki role dan cakupan SLA yang valid. Jika belum, backend menolak login dengan HTTP 403 dan penjelasan agar pegawai menghubungi Admin; frontend tetap di halaman login. Pemeriksaan yang sama berlaku pada endpoint `whoami`, sehingga sesi yang kehilangan akses tidak dapat membuka dashboard dan diarahkan kembali ke login dengan penjelasan. Untuk sesi yang lolos validasi akses, frontend menyimpan bearer token di `sessionStorage` per-tab agar sesi bertahan saat halaman di-reload, lalu mengirimkannya ke API menggunakan header `Authorization: Bearer <token>`. Setelah reload, profil diminta kembali melalui backend. ID pegawai terakhir boleh diingat di `sessionStorage` untuk mengisi form login; password tidak pernah disimpan. Endpoint Admin memvalidasi token dengan memanggil `whoami`, lalu memeriksa akun lokal dan hak akses SLA. Password dan token tidak boleh masuk ke repository atau log.
 
 Saat logout, frontend menghapus token dari state autentikasi dan `sessionStorage`; request berikutnya tidak mengirim header Authorization. Token juga dihapus jika API menolaknya dengan 401. Sesi per-tab bertahan saat reload dan berakhir saat tab ditutup atau pengguna logout. Kontrak SSO yang diberikan belum menyebut endpoint pencabutan token, jadi logout aplikasi belum tentu membatalkan token di SSO sebelum token kedaluwarsa. Header tetap menjadi cara mengirim token pada setiap request, bukan tempat penyimpanan.
 
-SSO membuktikan identitas dan menyediakan profil organisasi terkini. Admin mengelola status aktif dan role aplikasi pada data pengguna lokal; sinkronisasi profil tidak mengaktifkan akun dan tidak memberi role. Scope untuk role Pengguna Cabang diturunkan dari kode kantor SSO yang dipetakan ke `master_kantor`; scope Petugas Korwil diturunkan dari mapping kantor atau informasi organisasi SSO yang cocok dengan Korwil; scope Petugas Divisi Pusat diturunkan dari `unit_kerja` yang cocok dengan `master_divisi`. Scope tersebut diselaraskan otomatis ketika profil tersinkron, dan perubahan dicatat di audit akses. Jika scope belum dapat dipetakan, akses role terkait ditolak sampai profil cocok. Kode Pusat tidak memberikan scope Pengguna Cabang. Akun yang belum aktif atau belum memiliki role lokal tetap tidak mendapat akses. Sistem tidak menyimpulkan role dari jabatan.
+SSO membuktikan identitas dan menyediakan profil organisasi terkini. Saat Admin mengimpor pegawai melalui pencarian SSO, backend membaca ulang profil pegawai berdasarkan ID, membuat akun lokal nonaktif, mencatat audit, dan memberi assignment organisasi yang dapat dipetakan dari kode kantor atau alias `unit_kerja`. `IT` dipetakan ke Operasional; profil berkode Pusat yang tidak cocok dengan alias divisi dapat dipetakan ke Korwil dari informasi organisasi. Pemetaan role tidak memakai jabatan saja dan tidak pernah memberi role istimewa. Sinkronisasi login berikutnya memperbarui profil dan cakupan tanpa mengaktifkan akun atau menambah role baru. Scope Pengguna Cabang mengikuti kode kantor SSO yang dipetakan ke `master_kantor`; scope Petugas Korwil mengikuti mapping kantor atau informasi organisasi SSO yang cocok dengan Korwil; scope Petugas Divisi Pusat mengikuti alias `unit_kerja`. Scope dan perubahan assignment tercatat di audit akses. Jika scope belum dapat dipetakan, akun tetap nonaktif sampai profil cocok dan Admin mengaktifkannya. Akun yang belum aktif tidak mendapat akses.
 
-Express menangani seluruh komunikasi dengan SSO. Path endpoint login (`/api/auth/login`) dan profil (`/api/auth/whoami`) ditetapkan di backend karena merupakan bagian dari kontrak API. `.env` backend menyimpan konfigurasi yang dapat berbeda antar lingkungan: base URL SSO, app code sementara `simpeg`, dan timeout request. Nilai environment yang aman dicantumkan di `.env.example`, sedangkan `.env` lokal tidak boleh masuk Git. Setelah app code khusus Sistem SLA didaftarkan, cukup ubah nilainya di `.env`. Password pegawai dimasukkan saat login, bukan disimpan di `.env`; bearer token hanya diproses saat runtime. Status akses dan role lokal dikelola melalui assignment MySQL dan tidak disimpulkan otomatis dari jabatan. Masa berlaku token dan format error SSO tetap perlu dipastikan. Password, bearer token, dan data pribadi dari contoh tidak disimpan di repository.
+Express menangani seluruh komunikasi dengan SSO. Path login (`/api/auth/login`), uji login dummy (`/api/auth/login-dummy`), pencarian (`/api/simpeg/pegawai/search`), dan profil (`GET /api/auth/whoami`) ditetapkan di backend. `.env` backend menyimpan base URL, app code yang harus cocok dengan token, token aplikasi `SSO_APP_TOKEN`, timeout request, serta sakelar `SSO_DUMMY_LOGIN_ENABLED` yang hanya boleh aktif pada development. Repo mencontohkan `simpeg`; konfigurasi lokal untuk SSO development mengikuti console yang diberikan pemilik proyek dengan app code `monbis`. Request memakai header `App` dan `X-App-Token`; login biasa mengirim `id_peg` dan `password` di body, tidak mengirim app code di body. Login dummy memerlukan ID pegawai, kemudian backend meminta profil lewat `GET whoami`. `.env.example` mencantumkan key tanpa nilai token, dan `.env` lokal tidak boleh masuk Git. Setelah app code khusus Sistem SLA didaftarkan, ubah hanya nilainya di `.env`. Password pegawai dan token tidak disimpan di repository, log, maupun pesan error.
 
 Antarmuka memakai gaya shadcn yang bersih, tetapi tidak menyalin produk tertentu. Fokus utama adalah antrean kerja, status, countdown SLA, filter, form bertahap, dan timeline pengajuan.
 
@@ -575,6 +617,12 @@ Antarmuka memakai gaya shadcn yang bersih, tetapi tidak menyalin produk tertentu
 | Pengguna Cabang 015 mengirim pekerjaan yang disetel melalui Korwil | Sistem mengarahkan pengajuan ke Korwil Banyumas Raya |
 | Pengguna Cabang 022 mengirim pekerjaan yang disetel melalui Korwil | Sistem mengarahkan pengajuan ke Korwil Pekalongan Raya |
 | Admin memberi role Pengguna Cabang kepada pegawai | Backend menetapkan cakupan kantor dari profil SSO terkini; Admin tidak memilih kantor pada form |
+| Admin mencari pegawai dari Akses Pegawai dengan ID atau sebagian nama | Backend mencari melalui SSO; jika nama cocok ke beberapa orang, Admin memilih ID yang benar sebelum impor |
+| Admin mengimpor pegawai dengan kode Cabang aktif | Sistem membuat akun nonaktif tanpa assignment role; Admin memilih Pengguna Cabang, lalu backend menetapkan scope kantor hasil mapping kode SSO |
+| Admin mengimpor pegawai kode Pusat dengan `unit_kerja` yang cocok dengan alias divisi | Sistem membuat akun nonaktif dengan assignment Petugas Divisi pada divisi yang cocok; alias `IT` mengarah ke Operasional |
+| Admin mengimpor pegawai kode Pusat yang terpetakan ke Korwil namun tidak cocok dengan alias divisi | Sistem membuat akun nonaktif dengan assignment Petugas Korwil pada Korwil hasil mapping SSO |
+| Profil dari SSO tidak cukup untuk memetakan role organisasi | Sistem tetap mengimpor profil nonaktif tanpa assignment otomatis; Admin dapat melengkapi mapping, lalu mengatur akses |
+| Pegawai belum diaktifkan Admin setelah impor | Login SSO ditolak dengan penjelasan akses Sistem SLA belum aktif |
 | Pegawai Cabang pindah ke kantor lain | Setelah profil SSO terbaru tersinkron, cakupan role mengikuti kantor baru tanpa mengubah kantor asal atau histori tiket |
 | Kacab baru diberi role Pengguna Cabang pada kantor yang sama | Ia dapat melihat dan melanjutkan pengajuan kantor tersebut, termasuk pengajuan yang dibuat Kacab sebelumnya |
 | Profil SSO menunjukkan Pusat atau kode kantor belum terpetakan untuk role Pengguna Cabang | Sistem tidak menampilkan akses Cabang dan API menolak akses Cabang |
@@ -586,9 +634,9 @@ Antarmuka memakai gaya shadcn yang bersih, tetapi tidak menyalin produk tertentu
 | `unit_kerja` SSO bernilai `Satuan Kerja Audit Internal` | Alias master memetakan profil ke SKAI saat profil tersinkron; role dan status aktif tetap harus ditetapkan Admin |
 | Admin mengubah alias unit SSO pada Divisi Pusat | Alias tersimpan unik pada satu divisi dan cakupan pegawai diperbarui saat profil SSO berikutnya tersinkron |
 | Admin memasukkan alias yang sudah dimiliki divisi lain | API menolak perubahan dan tidak mengubah master divisi |
-| Cabang mengajukan kredit di bawah Rp250 juta | Sistem menolak dan tidak membuat tiket |
-| Cabang mengajukan kredit minimal Rp250 juta dan memilih Korwil | Sistem membuat tiket Korwil dengan versi form serta jawaban Pengajuan Kredit Pemasaran |
-| Cabang mengajukan kredit minimal Rp250 juta dan memilih Pusat | Sistem mengirim ke Pemasaran langsung atau melalui Korwil sesuai pengaturan katalog Pengajuan Kredit, tanpa mengubah tujuan berdasarkan ambang nilai |
+| Cabang mengajukan kredit di bawah Rp200 juta | Sistem menolak dan tidak membuat tiket |
+| Cabang mengajukan kredit tepat Rp200 juta atau sampai Rp499.999.999 | Sistem membuat tiket Korwil dengan versi form serta jawaban Pengajuan Kredit Pemasaran |
+| Cabang mengajukan kredit tepat Rp500 juta atau lebih | Sistem menetapkan tujuan Divisi Pemasaran secara otomatis dan memasukkan tiket ke Korwil untuk diperiksa terlebih dahulu, tanpa bergantung pada pilihan tujuan browser atau routing katalog |
 | Admin memberi izin kelola form pada Petugas Divisi | Petugas hanya dapat mengubah form divisi yang dipetakan dari profil SSO dan assignment aktifnya |
 | Pengelola menerbitkan versi baru form | Pengajuan berikutnya memakai versi baru; tiket lama tetap menampilkan jawaban versi sebelumnya |
 | Pengelola mengaktifkan kelompok data berulang pada form non-kredit dengan batas 5 | Cabang dapat mengisi kelompok pertama, menambah sampai 5 kelompok, menghapus tambahan, dan setiap kelompok divalidasi serta ditampilkan terpisah pada detail tiket |
@@ -622,14 +670,12 @@ Antarmuka memakai gaya shadcn yang bersih, tetapi tidak menyalin produk tertentu
 3. Kolom dan lampiran wajib untuk setiap jenis pekerjaan, termasuk field Keringanan bunga.
 4. Target SLA khusus untuk Korwil, Cabang, dan setiap Divisi Pusat setelah target umum MVP 7 hari dievaluasi.
 5. Apakah setelah MVP target SLA dihitung per jenis pekerjaan atau tetap memakai target umum.
-6. Peran yang boleh menyetujui penerusan dari Korwil ke Pusat.
-7. Batas tindakan Petugas Korwil dan Penyetuju Korwil.
-8. Aturan perubahan substansi yang wajib kembali ke Korwil.
-9. Aturan pembatalan setelah pengajuan diambil.
-10. Kanal notifikasi setelah notifikasi aplikasi diuji.
-11. Pendaftaran app code khusus Sistem SLA untuk menggantikan sementara `simpeg`.
-12. Masa berlaku token dan format error resmi dari SSO.
-13. Standar hosting, storage, backup, dan logging dari tim IT.
+6. Aturan perubahan substansi yang wajib kembali ke Korwil.
+7. Aturan pembatalan setelah pengajuan diambil.
+8. Kanal notifikasi setelah notifikasi aplikasi diuji.
+9. Pendaftaran app code khusus Sistem SLA untuk menggantikan sementara `simpeg`.
+10. Masa berlaku token dan format error resmi dari SSO.
+11. Standar hosting, storage, backup, dan logging dari tim IT.
 
 ## 18. Ukuran keberhasilan
 

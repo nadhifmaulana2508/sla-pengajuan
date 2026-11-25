@@ -6,11 +6,15 @@ import { normalizeSsoUnitName } from '../organization/sso-scope.js';
 import {
 	AdminUserAccessError,
 	getAdminAccessOptions,
+	importSsoEmployee,
 	listAdminUsers,
 	updateAdminUserAccess
 } from './admin-users.service.js';
 import { requireSlaAdmin } from '../auth/admin.middleware.js';
 import { DEFAULT_SLA_MINUTES } from '../../shared/sla.js';
+import { listAdminActivityLogs } from '../audit/activity-audit.service.js';
+import { SsoAuthError } from '../auth/auth.service.js';
+import { searchSsoEmployees } from '../auth/identity.service.js';
 
 type DivisionRow = RowDataPacket & {
 	id: number;
@@ -61,9 +65,48 @@ const userAccessSchema = z.object({
 	is_active: z.boolean(),
 	assignments: z.array(userAssignmentSchema).max(20)
 }).strict();
+const ssoEmployeeSearchSchema = z.object({ q: z.string().trim().min(1).max(120) }).strict();
+const ssoEmployeeImportSchema = z.object({ employee_id: z.string().trim().min(1).max(80) }).strict();
 
 export const adminRouter = Router();
 adminRouter.use(requireSlaAdmin);
+
+const auditDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+	const parsed = new Date(`${value}T00:00:00.000Z`);
+	return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}, 'Tanggal tidak valid.');
+const activityLogQuerySchema = z.object({
+	q: z.string().trim().max(120).optional(),
+	method: z.enum(['all', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'SSO']).default('all'),
+	from: auditDateSchema.optional(),
+	to: auditDateSchema.optional(),
+	page: z.coerce.number().int().min(1).max(100000).default(1),
+	page_size: z.coerce.number().int().min(1).max(100).default(50)
+}).refine((filters) => !filters.from || !filters.to || filters.from <= filters.to, {
+	message: 'Tanggal mulai tidak boleh setelah tanggal akhir.'
+});
+
+adminRouter.get('/activity-logs', async (request, response) => {
+	const parsed = activityLogQuerySchema.safeParse(request.query);
+	if (!parsed.success) {
+		response.status(400).json({ status: 400, message: 'Filter audit log belum valid.', data: null });
+		return;
+	}
+	try {
+		const filters = {
+			q: parsed.data.q || null,
+			method: parsed.data.method === 'all' ? null : parsed.data.method,
+			from: parsed.data.from ?? null,
+			to: parsed.data.to ?? null,
+			page: parsed.data.page,
+			pageSize: parsed.data.page_size
+		};
+		const data = await listAdminActivityLogs(filters);
+		response.status(200).json({ status: 200, message: 'Audit aktivitas berhasil dimuat.', data });
+	} catch {
+		response.status(500).json({ status: 500, message: 'Audit aktivitas belum dapat dimuat. Coba lagi.', data: null });
+	}
+});
 
 adminRouter.get('/master-data', async (_request, response) => {
 	try {
@@ -201,6 +244,51 @@ adminRouter.get('/users', async (_request, response) => {
 		});
 	} catch {
 		response.status(500).json({ status: 500, message: 'Daftar pengguna belum dapat dimuat. Coba lagi.', data: null });
+	}
+});
+
+adminRouter.get('/users/sso-search', async (request, response) => {
+	const parsed = ssoEmployeeSearchSchema.safeParse(request.query);
+	if (!parsed.success) {
+		response.status(400).json({ status: 400, message: 'Masukkan ID pegawai atau nama untuk mencari di SSO.', data: null });
+		return;
+	}
+	try {
+		const employees = await searchSsoEmployees(parsed.data.q);
+		response.status(200).json({ status: 200, message: 'Pencarian pegawai SSO berhasil.', data: employees });
+	} catch (error) {
+		if (error instanceof SsoAuthError) {
+			response.status(error.statusCode).json({ status: error.statusCode, message: error.message, data: null });
+			return;
+		}
+		response.status(502).json({ status: 502, message: 'Pencarian pegawai SSO belum berhasil. Coba lagi.', data: null });
+	}
+});
+
+adminRouter.post('/users/sso-import', async (request, response) => {
+	const parsed = ssoEmployeeImportSchema.safeParse(request.body);
+	const actorEmployeeId = response.locals.slaAdminEmployeeId;
+	if (!parsed.success || typeof actorEmployeeId !== 'string') {
+		response.status(400).json({ status: 400, message: 'Pegawai yang akan ditambahkan belum valid.', data: null });
+		return;
+	}
+	try {
+		const result = await importSsoEmployee(parsed.data.employee_id, actorEmployeeId);
+		response.status(201).json({
+			status: 201,
+			message: 'Pegawai berhasil ditambahkan. Akun tetap nonaktif sampai Admin mengaktifkannya.',
+			data: result
+		});
+	} catch (error) {
+		if (error instanceof AdminUserAccessError) {
+			response.status(error.statusCode).json({ status: error.statusCode, message: error.message, data: null });
+			return;
+		}
+		if (error instanceof SsoAuthError) {
+			response.status(error.statusCode).json({ status: error.statusCode, message: error.message, data: null });
+			return;
+		}
+		response.status(500).json({ status: 500, message: 'Pegawai belum dapat ditambahkan. Coba lagi.', data: null });
 	}
 });
 

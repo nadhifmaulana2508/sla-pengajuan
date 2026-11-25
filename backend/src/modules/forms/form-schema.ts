@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const formFieldTypeSchema = z.enum(['text', 'textarea', 'number', 'currency', 'date', 'select']);
+export const formFieldTypeSchema = z.enum(['text', 'textarea', 'number', 'currency', 'date', 'select', 'document', 'image', 'images']);
 export const repeatableFormSchema = z.object({
 	label: z.string().trim().min(1).max(80),
 	max_entries: z.number().int().min(2).max(20)
@@ -12,8 +12,14 @@ export const creditRoutingSchema = z.object({
 export type CreditRoutingConfig = z.infer<typeof creditRoutingSchema>;
 export const DEFAULT_CREDIT_ROUTING_CONFIG: CreditRoutingConfig = { marketing_threshold_amount: 500_000_000 };
 
+const fieldCalculationSchema = z.object({
+	operation: z.literal('sum'),
+	fields: z.array(z.string().regex(/^[a-z][a-z0-9_]{1,63}$/)).min(2).max(10)
+}).strict();
+
 const formFieldSchema = z.object({
 	key: z.string().regex(/^[a-z][a-z0-9_]{1,63}$/),
+	catalog_field_id: z.number().int().positive().optional(),
 	label: z.string().trim().min(1).max(160),
 	type: formFieldTypeSchema,
 	required: z.boolean(),
@@ -21,7 +27,8 @@ const formFieldSchema = z.object({
 	min_value: z.number().finite().optional(),
 	max_value: z.number().finite().optional(),
 	system: z.boolean().optional(),
-	requires_korwil_review: z.boolean().optional()
+	requires_korwil_review: z.boolean().optional(),
+	calculation: fieldCalculationSchema.optional()
 }).strict().superRefine((field, context) => {
 	if (field.type === 'select') {
 		if (!field.options?.length) context.addIssue({ code: 'custom', message: 'Pilihan wajib diisi untuk field bertipe pilihan.', path: ['options'] });
@@ -34,6 +41,9 @@ const formFieldSchema = z.object({
 	if (field.min_value !== undefined && field.max_value !== undefined && field.min_value > field.max_value) {
 		context.addIssue({ code: 'custom', message: 'Nilai minimum tidak boleh lebih besar dari maksimum.', path: ['min_value'] });
 	}
+	if (field.calculation && field.type !== 'number' && field.type !== 'currency') {
+		context.addIssue({ code: 'custom', message: 'Field hasil perhitungan harus bertipe angka atau nominal Rupiah.', path: ['calculation'] });
+	}
 });
 
 export const formDefinitionSchema = z.object({
@@ -43,6 +53,15 @@ export const formDefinitionSchema = z.object({
 }).strict().superRefine((definition, context) => {
 	const keys = definition.fields.map((field) => field.key);
 	if (new Set(keys).size !== keys.length) context.addIssue({ code: 'custom', message: 'Kunci field harus unik.', path: ['fields'] });
+	for (const [index, field] of definition.fields.entries()) {
+		if (!field.calculation) continue;
+		for (const sourceKey of field.calculation.fields) {
+			const source = definition.fields.find((candidate) => candidate.key === sourceKey);
+			if (!source || (source.type !== 'number' && source.type !== 'currency') || source.calculation) {
+				context.addIssue({ code: 'custom', message: `Field perhitungan merujuk ke kolom angka yang tidak tersedia: ${sourceKey}.`, path: ['fields', index, 'calculation'] });
+			}
+		}
+	}
 	if (definition.repeatable && definition.fields.length === 0) {
 		context.addIssue({ code: 'custom', message: 'Form berulang harus memiliki sedikitnya satu kolom.', path: ['repeatable'] });
 	}
@@ -51,7 +70,7 @@ export const formDefinitionSchema = z.object({
 export type FormFieldDefinition = z.infer<typeof formFieldSchema>;
 export type FormDefinition = z.infer<typeof formDefinitionSchema>;
 export type RepeatableFormConfig = z.infer<typeof repeatableFormSchema>;
-export type FormAnswerRow = Record<string, string | number>;
+export type FormAnswerRow = Record<string, string | number | string[]>;
 export const REPEATABLE_FORM_ANSWERS_KEY = '__entries';
 export type ValidatedFormAnswers = FormAnswerRow | { [REPEATABLE_FORM_ANSWERS_KEY]: FormAnswerRow[] };
 
@@ -75,11 +94,22 @@ function validateSingleFormAnswers(fields: FormFieldDefinition[], input: Record<
 
 	const answers: FormAnswerRow = {};
 	for (const field of fields) {
+		// Derived values are recalculated from their sources, including during revision.
+		if (field.calculation) continue;
 		const raw = input[field.key];
 		const value = typeof raw === 'string' ? raw.trim() : raw;
-		const empty = value === undefined || value === null || value === '';
+		const empty = value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0);
 		if (empty) {
 			if (field.required) throw new Error(`Field “${field.label}” wajib diisi.`);
+			continue;
+		}
+
+		if (field.type === 'document' || field.type === 'image' || field.type === 'images') {
+			const validFileAnswer = field.type === 'images'
+				? Array.isArray(value) && value.length <= 4 && value.every((item) => typeof item === 'string' && item.length <= 255)
+				: typeof value === 'string' && value.length <= 255;
+			if (!validFileAnswer) throw new Error(`File untuk “${field.label}” belum valid.`);
+			answers[field.key] = value as string | string[];
 			continue;
 		}
 
@@ -116,6 +146,14 @@ function validateSingleFormAnswers(fields: FormFieldDefinition[], input: Record<
 		if (field.max_value !== undefined && numericValue > field.max_value) throw new Error(`“${field.label}” melebihi nilai maksimum.`);
 		answers[field.key] = numericValue;
 	}
+	for (const field of fields) {
+		if (!field.calculation) continue;
+		const sourceValues = field.calculation.fields.map((key) => answers[key]);
+		if (sourceValues.some((value) => typeof value !== 'number')) continue;
+		const total = sourceValues.reduce<number>((sum, value) => sum + Number(value), 0);
+		if (field.type === 'currency' && !Number.isSafeInteger(total)) throw new Error(`Jumlah untuk “${field.label}” melebihi batas angka yang didukung.`);
+		answers[field.key] = total;
+	}
 	return answers;
 }
 
@@ -132,7 +170,7 @@ export function validateFormAnswers(definition: FormDefinition, input: Record<st
 			throw new Error(`Data ke-${index + 1} pada form tidak valid.`);
 		}
 		const values = Object.values(entry as Record<string, unknown>);
-		if (!values.some((value) => value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === ''))) {
+		if (!values.some((value) => value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '') && !(Array.isArray(value) && value.length === 0))) {
 			throw new Error(`Isi sedikitnya satu kolom pada ${definition.repeatable!.label.toLocaleLowerCase('id-ID')} ke-${index + 1}.`);
 		}
 		return validateSingleFormAnswers(definition.fields, entry as Record<string, unknown>);

@@ -6,9 +6,10 @@
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
-	import * as Dialog from '#lib/components/ui/dialog/index.js';
+import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
+import * as Select from '#lib/components/ui/select/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
@@ -16,9 +17,11 @@
 	import { updateAdminDivision, fetchAdminMasterData, type AdminDivision } from '#lib/features/admin/admin.api.js';
 	import { fetchCurrentProfile } from '#lib/features/auth/auth.api.js';
 	import { authSession, clearAuthenticatedSession, updateProfile } from '#lib/features/auth/auth.store.js';
-	import { Building2, LoaderCircle, Pencil, X } from '@lucide/svelte';
+import { Building2, LoaderCircle, Pencil, Search, X } from '@lucide/svelte';
 
 	let divisions = $state<AdminDivision[]>([]);
+	let searchQuery = $state('');
+	let statusFilter = $state('all');
 	let selectedDivision = $state<AdminDivision | null>(null);
 	let divisionName = $state('');
 	let aliasText = $state('');
@@ -28,6 +31,15 @@
 	let loadError = $state('');
 	let formError = $state('');
 	let statusMessage = $state('');
+	let filteredDivisions = $derived.by(() => {
+		const query = searchQuery.trim().toLocaleLowerCase('id-ID');
+		return divisions.filter((division) => {
+			const matchesQuery = !query || [division.nama_divisi, division.kode, ...division.sso_unit_kerja_aliases]
+				.join(' ').toLocaleLowerCase('id-ID').includes(query);
+			const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' ? division.is_active : !division.is_active);
+			return matchesQuery && matchesStatus;
+		});
+	});
 
 	onMount(() => {
 		void loadDivisions();
@@ -130,7 +142,7 @@
 <main id="main-content" class="admin-page">
 	<AppNavbar />
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
-		<AppPageHeading eyebrow="Administrasi" title="Divisi Pusat" description="Cocokkan nama unit kerja dari SSO dengan divisi agar cakupan petugas terdeteksi otomatis." />
+		<AppPageHeading eyebrow="Administrasi" title="Divisi Pusat" description="Cocokkan nama unit kerja dari SSO dengan divisi agar cakupan petugas terdeteksi otomatis." descriptionInInfoOnly />
 
 		{#if statusMessage}
 			<p class="save-status" role="status" aria-live="polite">{statusMessage}</p>
@@ -143,10 +155,25 @@
 						<Building2 class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 						<div class="min-w-0">
 							<Card.Title id="division-list-title">Daftar divisi</Card.Title>
-							<Card.Description>Nama unit SSO menjadi alias pemetaan, bukan penetapan role pegawai.</Card.Description>
 						</div>
 					</div>
-					{#if !isLoading && !loadError}<Badge variant="secondary">{divisions.length} divisi</Badge>{/if}
+					<div class="division-header-actions">
+						<div class="division-count">{#if !isLoading && !loadError}<Badge variant="secondary">{filteredDivisions.length} divisi</Badge>{/if}</div>
+						<div class="division-search search-control" role="search" aria-label="Cari divisi">
+							<Search class="search-icon" aria-hidden="true" />
+							<Input id="division-search" type="search" bind:value={searchQuery} placeholder="Cari divisi atau unit SSO..." class="min-h-11 border-input" aria-label="Cari nama divisi, kode, atau alias unit SSO" />
+						</div>
+						<div class="division-status-select">
+							<Select.Root type="single" bind:value={statusFilter}>
+								<Select.Trigger class="min-h-11 w-full border-input" aria-label="Status divisi"><Select.Value /></Select.Trigger>
+								<Select.Content align="end">
+									<Select.Item value="all">Semua status</Select.Item>
+									<Select.Item value="active">Aktif</Select.Item>
+									<Select.Item value="inactive">Nonaktif</Select.Item>
+								</Select.Content>
+							</Select.Root>
+						</div>
+					</div>
 				</Card.Header>
 				<Card.Content>
 					{#if isLoading}
@@ -166,13 +193,18 @@
 							<strong>Master divisi belum tersedia</strong>
 							<p>Periksa seed database atau hubungi pengelola Sistem SLA.</p>
 						</div>
+					{:else if filteredDivisions.length === 0}
+						<div class="state-panel">
+							<strong>Tidak ada divisi yang cocok</strong>
+							<p>Ubah kata pencarian atau status filter untuk melihat divisi lain.</p>
+						</div>
 					{:else}
 						<div class="desktop-table">
 							<Table.Root label="Daftar Divisi Pusat" tableClass="min-w-[42rem]">
 								<Table.Caption class="sr-only">Daftar Divisi Pusat dan nama unit SSO yang dikenali</Table.Caption>
 								<Table.Header><Table.Row><Table.Head scope="col">Divisi</Table.Head><Table.Head scope="col">Nama unit SSO</Table.Head><Table.Head scope="col">Status</Table.Head><Table.Head scope="col"><span class="sr-only">Tindakan</span></Table.Head></Table.Row></Table.Header>
 								<Table.Body>
-									{#each divisions as division (division.id)}
+									{#each filteredDivisions as division (division.id)}
 										<Table.Row>
 											<Table.Head scope="row" class="division-name-cell"><strong>{division.nama_divisi}</strong><small>{division.kode}</small></Table.Head>
 											<Table.Cell><span class="alias-summary">{division.sso_unit_kerja_aliases.join(', ') || 'Belum ada pemetaan'}</span></Table.Cell>
@@ -184,7 +216,7 @@
 							</Table.Root>
 						</div>
 						<div class="mobile-list">
-							{#each divisions as division (division.id)}
+							{#each filteredDivisions as division (division.id)}
 								<Card.Root size="sm" class="division-row">
 									<Card.Content class="division-row-content">
 										<div class="row-heading"><div><h2>{division.nama_divisi}</h2><p>{division.kode}</p></div><Badge variant={division.is_active ? 'secondary' : 'outline'} class={division.is_active ? 'status-badge status-badge--success' : ''}>{division.is_active ? 'Aktif' : 'Nonaktif'}</Badge></div>
@@ -241,8 +273,14 @@
 	:global(.admin-content > .app-page-heading) { margin-bottom: 0; }
 	:global(.division-card) { min-width: 0; }
 	:global(.division-card-header) { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-	.list-heading { display: flex; min-width: 0; align-items: flex-start; gap: .7rem; }
+	.list-heading { display: flex; min-width: 0; flex:1 1 auto; align-items: flex-start; gap: .7rem; }
 	.list-heading :global([data-slot='card-title']) { margin-bottom: .2rem; }
+	.division-header-actions { display:flex; min-width:0; flex:0 1 auto; align-items:center; justify-content:flex-end; gap:.5rem; }
+	.division-search { display:block; width:min(22rem,30vw); min-width:0; flex:1 1 14rem; }
+	.search-control { position:relative; min-width:0; }
+	.search-control :global(input) { width:100%; min-width:0; padding-left:2.5rem; }
+	:global(.search-icon) { position:absolute; z-index:1; top:50%; left:.8rem; width:1rem; height:1rem; color:var(--muted-foreground); transform:translateY(-50%); pointer-events:none; }
+	.division-status-select { min-width:0; flex:0 0 10.5rem; }
 	.desktop-table { width: 100%; min-width: 0; }
 	:global(.desktop-table [data-slot='table']) { width: 100%; text-align: left; }
 	:global(.desktop-table [data-slot='table-header']) { background: var(--muted); }
@@ -271,7 +309,16 @@
 	@media (max-width: 48rem) {
 		.desktop-table { display: none; }
 		.mobile-list { display: grid; gap: .65rem; }
-		:global(.division-card-header) { align-items: flex-start; }
+		:global(.division-card-header) { align-items: stretch; flex-direction:column; }
+		.list-heading { width:100%; }
+		.division-header-actions { display:grid; width:100%; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.65rem; }
+		.division-count { grid-column:1; grid-row:1; }
+		.division-status-select { grid-column:2; grid-row:1; }
+		.division-search { width:100%; grid-column:1/-1; grid-row:2; flex:auto; }
 		.form-actions { display: grid; grid-template-columns: 1fr 1fr; }
+	}
+	@media (max-width: 26rem) {
+		.row-heading { flex-wrap: wrap; }
+		.form-actions { grid-template-columns: 1fr; }
 	}
 </style>

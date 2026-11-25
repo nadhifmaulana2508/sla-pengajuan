@@ -10,7 +10,6 @@ export type SlaAccess = {
 		| 'admin'
 		| 'branch_user'
 		| 'korwil_staff'
-		| 'korwil_approver'
 		| 'division_staff'
 		| 'supervisor'
 		| 'management'
@@ -137,7 +136,7 @@ export async function syncSsoProfile(profile: SsoProfile): Promise<void> {
 					scope.kode_kantor, scope.korwil, scope.divisi_id
 				FROM user_role_scopes scope
 				INNER JOIN roles role ON role.id = scope.role_id
-					AND role.kode IN ('branch_user', 'korwil_staff', 'korwil_approver', 'division_staff')
+					AND role.kode IN ('branch_user', 'korwil_staff', 'division_staff')
 				WHERE scope.user_id = ? AND scope.is_active = 1
 				FOR UPDATE`,
 				[userId]
@@ -158,7 +157,7 @@ export async function syncSsoProfile(profile: SsoProfile): Promise<void> {
 				before = assignment.kode_kantor;
 				after = kodeKantor;
 			} else if (
-				['korwil_staff', 'korwil_approver'].includes(assignment.role_code) &&
+				assignment.role_code === 'korwil_staff' &&
 				assignment.scope_type === 'korwil' && profileKorwil
 			) {
 				column = 'korwil';
@@ -272,7 +271,7 @@ export async function resolveSlaAccessDetails(employeeId: string): Promise<SlaAc
 				row.user_kode_kantor === row.scope_kode_kantor &&
 				Number(row.scope_office_active) === 1;
 		}
-		if (['korwil_staff', 'korwil_approver'].includes(row.role_code)) {
+		if (row.role_code === 'korwil_staff') {
 			return row.scope_type === 'korwil' && profileKorwil !== null && profileKorwil !== 'pusat' && row.scope_korwil === profileKorwil;
 		}
 		if (row.role_code === 'division_staff') {
@@ -292,7 +291,6 @@ export async function resolveSlaAccessDetails(employeeId: string): Promise<SlaAc
 		'admin',
 		'branch_user',
 		'korwil_staff',
-		'korwil_approver',
 		'division_staff',
 		'supervisor',
 		'management'

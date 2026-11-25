@@ -16,12 +16,14 @@ export type RequestSummary = {
 export type WorkFormField = {
 	key: string;
 	label: string;
-	type: 'text' | 'textarea' | 'number' | 'currency' | 'date' | 'select';
+	type: 'text' | 'textarea' | 'number' | 'currency' | 'date' | 'select' | 'document' | 'image' | 'images';
 	required: boolean;
 	options?: string[];
 	min_value?: number;
 	max_value?: number;
 	system?: boolean;
+	catalog_field_id?: number;
+	calculation?: { operation: 'sum'; fields: string[] };
 };
 export type WorkCatalog = {
 	id: number;
@@ -42,7 +44,9 @@ export type RequestAttachment = {
 	category: string;
 	revision_id: number | null;
 	original_filename: string;
-	mime_type: 'application/pdf';
+	mime_type: string;
+	form_field_key: string | null;
+	form_entry_index: number | null;
 	size_bytes: number;
 	created_at: string;
 };
@@ -64,8 +68,8 @@ export async function fetchRequest(token: string, id: string) {
 		form_fields: WorkFormField[];
 		form_repeatable: { label: string; max_entries: number } | null;
 		attachments: RequestAttachment[];
-		form_answers: Array<{ key: string; label: string; type: WorkFormField['type']; value: string | number }>;
-		form_answer_groups: Array<{ label: string; answers: Array<{ key: string; label: string; type: WorkFormField['type']; value: string | number }> }>;
+		form_answers: Array<{ key: string; label: string; type: WorkFormField['type']; value: string | number | string[] }>;
+		form_answer_groups: Array<{ label: string; answers: Array<{ key: string; label: string; type: WorkFormField['type']; value: string | number | string[] }> }>;
 		revision_request: null | {
 			id: number; revision_number: number; note: string;
 			fields: Array<{ kind: 'subject' | 'description' | 'inoffice_letter_number' | 'inoffice_letter_date' | 'form_field'; key?: string; entry_index?: number | null; label: string; type?: WorkFormField['type'] }>;
@@ -88,8 +92,38 @@ export async function fetchRequest(token: string, id: string) {
 }
 export type RevisionUpdate = { kind: 'subject' | 'description' | 'inoffice_letter_number' | 'inoffice_letter_date' | 'form_field'; key?: string; entry_index?: number | null; value: string | number };
 export type RevisionDocumentCategory = 'inoffice_letter' | 'supporting_document';
+export type FormUploadSelection = { fieldKey: string; entryIndex: number | null; files: File[] };
+
+export async function convertPhotoToWebp(file: File): Promise<File> {
+	if (file.size > 10 * 1024 * 1024) throw new Error('Ukuran foto asli maksimal 10 MB.');
+	const bitmap = await createImageBitmap(file);
+	try {
+		const scale = Math.min(1, 1800 / Math.max(bitmap.width, bitmap.height));
+		const canvas = document.createElement('canvas');
+		canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+		canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+		const context = canvas.getContext('2d');
+		if (!context) throw new Error('Foto belum dapat diproses di perangkat ini.');
+		context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+		const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
+			(result) => result ? resolve(result) : reject(new Error('Foto belum dapat dikompres ke WebP.')),
+			'image/webp', 0.82
+		));
+		if (blob.size > 10 * 1024 * 1024) throw new Error('Ukuran foto setelah kompresi maksimal 10 MB.');
+		const baseName = file.name.replace(/\.[^.]+$/, '') || 'foto';
+		return new File([blob], `${baseName}.webp`, { type: 'image/webp', lastModified: Date.now() });
+	} finally { bitmap.close(); }
+}
+
+function appendFormUploads(body: FormData, selections: FormUploadSelection[]): void {
+	for (const selection of selections) {
+		const row = selection.entryIndex === null ? 's' : String(selection.entryIndex);
+		for (const file of selection.files) body.append(`form_file:${row}:${selection.fieldKey}`, file, file.name);
+	}
+}
+
 export async function submitRevision(token: string, id: number, input: {
-	response: string; updates: RevisionUpdate[]; files: Partial<Record<RevisionDocumentCategory, File>>;
+	response: string; updates: RevisionUpdate[]; files: Partial<Record<RevisionDocumentCategory, File>>; formFiles?: FormUploadSelection[];
 }) {
 	const body = new FormData();
 	body.append('payload', JSON.stringify({ response: input.response, updates: input.updates.map(({ kind, key, entry_index, value }) => ({ kind, key, entry_index, value })) }));
@@ -97,6 +131,7 @@ export async function submitRevision(token: string, id: number, input: {
 		const file = input.files[category];
 		if (file) body.append(category, file, file.name);
 	}
+	appendFormUploads(body, input.formFiles ?? []);
 	return apiRequest<ApiEnvelope<{ id: number; status: string; resumed_to_previous_handler: boolean; returned_to_korwil: boolean }>>(`requests/${id}/revision`, { method: 'POST', token, body });
 }
 export type RequestRejectionReason = { id: number; code: string; label: string; scope_type: 'system' | 'division' | 'catalog' };
@@ -107,13 +142,15 @@ export async function createRequest(token: string, input: {
 	authority_type: 'korwil' | 'central'; central_division_id: number | null;
 	work_catalog_id: number | null; form_version_id: number | null;
 	form_answers: Record<string, string | number> | { __entries: Array<Record<string, string | number>> };
+	form_files?: FormUploadSelection[];
 	subject: string; description: string;
 	inoffice_letter_number: string | null; inoffice_letter_date: string | null; inoffice_letter: File | null;
 }) {
-	const { inoffice_letter, ...payload } = input;
+	const { inoffice_letter, form_files, ...payload } = input;
 	const body = new FormData();
 	body.append('payload', JSON.stringify(payload));
 	if (inoffice_letter) body.append('inoffice_letter', inoffice_letter, inoffice_letter.name);
+	appendFormUploads(body, form_files ?? []);
 	return apiRequest<ApiEnvelope<{
 		id: number; request_number: string; routed_to: 'korwil' | 'central'; unit_code: string;
 	}>>('requests', { method: 'POST', token, body });
@@ -122,7 +159,7 @@ export async function fetchRequestAttachmentBlob(token: string, requestId: numbe
 	const baseUrl = import.meta.env.VITE_API_BASE_URL;
 	if (!baseUrl) throw new Error('Alamat backend belum diatur di file .env frontend.');
 	const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/requests/${requestId}/attachments/${attachmentId}`, {
-		headers: { accept: 'application/pdf', authorization: `Bearer ${token}` }
+		headers: { accept: '*/*', authorization: `Bearer ${token}` }
 	});
 	if (!response.ok) {
 		const payload: unknown = await response.json().catch(() => null);

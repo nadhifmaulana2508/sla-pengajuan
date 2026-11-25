@@ -2,7 +2,17 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { resolveSlaAccess } from './access.service.js';
 import { SsoAuthError } from './auth.service.js';
-import { isDummyAuthAvailable, listDummyUsers, loginAsDummy, loginWithSso, resolveBearerIdentity } from './identity.service.js';
+import {
+	isDummyAuthAvailable,
+	isSsoDummyLoginAvailable,
+	listDummyUsers,
+	loginAsDummy,
+	loginWithSso,
+	loginWithSsoDummy,
+	resolveBearerIdentity
+} from './identity.service.js';
+import { recordUserActivity } from '../audit/activity-audit.service.js';
+import { requireRequestIdentity } from './request-auth.middleware.js';
 
 export const authRouter = Router();
 
@@ -11,6 +21,7 @@ const loginSchema = z.object({
 	password: z.string().min(1).max(256)
 });
 const dummyLoginSchema = z.object({ employee_id: z.string().trim().min(1).max(80) });
+const ACCESS_NOT_ACTIVE_MESSAGE = 'SSO berhasil memverifikasi akun, tetapi akses Sistem SLA belum aktif. Hubungi Admin Sistem SLA untuk mengaktifkan akun dan menetapkan peran serta cakupannya.';
 
 async function addSlaAccess(profile: Awaited<ReturnType<typeof resolveBearerIdentity>>) {
 	return {
@@ -55,11 +66,44 @@ authRouter.post('/login', async (request, response) => {
 	try {
 		const result = await loginWithSso(parsed.data.id_peg, parsed.data.password);
 		const profile = await addSlaAccess(result.profile);
+		if (!profile.sla_access.enabled) {
+			throw new SsoAuthError(403, ACCESS_NOT_ACTIVE_MESSAGE);
+		}
+		await recordUserActivity(profile.employee_id, 'POST', '/api/v1/auth/login', 200);
 		response.status(200).json({
 			status: 200,
 			message: 'Login berhasil.',
 			data: { ...result, profile }
 		});
+	} catch (error) {
+		sendAuthError(error, response);
+	}
+});
+
+authRouter.get('/sso-dummy-login-status', (_request, response) => {
+	response.status(200).json({
+		status: 200,
+		message: 'Status uji SSO berhasil dimuat.',
+		data: { enabled: isSsoDummyLoginAvailable() }
+	});
+});
+
+authRouter.post('/sso-dummy-login', async (request, response) => {
+	if (!isSsoDummyLoginAvailable()) {
+		response.status(404).json({ status: 404, message: 'Route not found', data: null });
+		return;
+	}
+	const parsed = z.object({ id_peg: z.string().trim().min(1).max(80) }).safeParse(request.body);
+	if (!parsed.success) {
+		response.status(400).json({ status: 400, message: 'Masukkan ID pegawai untuk uji login SSO.', data: null });
+		return;
+	}
+	try {
+		const result = await loginWithSsoDummy(parsed.data.id_peg);
+		const profile = await addSlaAccess(result.profile);
+		if (!profile.sla_access.enabled) throw new SsoAuthError(403, ACCESS_NOT_ACTIVE_MESSAGE);
+		await recordUserActivity(profile.employee_id, 'POST', '/api/v1/auth/sso-dummy-login', 200);
+		response.status(200).json({ status: 200, message: 'Uji login SSO berhasil.', data: { ...result, profile } });
 	} catch (error) {
 		sendAuthError(error, response);
 	}
@@ -89,6 +133,7 @@ authRouter.post('/dummy-login', async (request, response) => {
 	}
 	try {
 		const result = await loginAsDummy(parsed.data.employee_id);
+		await recordUserActivity(result.profile.employee_id, 'POST', '/api/v1/auth/dummy-login', 200);
 		response.status(200).json({ status: 200, message: 'Login akun dummy berhasil.', data: result });
 	} catch (error) {
 		sendAuthError(error, response);
@@ -108,8 +153,17 @@ authRouter.get('/whoami', async (request, response) => {
 
 	try {
 		const profile = await resolveBearerIdentity(token);
-		response.status(200).json({ status: 200, message: 'OK', data: await addSlaAccess(profile) });
+		response.locals.slaEmployeeId = profile.employee_id;
+		const authenticatedProfile = await addSlaAccess(profile);
+		if (!authenticatedProfile.sla_access.enabled) {
+			throw new SsoAuthError(403, ACCESS_NOT_ACTIVE_MESSAGE);
+		}
+		response.status(200).json({ status: 200, message: 'OK', data: authenticatedProfile });
 	} catch (error) {
 		sendAuthError(error, response);
 	}
+});
+
+authRouter.post('/logout', requireRequestIdentity, (_request, response) => {
+	response.status(200).json({ status: 200, message: 'Logout berhasil dicatat.', data: null });
 });

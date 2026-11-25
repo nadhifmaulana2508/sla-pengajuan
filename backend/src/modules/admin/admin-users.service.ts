@@ -1,6 +1,8 @@
-import type { PoolConnection, RowDataPacket } from 'mysql2/promise';
+import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { mysqlPool } from '../../db/client.js';
 import { inferKorwilFromSsoText, normalizeSsoUnitName } from '../organization/sso-scope.js';
+import type { SsoEmployee } from '../auth/auth.service.js';
+import { searchSsoEmployees } from '../auth/identity.service.js';
 
 export type ScopeType = 'global' | 'office' | 'korwil' | 'division';
 
@@ -195,6 +197,148 @@ export async function getAdminAccessOptions() {
 	};
 }
 
+export async function importSsoEmployee(employeeId: string, actorEmployeeId: string): Promise<{
+	id: number;
+	auto_role_code: string | null;
+	auto_scope_label: string | null;
+}> {
+	const candidates = await searchSsoEmployees(employeeId);
+	const employee = candidates.find((candidate) => candidate.employee_id === employeeId) as SsoEmployee | undefined;
+	if (!employee) throw new AdminUserAccessError(404, 'Pegawai tidak ditemukan pada direktori SSO.');
+
+	const connection = await mysqlPool.getConnection();
+	try {
+		await connection.beginTransaction();
+		const [existingRows] = await connection.execute<IdRow[]>(
+			'SELECT id FROM users WHERE employee_id = ? LIMIT 1 FOR UPDATE',
+			[employee.employee_id]
+		);
+		if (existingRows[0]) throw new AdminUserAccessError(409, 'Pegawai ini sudah ada di daftar Sistem SLA.');
+
+		const [actorRows] = await connection.execute<Array<RowDataPacket & { id: number }>>(
+			`SELECT u.id FROM users u
+			INNER JOIN user_role_scopes scope ON scope.user_id = u.id AND scope.is_active = 1
+			INNER JOIN roles role ON role.id = scope.role_id AND role.is_active = 1
+			WHERE u.employee_id = ? AND u.is_active = 1 AND role.kode = 'admin'
+				AND scope.scope_type = 'global' LIMIT 1 FOR UPDATE`,
+			[actorEmployeeId]
+		);
+		if (!actorRows[0]) throw new AdminUserAccessError(403, 'Akses Admin global tidak aktif. Muat ulang sesi sebelum melanjutkan.');
+
+		const officeCode = employee.kode?.trim() ?? '';
+		let kodeKantor: string | null = null;
+		let profileKorwil: string | null = null;
+		if (/^\d{3}$/.test(officeCode)) {
+			const [officeRows] = await connection.execute<Array<RowDataPacket & { kode_kantor: string; korwil: string }>>(
+				'SELECT kode_kantor, korwil FROM master_kantor WHERE kode_kantor = ? AND is_active = 1 LIMIT 1',
+				[officeCode]
+			);
+			if (officeRows[0]) {
+				kodeKantor = officeRows[0].kode_kantor;
+				if (officeRows[0].korwil !== 'pusat') profileKorwil = officeRows[0].korwil;
+			}
+		}
+
+		const [knownKorwilRows] = await connection.execute<Array<RowDataPacket & { korwil: string }>>(
+			`SELECT DISTINCT korwil FROM master_kantor
+			WHERE is_active = 1 AND korwil <> 'pusat' ORDER BY korwil`
+		);
+		const korwil = profileKorwil ?? inferKorwilFromSsoText(employee, knownKorwilRows.map((row) => row.korwil));
+
+		let divisiId: number | null = null;
+		const unitKey = normalizeSsoUnitName(employee.unit_kerja);
+		if (unitKey) {
+			const [divisionRows] = await connection.execute<IdRow[]>(
+				`SELECT division.id FROM division_sso_unit_aliases alias
+				INNER JOIN master_divisi division ON division.id = alias.division_id AND division.is_active = 1
+				WHERE alias.unit_kerja_key = ? LIMIT 2`,
+				[unitKey]
+			);
+			if (divisionRows.length === 1) divisiId = Number(divisionRows[0]?.id);
+		}
+
+		let roleCode: 'branch_user' | 'korwil_staff' | 'division_staff' | null = null;
+		let scopeType: ScopeType | null = null;
+		let autoScopeLabel: string | null = null;
+		if (kodeKantor === '000' && divisiId !== null) {
+			roleCode = 'division_staff';
+			scopeType = 'division';
+			const [divisionRows] = await connection.execute<Array<RowDataPacket & { nama_divisi: string }>>(
+				'SELECT nama_divisi FROM master_divisi WHERE id = ? LIMIT 1', [divisiId]
+			);
+			autoScopeLabel = divisionRows[0]?.nama_divisi ?? null;
+		} else if (kodeKantor === '000' && korwil) {
+			roleCode = 'korwil_staff';
+			scopeType = 'korwil';
+			autoScopeLabel = korwil;
+		}
+
+		const [userResult] = await connection.execute<ResultSetHeader>(
+			`INSERT INTO users (
+				employee_id, full_name, branch_name, unit_kerja, job_position,
+				kode_kantor, divisi_id, is_active, profile_synced_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`,
+			[
+				employee.employee_id,
+				employee.full_name,
+				employee.branch_name ?? null,
+				employee.unit_kerja ?? null,
+				employee.job_position ?? null,
+				kodeKantor,
+				divisiId
+			]
+		);
+		const userId = Number(userResult.insertId);
+
+		if (roleCode && scopeType) {
+			const [roleRows] = await connection.execute<Array<RowDataPacket & { id: number }>>(
+				'SELECT id FROM roles WHERE kode = ? AND is_active = 1 LIMIT 1', [roleCode]
+			);
+			if (!roleRows[0]) throw new Error('Peran hasil pemetaan tidak tersedia.');
+			await connection.execute(
+				`INSERT INTO user_role_scopes
+					(user_id, role_id, scope_type, kode_kantor, korwil, divisi_id, can_manage_forms, is_active)
+				VALUES (?, ?, ?, ?, ?, ?, 0, 1)`,
+				[
+					userId,
+					roleRows[0].id,
+					scopeType,
+					null,
+					scopeType === 'korwil' ? korwil : null,
+					scopeType === 'division' ? divisiId : null
+				]
+			);
+		}
+
+		await connection.execute(
+			`INSERT INTO user_access_audit_logs
+				(actor_user_id, target_user_id, action, before_data, after_data)
+			VALUES (?, ?, 'sso_employee_imported', NULL, ?)`,
+			[
+				actorRows[0].id,
+				userId,
+				JSON.stringify({
+					source: 'sso_employee_search',
+					auto_role_code: roleCode,
+					auto_scope_label: autoScopeLabel,
+					account_active: false
+				})
+			]
+		);
+
+		await connection.commit();
+		return { id: userId, auto_role_code: roleCode, auto_scope_label: autoScopeLabel };
+	} catch (error) {
+		await connection.rollback();
+		if (error && typeof error === 'object' && 'code' in error && error.code === 'ER_DUP_ENTRY') {
+			throw new AdminUserAccessError(409, 'Pegawai ini sudah ada di daftar Sistem SLA.');
+		}
+		throw error;
+	} finally {
+		connection.release();
+	}
+}
+
 export async function updateAdminUserAccess(
 	userId: number,
 	actorEmployeeId: string,
@@ -285,7 +429,6 @@ export async function updateAdminUserAccess(
 				admin: 'global',
 				branch_user: 'office',
 				korwil_staff: 'korwil',
-				korwil_approver: 'korwil',
 				division_staff: 'division'
 			};
 			if (requiredScope[role.kode] && requiredScope[role.kode] !== assignment.scope_type) {
@@ -331,7 +474,7 @@ export async function updateAdminUserAccess(
 				}
 				targetKey = `office:${resolvedOfficeCode}`;
 			} else if (assignment.scope_type === 'korwil') {
-				const automaticKorwil = ['korwil_staff', 'korwil_approver'].includes(role.kode);
+				const automaticKorwil = role.kode === 'korwil_staff';
 				if (assignment.kode_kantor || assignment.divisi_id !== null || (automaticKorwil && assignment.korwil !== null)) {
 					throw new AdminUserAccessError(400, 'Cakupan Petugas Korwil mengikuti profil SSO, bukan pilihan manual.');
 				}

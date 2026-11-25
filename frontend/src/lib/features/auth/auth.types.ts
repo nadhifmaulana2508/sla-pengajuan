@@ -19,7 +19,6 @@ export type AuthenticatedProfile = SsoProfile & {
 			| 'admin'
 			| 'branch_user'
 			| 'korwil_staff'
-			| 'korwil_approver'
 			| 'division_staff'
 			| 'supervisor'
 			| 'management'

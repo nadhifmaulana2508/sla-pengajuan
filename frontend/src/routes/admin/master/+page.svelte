@@ -15,7 +15,8 @@
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
 	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
-	import { BriefcaseBusiness, ChevronDown, ListFilter, Plus, Search } from '@lucide/svelte';
+	import { Popover } from 'bits-ui';
+	import { BriefcaseBusiness, ListFilter, Plus, Search } from '@lucide/svelte';
 	import {
 		createWorkCatalog,
 		fetchAdminMasterData,
@@ -86,6 +87,11 @@
 			return matchesDivision && matchesQuery;
 		});
 	});
+
+	function resetCatalogFilters(): void {
+		divisionFilter = 'all';
+		searchQuery = '';
+	}
 
 	onMount(() => {
 		let token: string | null = null;
@@ -256,7 +262,11 @@
 	<AppNavbar />
 
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
-		<AppPageHeading eyebrow="Administrasi" title="Master pekerjaan" description="Atur jalur pengajuan dan target SLA untuk setiap jenis pekerjaan di Divisi Pusat." />
+		<AppPageHeading eyebrow="Administrasi" title="Master pekerjaan" description="Atur jalur pengajuan dan target SLA untuk setiap jenis pekerjaan di Divisi Pusat." descriptionInInfoOnly>
+			{#snippet actions()}
+				<Button size="lg" class="min-h-11 create-button" onclick={startNewWorkCatalog}><Plus class="size-4" aria-hidden="true" />Tambah pekerjaan</Button>
+			{/snippet}
+		</AppPageHeading>
 
 		{#if statusMessage}
 			<p class="save-status" role="status" aria-live="polite">{statusMessage}</p>
@@ -284,11 +294,13 @@
 								<Textarea id="work-description" bind:value={form.deskripsi} maxlength={500} rows={3} class="min-h-24 border-input" placeholder="Jelaskan singkat ruang lingkup pekerjaan" />
 							</div>
 							<div class="field-group">
-								<Label for="work-routing">Alur pengajuan</Label>
-								<SearchableSelect id="work-routing" label="Alur pengajuan" options={routingFlowItems} value={form.routing_flow} onValueChange={(value) => (form.routing_flow = value as CatalogForm['routing_flow'])} placeholder="Pilih alur" searchPlaceholder="Cari alur..." />
-								<p id="routing-help" class="field-help">Tentukan apakah tiket diperiksa Korwil sebelum masuk ke divisi tujuan.</p>
 								{#if workCatalogs.find((item) => item.id === editingId)?.system_key === 'credit_application'}
-									<p class="field-help">Untuk kredit, nilai Rp250 juta sampai di bawah Rp500 juta tetap ditangani Korwil. Pilihan ini berlaku untuk nilai mulai Rp500 juta.</p>
+									<strong>Alur pengajuan kredit</strong>
+									<p id="routing-help" class="field-help">Jalur kredit otomatis berdasarkan nominal: Rp200 juta sampai di bawah Rp500 juta ditangani Korwil; mulai Rp500 juta diperiksa Korwil lalu diteruskan ke Pemasaran.</p>
+								{:else}
+									<Label for="work-routing">Alur pengajuan</Label>
+									<SearchableSelect id="work-routing" label="Alur pengajuan" options={routingFlowItems} value={form.routing_flow} onValueChange={(value) => (form.routing_flow = value as CatalogForm['routing_flow'])} placeholder="Pilih alur" searchPlaceholder="Cari alur..." />
+									<p id="routing-help" class="field-help">Tentukan apakah tiket diperiksa Korwil sebelum masuk ke divisi tujuan.</p>
 								{/if}
 							</div>
 							<div class="field-group">
@@ -322,45 +334,57 @@
 				</Card.Root>
 			{/if}
 
-			<Card.Root size="sm" class="catalog-card" aria-labelledby="catalog-title">
-				<Card.Header class="catalog-header">
-					<div class="catalog-heading">
-						<BriefcaseBusiness class="list-heading-icon" aria-hidden="true" />
-						<div class="list-heading-copy">
-							<Card.Title id="catalog-title">Daftar pekerjaan</Card.Title>
-							<Card.Description>
-								{#if isLoading}
-									Sedang memuat master dari database.
-								{:else}
-									{filteredCatalogs.length} pekerjaan sesuai filter.
-								{/if}
-							</Card.Description>
-						</div>
-					</div>
-					<div class="catalog-header-actions">
-						{#if !isLoading && !loadError}<Badge variant="secondary">{workCatalogs.filter((item) => item.is_active).length} aktif</Badge>{/if}
-						<Button type="button" variant={isFiltersOpen ? 'secondary' : 'outline'} class="filter-toggle min-h-11" aria-expanded={isFiltersOpen} aria-controls="work-catalog-filters" onclick={() => (isFiltersOpen = !isFiltersOpen)}>
-							<ListFilter class="size-4" aria-hidden="true" />{isFiltersOpen ? 'Tutup filter' : 'Buka filter'}<ChevronDown class={isFiltersOpen ? 'filter-chevron size-4 filter-chevron--open' : 'filter-chevron size-4'} aria-hidden="true" />
-						</Button>
-					</div>
-				</Card.Header>
-				<Card.Content class="catalog-content">
-					<div class="catalog-toolbar">
-						<div id="work-catalog-filters" class="filters" hidden={!isFiltersOpen}>
-							<div class="filter-field">
-								<Label for="division-filter">Divisi</Label>
-								<SearchableSelect id="division-filter" label="Divisi" options={divisionFilterItems} value={divisionFilter} onValueChange={(value) => (divisionFilter = value)} placeholder="Semua divisi" searchPlaceholder="Cari divisi..." />
-							</div>
-							<div class="filter-field search-field">
-								<Label for="catalog-search" class="sr-only">Cari pekerjaan</Label>
-								<div class="search-control">
-									<Search class="search-icon" aria-hidden="true" />
-									<Input id="catalog-search" bind:value={searchQuery} placeholder="Cari pekerjaan atau divisi" class="min-h-11 border-input" />
-								</div>
+			<div class="catalog-section">
+				<Card.Root size="sm" class="catalog-card" aria-labelledby="catalog-title">
+					<Card.Header class="catalog-header">
+						<div class="catalog-heading">
+							<BriefcaseBusiness class="list-heading-icon" aria-hidden="true" />
+							<div class="list-heading-copy">
+								<Card.Title id="catalog-title">Daftar pekerjaan</Card.Title>
+								<Card.Description>
+									{#if isLoading}
+										Sedang memuat master dari database.
+									{:else}
+										{filteredCatalogs.length} pekerjaan sesuai filter.
+									{/if}
+								</Card.Description>
 							</div>
 						</div>
-						<Button size="lg" class="min-h-11 create-button" onclick={startNewWorkCatalog}><Plus class="size-4" aria-hidden="true" />Tambah pekerjaan</Button>
-					</div>
+						<div class="catalog-header-actions">
+							<div class="search-control catalog-search-control">
+								<Search class="search-icon" aria-hidden="true" />
+								<Input id="catalog-search" bind:value={searchQuery} placeholder="Cari pekerjaan atau divisi" class="min-h-11 border-input" aria-label="Cari pekerjaan atau divisi" />
+							</div>
+							<Popover.Root bind:open={isFiltersOpen}>
+								<Popover.Trigger>
+									{#snippet child({ props })}
+										<Button {...props} type="button" variant="outline" class="filter-trigger min-h-11" aria-haspopup="dialog" aria-expanded={isFiltersOpen}><ListFilter class="size-4" aria-hidden="true" />Filter</Button>
+									{/snippet}
+								</Popover.Trigger>
+								<Popover.Portal>
+									<Popover.Content class="app-filter-popover" side="bottom" align="end" sideOffset={8} trapFocus={false} aria-labelledby="catalog-filter-title" aria-describedby="catalog-filter-description">
+										<div class="app-filter-popover-header">
+											<h2 id="catalog-filter-title" class="app-filter-popover-title">Filter pekerjaan</h2>
+											<p id="catalog-filter-description" class="app-filter-popover-description">Pilih divisi untuk menyaring daftar pekerjaan.</p>
+										</div>
+										<form class="app-filter-popover-form" onsubmit={(event) => { event.preventDefault(); isFiltersOpen = false; }}>
+											<div class="app-filter-popover-fields">
+												<div class="filter-field">
+													<Label for="division-filter">Divisi</Label>
+													<SearchableSelect id="division-filter" label="Divisi" options={divisionFilterItems} value={divisionFilter} onValueChange={(value) => (divisionFilter = value)} placeholder="Semua divisi" searchPlaceholder="Cari divisi..." />
+												</div>
+											</div>
+											<div class="app-filter-popover-actions">
+												<Button type="button" variant="outline" class="min-h-11" disabled={divisionFilter === 'all' && !searchQuery} onclick={() => { resetCatalogFilters(); isFiltersOpen = false; }}>Reset</Button>
+												<Button type="submit" class="min-h-11">Terapkan</Button>
+											</div>
+										</form>
+									</Popover.Content>
+								</Popover.Portal>
+							</Popover.Root>
+						</div>
+					</Card.Header>
+					<Card.Content class="catalog-content">
 					<Separator class="list-separator" />
 					{#if isLoading}
 						<div class="state-panel" role="status" aria-live="polite">
@@ -432,8 +456,9 @@
 							{/each}
 						</div>
 					{/if}
-				</Card.Content>
-			</Card.Root>
+					</Card.Content>
+				</Card.Root>
+			</div>
 		</div>
 	</section>
 </main>
@@ -452,28 +477,37 @@
 		margin-bottom: 0;
 	}
 
+	:global(.admin-content .app-page-title) {
+		font-size: clamp(1.7rem, 2.6vw, 2.25rem);
+	}
+
 	.admin-page {
 		min-height: 100svh;
 		background: var(--muted);
 		color: var(--foreground);
 	}
 
-	.catalog-toolbar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: 0.75rem;
-		margin: 0;
-	}
-
-	.filters {
+	.catalog-section {
 		display: grid;
 		min-width: 0;
-		flex: 1 1 28rem;
-		grid-template-columns: minmax(10rem, 0.78fr) minmax(14rem, 1.1fr);
-		align-items: end;
+		align-content: start;
 		gap: 0.75rem;
+	}
+
+	.catalog-header-actions {
+		display: flex;
+		min-width: 0;
+		flex: 0 1 auto;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.5rem;
+	}
+
+	.catalog-search-control {
+		display: block;
+		width: min(19rem, 100%);
+		flex: 1 1 14rem;
 	}
 
 	.filter-field,
@@ -487,10 +521,6 @@
 		width: 100%;
 	}
 
-	.search-field {
-		width: 100%;
-	}
-
 	.search-control {
 		position: relative;
 		min-width: 0;
@@ -498,6 +528,10 @@
 
 	.search-control :global(input) {
 		padding-left: 2.5rem;
+	}
+
+	.catalog-search-control :global(input) {
+		width: 100%;
 	}
 
 	:global(.search-icon) {
@@ -541,28 +575,6 @@
 		justify-content: space-between;
 		gap: 0.75rem 1rem;
 		padding-bottom: 0;
-	}
-
-	.catalog-header-actions {
-		display: flex;
-		min-width: 0;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: flex-end;
-		gap: 0.5rem;
-	}
-
-	:global(.filter-toggle) {
-		gap: 0.45rem;
-		white-space: nowrap;
-	}
-
-	:global(.filter-chevron) {
-		transition: transform 150ms ease;
-	}
-
-	:global(.filter-chevron--open) {
-		transform: rotate(180deg);
 	}
 
 	.catalog-heading {
@@ -779,33 +791,30 @@
 	}
 
 	@media (max-width: 42rem) {
-		.catalog-toolbar {
-			align-items: stretch;
-			flex-direction: column;
-			width: 100%;
+		:global(.admin-content .app-page-title) {
+			font-size: clamp(1.4rem, 6vw, 1.7rem);
+			line-height: 1.15;
 		}
 
-		.filters {
-			grid-template-columns: minmax(0, 1fr);
-			flex: 0 1 auto;
-			align-content: start;
-			align-items: stretch;
-			grid-auto-rows: max-content;
-			min-height: 0;
+		.catalog-header-actions {
+			width: 100%;
+			justify-content: flex-start;
 		}
 
 		:global(.create-button) {
+			flex: 1 0 100%;
 			width: 100%;
+		}
+
+		.catalog-search-control {
+			width: auto;
+			max-width: none;
+			flex: 1 1 12rem;
 		}
 	}
 
 	@media (max-width: 42rem) {
-		.filter-field,
-		.search-field {
-			width: 100%;
-		}
-
-		:global(.create-button) {
+		.filter-field {
 			width: 100%;
 		}
 
@@ -813,10 +822,22 @@
 			align-items: flex-start;
 		}
 
+	}
+
+	@media (max-width: 24rem) {
 		.catalog-header-actions {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
 			width: 100%;
-			justify-content: space-between;
 		}
 
+		:global(.create-button) {
+			grid-column: 1 / -1;
+		}
+
+		.catalog-search-control {
+			width: 100%;
+			min-width: 0;
+		}
 	}
 </style>

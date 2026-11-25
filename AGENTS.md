@@ -52,7 +52,7 @@ Jangan mengganti stack ini ke Laravel, PHP, atau framework lain tanpa arahan pem
 - Mapping awal: 001-007 Semarang Raya, 008-014 Solo Raya, 015-021 Banyumas Raya, 022-028 Pekalongan Raya.
 - Data sumber juga memuat kode kantor `000` bernama `Pusat`; ini kantor pusat, bukan Cabang ke-29. Master lokal awal bernama `master_kantor` dengan kolom `id`, `kode_kantor`, `nama_kantor`, `korwil`, dan `is_active`.
 - Total Divisi Pusat ada 9: Penyelesaian Kredit, Pemasaran, Sekretaris Perusahaan, Operasional, Litbang, SKK, SKMR, SKAI, dan SDM. Katalog pekerjaan dapat ditambah Admin melalui master data.
-- Pengajuan kredit di bawah Rp250 juta ditolak tanpa membuat tiket. Nilai Rp250 juta sampai di bawah Rp500 juta ditangani Korwil. Nilai mulai Rp500 juta diperiksa Korwil lalu diteruskan ke Pemasaran. Backend menentukan jalur dari nilai yang tersimpan dan form kredit wajib memakai field nilai sistem.
+- Pengajuan kredit di bawah Rp200 juta ditolak tanpa membuat tiket. Nilai Rp200 juta sampai di bawah Rp500 juta otomatis ditangani Korwil. Nilai mulai Rp500 juta otomatis ditetapkan ke Pemasaran, diperiksa Korwil, lalu diteruskan. Backend menentukan jalur dari nilai yang tersimpan dan form kredit wajib memakai field nilai sistem.
 - Perubahan definisi form harus menerbitkan versi baru. Simpan ID versi dan snapshot jawaban pada tiket; jangan mengubah versi yang sudah dipakai tiket lama.
 - Cabang memilih kewenangan. Jika memilih Pusat, Cabang juga memilih Divisi Pusat dan jenis pekerjaan yang tersedia untuk divisi tersebut.
 - Pengajuan dengan tujuan Pusat selalu melewati Korwil terlebih dahulu.

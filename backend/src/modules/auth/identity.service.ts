@@ -9,6 +9,7 @@ const DUMMY_TOKEN_PREFIX = 'sla-dummy:';
 const sso = createSsoClient({
 	baseUrl: env.SSO_BASE_URL,
 	appCode: env.SSO_APP_CODE,
+	appToken: env.SSO_APP_TOKEN,
 	timeoutMs: env.SSO_TIMEOUT_MS,
 	connectIp: env.SSO_CONNECT_IP
 });
@@ -87,6 +88,23 @@ export async function loginWithSso(idPeg: string, password: string): Promise<{ t
 	const result = await sso.login(idPeg, password);
 	await syncSsoProfile(result.profile);
 	return result;
+}
+
+export async function loginWithSsoDummy(idPeg: string): Promise<{ token: string; profile: SsoProfile }> {
+	if (env.NODE_ENV !== 'development' || !env.SSO_DUMMY_LOGIN_ENABLED) {
+		throw new SsoAuthError(403, 'Uji login dummy SSO hanya tersedia jika diaktifkan pada backend development.');
+	}
+	const result = await sso.loginDummy(idPeg);
+	await syncSsoProfile(result.profile);
+	return result;
+}
+
+export async function searchSsoEmployees(query: string) {
+	return sso.searchEmployees(query);
+}
+
+export function isSsoDummyLoginAvailable(): boolean {
+	return env.NODE_ENV === 'development' && env.SSO_DUMMY_LOGIN_ENABLED && Boolean(env.SSO_APP_TOKEN);
 }
 
 export async function resolveBearerIdentity(token: string): Promise<SsoProfile> {

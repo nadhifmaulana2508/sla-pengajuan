@@ -8,11 +8,11 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
-	import { Popover } from 'bits-ui';
 	import SearchableSelect from '#lib/components/SearchableSelect.svelte';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
 	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
-	import { ArrowRight, BarChart3, Building2, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileClock, History, Inbox, ListFilter, LoaderCircle, RefreshCcw, UsersRound, XCircle } from '@lucide/svelte';
+	import { Popover } from 'bits-ui';
+import { ArrowRight, BarChart3, Building2, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileClock, History, Inbox, ListFilter, LoaderCircle, Search, UsersRound, XCircle } from '@lucide/svelte';
 	import { fetchCurrentProfile } from '#lib/features/auth/auth.api.js';
 	import { authSession, clearAuthenticatedSession, updateProfile } from '#lib/features/auth/auth.store.js';
 	import type { AuthenticatedProfile } from '#lib/features/auth/auth.types.js';
@@ -28,7 +28,15 @@
 	let toDate = $state('');
 	let selectedKorwil = $state('all');
 	let selectedDivisionId = $state('all');
+	let selectedWorkCatalogId = $state('all');
+	let selectedStatus = $state('all');
 	let isFilterOpen = $state(false);
+let ticketSearch = $state('');
+let ticketStatusFilter = $state('all');
+let ticketSlaFilter = $state('all');
+let draftTicketStatusFilter = $state('all');
+let draftTicketSlaFilter = $state('all');
+let isTicketFilterOpen = $state(false);
 	let ticketPage = $state(1);
 	let isLoading = $state(true);
 	let errorMessage = $state('');
@@ -41,6 +49,26 @@
 		{ value: 'all', label: 'Semua Divisi' },
 		...(dashboard?.filter_options?.divisions ?? []).map((item) => ({ value: String(item.id), label: item.nama_divisi }))
 	]);
+	let workCatalogFilterItems = $derived([
+		{ value: 'all', label: 'Semua jenis pekerjaan' },
+		...(dashboard?.filter_options?.work_catalogs ?? []).map((item) => ({
+			value: String(item.id), label: `${item.nama_pekerjaan}${item.is_active ? '' : ' (Nonaktif)'}`
+		}))
+	]);
+	let activeWorkCatalog = $derived(dashboard?.view === 'division' && dashboard.filters.workCatalogId !== null
+		? dashboard.filter_options?.work_catalogs?.find((item) => item.id === dashboard?.filters.workCatalogId) ?? null
+		: null);
+	const statusFilterItems = [
+		{ value: 'all', label: 'Semua status' },
+		...Object.entries(statusLabels).map(([value, label]) => ({ value, label }))
+	];
+const ticketSlaFilterItems = [
+	{ value: 'all', label: 'Semua SLA' },
+	{ value: 'safe', label: 'Hijau < 3 hari' },
+	{ value: 'warning', label: 'Kuning 3–7 hari' },
+	{ value: 'overdue', label: 'Merah > 7 hari' }
+];
+let isAdminDashboard = $derived(dashboard?.view === 'admin' && profile?.sla_access.role === 'admin');
 	let currentPeriod = $derived.by(() => {
 		if (!dashboard?.filters.from && !dashboard?.filters.to) return 'Semua tanggal';
 		return `${dashboard?.filters.from ?? 'Awal'} sampai ${dashboard?.filters.to ?? 'Sekarang'}`;
@@ -65,8 +93,27 @@
 			return new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime();
 		});
 	});
-	let ticketPageCount = $derived(Math.max(1, Math.ceil(prioritizedRequests.length / ticketPageSize)));
-	let visibleRequests = $derived(prioritizedRequests.slice((ticketPage - 1) * ticketPageSize, ticketPage * ticketPageSize));
+	let filteredRequests = $derived.by(() => {
+		const query = ticketSearch.trim().toLocaleLowerCase('id-ID');
+		return prioritizedRequests.filter((item) => {
+			if (ticketStatusFilter !== 'all' && item.status !== ticketStatusFilter) return false;
+			if (ticketSlaFilter !== 'all' && item.sla_status !== ticketSlaFilter) return false;
+			if (!query) return true;
+			return [
+				item.request_number,
+				item.subject,
+				item.nama_kantor,
+				item.korwil,
+				item.nama_divisi ?? '',
+				item.nama_pekerjaan ?? '',
+				statusLabels[item.status] ?? item.status,
+				currentLocation(item)
+			].some((value) => value.toLocaleLowerCase('id-ID').includes(query));
+		});
+	});
+	let hasTicketPanelFilters = $derived(ticketSearch.trim().length > 0 || ticketStatusFilter !== 'all' || ticketSlaFilter !== 'all');
+	let ticketPageCount = $derived(Math.max(1, Math.ceil(filteredRequests.length / ticketPageSize)));
+	let visibleRequests = $derived(filteredRequests.slice((ticketPage - 1) * ticketPageSize, ticketPage * ticketPageSize));
 
 	onMount(() => {
 		defaultDateRange = getDefaultDateRange();
@@ -93,11 +140,7 @@
 			profile = currentProfile;
 			await loadDashboard(token);
 		} catch (error) {
-			if (error instanceof ApiError && error.status === 401) {
-				clearAuthenticatedSession();
-				await goto('/');
-				return;
-			}
+			if (await redirectForAccessError(error)) return;
 			errorMessage = error instanceof ApiError
 				? error.message
 				: 'Dashboard belum dapat dimuat. Coba lagi setelah koneksi pulih.';
@@ -118,14 +161,14 @@
 				from: fromDate || undefined,
 				to: toDate || undefined,
 				korwil: selectedKorwil === 'all' ? undefined : selectedKorwil,
-				division_id: selectedDivisionId === 'all' ? undefined : Number(selectedDivisionId)
+				division_id: selectedDivisionId === 'all' ? undefined : Number(selectedDivisionId),
+				status: selectedStatus === 'all' ? undefined : selectedStatus,
+				work_catalog_id: dashboard?.view === 'division' && selectedWorkCatalogId !== 'all'
+					? Number(selectedWorkCatalogId)
+					: undefined
 			})).data;
 		} catch (error) {
-			if (error instanceof ApiError && error.status === 401) {
-				clearAuthenticatedSession();
-				await goto('/');
-				return;
-			}
+			if (await redirectForAccessError(error)) return;
 			errorMessage = error instanceof ApiError
 				? error.message
 				: 'Dashboard belum dapat dimuat. Coba lagi setelah koneksi pulih.';
@@ -134,11 +177,22 @@
 		}
 	}
 
-	function applyFilters(event: SubmitEvent): void {
-		event.preventDefault();
+	async function redirectForAccessError(error: unknown): Promise<boolean> {
+		if (!(error instanceof ApiError) || (error.status !== 401 && error.status !== 403)) return false;
+		clearAuthenticatedSession();
+		await goto(error.status === 403 ? '/?notice=access-not-ready' : '/');
+		return true;
+	}
+
+	function applyFilters(): void {
 		ticketPage = 1;
-		isFilterOpen = false;
 		void loadDashboard();
+	}
+
+	function submitDashboardFilters(event: SubmitEvent): void {
+		event.preventDefault();
+		applyFilters();
+		isFilterOpen = false;
 	}
 
 	function clearFilters(): void {
@@ -146,10 +200,41 @@
 		toDate = defaultDateRange.to;
 		selectedKorwil = 'all';
 		selectedDivisionId = 'all';
+		selectedWorkCatalogId = 'all';
+		selectedStatus = 'all';
 		ticketPage = 1;
 		isFilterOpen = false;
 		void loadDashboard();
 	}
+
+function handleTicketFilterOpenChange(open: boolean): void {
+	if (open) {
+		draftTicketStatusFilter = ticketStatusFilter;
+		draftTicketSlaFilter = ticketSlaFilter;
+	}
+}
+
+function submitTicketFilters(event: SubmitEvent): void {
+	event.preventDefault();
+	ticketStatusFilter = draftTicketStatusFilter;
+	ticketSlaFilter = draftTicketSlaFilter;
+	ticketPage = 1;
+	isTicketFilterOpen = false;
+}
+
+function resetTicketFilters(): void {
+	ticketStatusFilter = 'all';
+	ticketSlaFilter = 'all';
+	draftTicketStatusFilter = 'all';
+	draftTicketSlaFilter = 'all';
+	ticketPage = 1;
+}
+
+function clearTicketSearchAndFilters(): void {
+	ticketSearch = '';
+	resetTicketFilters();
+	isTicketFilterOpen = false;
+}
 
 	type ManagementDrilldown = { status?: string; sla_status?: SlaStatus; korwil?: string; division_id?: number };
 	function managementHref(filters: ManagementDrilldown = {}): string {
@@ -213,49 +298,62 @@
 	<AppNavbar />
 
 	<section class="dashboard-content app-page-shell" aria-labelledby="dashboard-title">
-		<AppPageHeading id="dashboard-title" title={viewTitle(dashboard?.view)} description={viewDescription(dashboard?.view)}>
-			{#snippet actions()}
-				{#if dashboard}
-					<div class="dashboard-header-actions">
-						<div class="dashboard-header-badges">
-							<Badge variant="outline" class="scope-badge"><Building2 class="size-3.5" aria-hidden="true" />{dashboard.scope.label}</Badge>
-							<Badge variant="outline" class="period-badge">{currentPeriod}</Badge>
-						</div>
-						{#if dashboard.view === 'admin'}
-							<Popover.Root bind:open={isFilterOpen}>
-								<Popover.Trigger>
-									{#snippet child({ props })}
-										<Button {...props} type="button" variant="outline" class="filter-toggle min-h-11" aria-haspopup="dialog" aria-expanded={isFilterOpen}>
-											<ListFilter class="size-4" aria-hidden="true" />Filter
-										</Button>
-									{/snippet}
-								</Popover.Trigger>
-								<Popover.Content align="end" side="top" sideOffset={8} collisionPadding={12} class="dashboard-filter-popover" aria-label="Filter dashboard">
-									<div class="dashboard-filter-header"><h2>Filter dashboard</h2><p>Atur rentang tanggal dan cakupan tiket yang ingin dilihat.</p></div>
-									<form class="dashboard-filter-form" onsubmit={applyFilters}>
-										<div class="filter-field"><Label for="from-date">Dari tanggal</Label><Input id="from-date" type="date" class="h-11 w-full" bind:value={fromDate} /></div>
-										<div class="filter-field"><Label for="to-date">Sampai tanggal</Label><Input id="to-date" type="date" class="h-11 w-full" bind:value={toDate} /></div>
-										<div class="filter-field"><Label for="korwil-filter">Korwil</Label><SearchableSelect id="korwil-filter" label="Korwil" options={korwilFilterItems} value={selectedKorwil} onValueChange={(value) => (selectedKorwil = value)} placeholder="Semua Korwil" searchPlaceholder="Cari Korwil..." /></div>
-										<div class="filter-field"><Label for="division-filter">Divisi</Label><SearchableSelect id="division-filter" label="Divisi" options={divisionFilterItems} value={selectedDivisionId} onValueChange={(value) => (selectedDivisionId = value)} placeholder="Semua Divisi" searchPlaceholder="Cari divisi..." /></div>
-										<div class="dashboard-filter-actions">
-											<Button type="button" variant="outline" class="min-h-11" onclick={clearFilters} disabled={isLoading || (fromDate === defaultDateRange.from && toDate === defaultDateRange.to && selectedKorwil === 'all' && selectedDivisionId === 'all')}>Reset</Button>
-											<Button type="submit" class="min-h-11" disabled={isLoading}><RefreshCcw class="size-4" aria-hidden="true" />Terapkan</Button>
-										</div>
-									</form>
-								</Popover.Content>
-							</Popover.Root>
-						{/if}
+		<AppPageHeading id="dashboard-title" title={viewTitle(dashboard?.view)} descriptionInInfoOnly description={viewDescription(dashboard?.view)}>
+			{#snippet infoContent()}
+				<div class="dashboard-info-content">
+					<Badge variant="outline">Target SLA 7 hari</Badge>
+					<div class="sla-legend" aria-label="Ambang SLA">
+						<Badge variant="outline" class="sla-badge sla-badge--safe">Hijau &lt; 3 hari</Badge>
+						<Badge variant="outline" class="sla-badge sla-badge--warning">Kuning 3–7 hari</Badge>
+						<Badge variant="outline" class="sla-badge sla-badge--overdue">Merah &gt; 7 hari</Badge>
 					</div>
-				{/if}
+				</div>
 			{/snippet}
 		</AppPageHeading>
 
 		{#if dashboard}
-			<div class="sla-legend" aria-label="Ambang SLA">
-				<Badge variant="outline" class="target-badge">Target SLA 7 hari</Badge>
-				<Badge variant="outline" class="sla-badge sla-badge--safe">Hijau &lt; 3 hari</Badge>
-				<Badge variant="outline" class="sla-badge sla-badge--warning">Kuning 3–7 hari</Badge>
-				<Badge variant="outline" class="sla-badge sla-badge--overdue">Merah &gt; 7 hari</Badge>
+			<div class="dashboard-filter-row">
+				<div class="dashboard-filter-summary">
+					<Badge variant="outline" class="scope-badge"><Building2 class="size-3.5" aria-hidden="true" />{dashboard.scope.label}</Badge>
+					{#if activeWorkCatalog}<Badge variant="outline" class="period-badge">{activeWorkCatalog.nama_pekerjaan}</Badge>{/if}
+					<Badge variant="outline" class="period-badge">{currentPeriod}</Badge>
+				</div>
+				{#if dashboard.view === 'admin' || dashboard.view === 'division'}
+					<Popover.Root bind:open={isFilterOpen}>
+						<Popover.Trigger>
+							{#snippet child({ props })}
+								<Button {...props} type="button" variant="outline" class="filter-trigger min-h-11" aria-haspopup="dialog" aria-expanded={isFilterOpen}><ListFilter class="size-4" aria-hidden="true" />Filter</Button>
+							{/snippet}
+						</Popover.Trigger>
+						<Popover.Portal>
+							<Popover.Content class="app-filter-popover" side="top" align="end" sideOffset={8} trapFocus={false} aria-labelledby="dashboard-filter-title" aria-describedby="dashboard-filter-description">
+								<div class="app-filter-popover-header">
+									<h2 id="dashboard-filter-title" class="app-filter-popover-title">Filter dashboard</h2>
+									<p id="dashboard-filter-description" class="app-filter-popover-description">{dashboard.view === 'division' ? 'Atur tanggal, jenis pekerjaan, dan status tiket yang pernah masuk ke divisi ini.' : 'Atur rentang tanggal dan cakupan tiket yang ingin dilihat.'}</p>
+								</div>
+								<form class="app-filter-popover-form" onsubmit={submitDashboardFilters}>
+									<div class="app-filter-popover-fields">
+										<div class="dashboard-filter-fields">
+											<div class="filter-field"><Label for="from-date">Dari tanggal</Label><Input id="from-date" type="date" class="h-11 w-full" bind:value={fromDate} /></div>
+											<div class="filter-field"><Label for="to-date">Sampai tanggal</Label><Input id="to-date" type="date" class="h-11 w-full" bind:value={toDate} /></div>
+											{#if dashboard.view === 'admin'}
+												<div class="filter-field"><Label for="korwil-filter">Korwil</Label><SearchableSelect id="korwil-filter" label="Korwil" options={korwilFilterItems} value={selectedKorwil} onValueChange={(value) => (selectedKorwil = value)} placeholder="Semua Korwil" searchPlaceholder="Cari Korwil..." /></div>
+												<div class="filter-field"><Label for="division-filter">Divisi</Label><SearchableSelect id="division-filter" label="Divisi" options={divisionFilterItems} value={selectedDivisionId} onValueChange={(value) => (selectedDivisionId = value)} placeholder="Semua Divisi" searchPlaceholder="Cari divisi..." /></div>
+											{:else}
+												<div class="filter-field"><Label for="work-catalog-filter">Jenis pekerjaan</Label><SearchableSelect id="work-catalog-filter" label="Jenis pekerjaan" options={workCatalogFilterItems} value={selectedWorkCatalogId} onValueChange={(value) => (selectedWorkCatalogId = value)} placeholder="Semua jenis pekerjaan" searchPlaceholder="Cari pekerjaan..." /></div>
+												<div class="filter-field"><Label for="status-filter">Status tiket</Label><SearchableSelect id="status-filter" label="Status tiket" options={statusFilterItems} value={selectedStatus} onValueChange={(value) => (selectedStatus = value)} placeholder="Semua status" searchPlaceholder="Cari status..." /></div>
+											{/if}
+										</div>
+									</div>
+									<div class="app-filter-popover-actions">
+										<Button type="button" variant="outline" class="min-h-11" disabled={isLoading || (fromDate === defaultDateRange.from && toDate === defaultDateRange.to && selectedKorwil === 'all' && selectedDivisionId === 'all' && selectedWorkCatalogId === 'all' && selectedStatus === 'all')} onclick={clearFilters}>Reset</Button>
+										<Button type="submit" class="min-h-11" disabled={isLoading}>Terapkan</Button>
+									</div>
+								</form>
+							</Popover.Content>
+						</Popover.Portal>
+					</Popover.Root>
+				{/if}
 			</div>
 		{/if}
 
@@ -294,10 +392,6 @@
 					<a class="metric-card-link" href={managementHref({ sla_status: 'safe' })} aria-label="Lihat {dashboard.sla.counts.safe} tiket dengan SLA aman"><Card.Root><Card.Content class="metric-card metric-card--safe">{@render metric(CheckCircle2, 'SLA aman', dashboard.sla.counts.safe, 'Umur tiket di bawah 3 hari')}</Card.Content></Card.Root></a>
 					<a class="metric-card-link" href={managementHref({ sla_status: 'warning' })} aria-label="Lihat {dashboard.sla.counts.warning} tiket yang mendekati SLA"><Card.Root><Card.Content class="metric-card metric-card--warning">{@render metric(Clock3, 'Mendekati SLA', dashboard.sla.counts.warning, 'Umur tiket 3 sampai 7 hari')}</Card.Content></Card.Root></a>
 					<a class="metric-card-link" href={managementHref({ sla_status: 'overdue' })} aria-label="Lihat {dashboard.sla.counts.overdue} tiket yang melewati SLA"><Card.Root><Card.Content class="metric-card metric-card--overdue">{@render metric(XCircle, 'Melewati SLA', dashboard.sla.counts.overdue, 'Umur tiket lebih dari 7 hari')}</Card.Content></Card.Root></a>
-					{#if profile?.sla_access.role !== 'management'}
-						<a class="metric-card-link" href={managementHref({ status: 'completed' })} aria-label="Lihat {dashboard.summary.completed} tiket selesai"><Card.Root><Card.Content class="metric-card">{@render metric(CheckCircle2, 'Selesai', dashboard.summary.completed, 'Status akhir tiket')}</Card.Content></Card.Root></a>
-						<a class="metric-card-link" href={managementHref({ status: 'rejected' })} aria-label="Lihat {dashboard.summary.rejected} tiket ditolak"><Card.Root><Card.Content class="metric-card">{@render metric(XCircle, 'Ditolak', dashboard.summary.rejected, 'Status akhir tiket')}</Card.Content></Card.Root></a>
-					{/if}
 				</div>
 			{/if}
 
@@ -345,10 +439,52 @@
 
 {#snippet requestPanel()}
 	<Card.Root>
-		<Card.Header class="request-panel-header"><div><Card.Title class="text-base">Tiket terbaru</Card.Title><Card.Description>{dashboard?.view === 'branch' ? 'Pengajuan dari kantor ini, termasuk tiket yang menunggu pelengkapan.' : dashboard?.view === 'korwil' ? 'Tiket Korwil dengan lokasi dan status terkininya.' : dashboard?.view === 'division' ? 'Tiket yang pernah masuk ke Divisi ini.' : 'Tiket berjalan dan SLA paling mendesak tampil lebih dulu.'}</Card.Description></div><Badge variant="outline">{prioritizedRequests.length} tiket</Badge></Card.Header>
+		<Card.Header class="request-panel-header">
+			<div class="request-panel-heading">
+				<div class="request-panel-copy"><Card.Title class="text-base">Tiket terbaru</Card.Title><Card.Description>{dashboard?.view === 'branch' ? 'Pengajuan dari kantor ini, termasuk tiket yang menunggu pelengkapan.' : dashboard?.view === 'korwil' ? 'Tiket Korwil dengan lokasi dan status terkininya.' : dashboard?.view === 'division' ? 'Tiket yang pernah masuk ke Divisi ini.' : 'Tiket berjalan dan SLA paling mendesak tampil lebih dulu.'}</Card.Description></div>
+				<Badge variant="outline">{#if hasTicketPanelFilters}{filteredRequests.length} dari {/if}{prioritizedRequests.length} tiket</Badge>
+			</div>
+			{#if isAdminDashboard}
+				<div class="ticket-list-tools">
+					<div class="ticket-search">
+						<Search class="size-4" aria-hidden="true" />
+						<Input type="search" aria-label="Cari tiket terbaru" placeholder="Cari nomor, subjek, kantor, unit..." class="h-11 w-full pl-9" value={ticketSearch} oninput={(event) => { ticketSearch = (event.currentTarget as HTMLInputElement).value; ticketPage = 1; }} />
+					</div>
+					<Popover.Root bind:open={isTicketFilterOpen} onOpenChange={handleTicketFilterOpenChange}>
+						<Popover.Trigger>
+							{#snippet child({ props })}
+								<Button {...props} type="button" variant="outline" class="min-h-11" aria-haspopup="dialog" aria-expanded={isTicketFilterOpen}><ListFilter class="size-4" aria-hidden="true" />Filter</Button>
+							{/snippet}
+						</Popover.Trigger>
+						<Popover.Portal>
+							<Popover.Content class="app-filter-popover" side="top" align="end" sideOffset={8} trapFocus={false} aria-labelledby="recent-ticket-filter-title" aria-describedby="recent-ticket-filter-description">
+								<div class="app-filter-popover-header">
+									<h2 id="recent-ticket-filter-title" class="app-filter-popover-title">Filter tiket terbaru</h2>
+									<p id="recent-ticket-filter-description" class="app-filter-popover-description">Saring daftar berdasarkan status dan kondisi SLA.</p>
+								</div>
+								<form class="app-filter-popover-form" onsubmit={submitTicketFilters}>
+									<div class="app-filter-popover-fields">
+										<div class="ticket-filter-fields">
+											<div class="filter-field"><Label for="recent-ticket-status">Status tiket</Label><SearchableSelect id="recent-ticket-status" label="Status tiket" options={statusFilterItems} value={draftTicketStatusFilter} onValueChange={(value) => (draftTicketStatusFilter = value)} placeholder="Semua status" searchPlaceholder="Cari status..." /></div>
+											<div class="filter-field"><Label for="recent-ticket-sla">Kondisi SLA</Label><SearchableSelect id="recent-ticket-sla" label="Kondisi SLA" options={ticketSlaFilterItems} value={draftTicketSlaFilter} onValueChange={(value) => (draftTicketSlaFilter = value)} placeholder="Semua SLA" searchPlaceholder="Cari kondisi SLA..." /></div>
+										</div>
+									</div>
+									<div class="app-filter-popover-actions">
+										<Button type="button" variant="outline" class="min-h-11" disabled={draftTicketStatusFilter === 'all' && draftTicketSlaFilter === 'all'} onclick={resetTicketFilters}>Reset</Button>
+										<Button type="submit" class="min-h-11">Terapkan</Button>
+									</div>
+								</form>
+							</Popover.Content>
+						</Popover.Portal>
+					</Popover.Root>
+				</div>
+			{/if}
+		</Card.Header>
 		<Card.Content>
 			{#if !prioritizedRequests.length}
 				<div class="empty-state"><Inbox class="size-5" aria-hidden="true" /><h2>Belum ada tiket</h2><p>Tiket dalam cakupan ini akan tampil setelah pengajuan dikirim.</p></div>
+			{:else if !filteredRequests.length}
+				<div class="empty-state"><Search class="size-5" aria-hidden="true" /><h2>Tidak ada tiket yang cocok</h2><p>Ubah kata kunci atau reset pencarian dan filter tiket.</p><Button variant="outline" class="min-h-11" onclick={clearTicketSearchAndFilters}>Reset pencarian dan filter tiket</Button></div>
 			{:else}
 				<div class="request-list">{#each visibleRequests as item (item.id)}
 					<article class="request-row">
@@ -362,7 +498,7 @@
 		</Card.Content>
 		{#if ticketPageCount > 1}
 			<Card.Footer class="request-pagination">
-				<p>Menampilkan {((ticketPage - 1) * ticketPageSize) + 1}–{Math.min(ticketPage * ticketPageSize, prioritizedRequests.length)} dari {prioritizedRequests.length} tiket · Halaman {ticketPage} dari {ticketPageCount}</p>
+				<p>Menampilkan {((ticketPage - 1) * ticketPageSize) + 1}–{Math.min(ticketPage * ticketPageSize, filteredRequests.length)} dari {filteredRequests.length} tiket · Halaman {ticketPage} dari {ticketPageCount}</p>
 				<div class="request-pagination-actions">
 					<Button variant="outline" class="min-h-11" disabled={ticketPage <= 1} onclick={() => (ticketPage = Math.max(1, ticketPage - 1))}><ChevronLeft class="size-4" aria-hidden="true" />Sebelumnya</Button>
 					<Button variant="outline" class="min-h-11" disabled={ticketPage >= ticketPageCount} onclick={() => (ticketPage = Math.min(ticketPageCount, ticketPage + 1))}>Berikutnya<ChevronRight class="size-4" aria-hidden="true" /></Button>
@@ -378,23 +514,17 @@
 	:global(.dashboard-content > .app-page-heading) { margin-bottom: 0; }
 	:global(.scope-badge) { max-width: min(100%, 20rem); overflow-wrap: anywhere; }
 	:global(.period-badge) { white-space: nowrap; }
-	.dashboard-header-actions { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem; }
-	.dashboard-header-badges { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: .4rem; }
-	:global(.dashboard-content .app-page-title-row) { align-items: flex-start; flex-direction: column; gap: .3rem; }
+	.dashboard-filter-row { display: flex; width: 100%; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+	.dashboard-filter-summary { display: flex; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: .4rem; }
 	:global(.dashboard-content .app-page-description) { flex: 0 1 auto; }
-	:global(.filter-toggle) { flex: 0 0 auto; white-space: nowrap; }
-	:global(.dashboard-filter-popover) { z-index:60; box-sizing:border-box; display:grid; width:min(24rem,calc(100vw - 1rem)); max-height:min(78dvh,42rem); gap:1rem; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--popover); padding:1rem; color:var(--popover-foreground); box-shadow:0 18px 48px rgb(0 0 0 / .18); }
-	.dashboard-filter-header h2 { margin:0; font-size:var(--type-base); font-weight:650; }
-	.dashboard-filter-header p { margin:.25rem 0 0; color:var(--muted-foreground); font-size:var(--type-sm); line-height:1.45; }
-	.dashboard-filter-form { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; align-items:stretch; gap:.65rem; }
+	:global(.dashboard-filter-fields) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:.65rem; }
 	.filter-field { display:grid; min-width:0; gap:.4rem; }
-	:global(.dashboard-filter-form input) { min-width:0; }
-	.dashboard-filter-actions { display:flex; grid-column:1 / -1; width:100%; flex-direction:row; flex-wrap:nowrap; align-items:center; justify-content:space-between; gap:.5rem; }
-	.dashboard-filter-actions :global(button) { min-width:0; flex:1 1 0; white-space:nowrap; }
+	:global(.dashboard-filter-fields input) { min-width:0; }
+	.dashboard-info-content { display: grid; justify-items: start; gap: .65rem; }
 	.sla-legend { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: .45rem; }
-	:global(.target-badge) { border-color: var(--border); background: var(--card); color: var(--foreground); }
 	.metric-grid { display: grid; gap: .75rem; }
-	.metric-grid--branch, .metric-grid--unit { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+	.metric-grid--branch { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.metric-grid--unit { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 	.metric-grid--admin { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 	.metric-card-link { display: block; min-width: 0; border-radius: var(--radius); color: inherit; text-decoration: none; }
 	.metric-card-link > :global([data-slot='card']) { height: 100%; transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease; }
@@ -402,12 +532,12 @@
 	.metric-card-link:active > :global([data-slot='card']) { transform: translateY(1px); }
 	.metric-card-link:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 	:global(.metric-card) { display: flex; min-width: 0; align-items: flex-start; gap: .7rem; min-height: 7rem; }
-	.metric-icon { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--border); border-radius: .55rem; color: var(--primary); }
+	.metric-icon { display: grid; width: 1.25rem; height: 1.25rem; flex: 0 0 auto; place-items: center; color: var(--primary); }
 	:global(.metric-card-total) { border-inline-start: 3px solid var(--ring); background: color-mix(in srgb, var(--accent) 28%, var(--card)); }
-	:global(.metric-card-total) .metric-icon { color: var(--accent-foreground); border-color: color-mix(in srgb, var(--ring) 45%, var(--border)); }
-	:global(.metric-card--safe) .metric-icon { color: #16794b; border-color: color-mix(in srgb, #16794b 35%, var(--border)); }
-	:global(.metric-card--warning) .metric-icon { color: #9a6700; border-color: color-mix(in srgb, #9a6700 35%, var(--border)); }
-	:global(.metric-card--overdue) .metric-icon { color: var(--destructive); border-color: color-mix(in srgb, var(--destructive) 35%, var(--border)); }
+	:global(.metric-card-total) .metric-icon { color: var(--accent-foreground); }
+	:global(.metric-card--safe) .metric-icon { color: #16794b; }
+	:global(.metric-card--warning) .metric-icon { color: #9a6700; }
+	:global(.metric-card--overdue) .metric-icon { color: var(--destructive); }
 	.metric-copy { display: grid; min-width: 0; gap: .28rem; }
 	.metric-copy p, .metric-copy span { margin: 0; }
 	.metric-copy p { color: var(--muted-foreground); font-size: var(--type-sm); line-height: 1.35; }
@@ -416,6 +546,14 @@
 	.dashboard-panels { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.35fr); gap: .75rem; }
 	.role-workspace { display: grid; grid-template-columns: minmax(15rem, .8fr) minmax(0, 2.2fr); align-items: start; gap: .75rem; }
 	.role-request-list { min-width: 0; }
+	:global(.dashboard-page .request-panel-header) { display: flex; width: 100%; flex-direction: row; align-items: center; justify-content: space-between; gap: .8rem; }
+	.request-panel-heading { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; gap: .65rem; }
+	.request-panel-copy { min-width: 0; }
+	.ticket-list-tools { display: flex; min-width: 0; flex: 0 1 auto; align-items: center; justify-content: flex-end; gap: .5rem; margin-left: auto; }
+	.ticket-search { position: relative; width: min(19rem, 30vw); min-width: 12rem; }
+	.ticket-search :global(svg) { position: absolute; z-index: 1; top: 50%; left: .75rem; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
+	.ticket-search :global(input) { padding-left: 2.25rem; }
+	.ticket-filter-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
 	:global(.panel-title) { display: flex; align-items: flex-start; gap: .6rem; }
 	:global(.panel-title > svg) { flex: 0 0 auto; margin-top: .12rem; color: var(--primary); }
 	.status-list { display: grid; gap: .15rem; }
@@ -469,26 +607,30 @@
 		.dashboard-panels, .role-workspace, .division-list { grid-template-columns: 1fr; }
 		.metric-grid--branch, .metric-grid--unit, .metric-grid--admin { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 		.metric-grid--branch > :last-child, .metric-grid--unit > :last-child { grid-column: 1 / -1; }
-		.dashboard-header-actions { display: grid; width: 100%; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: .5rem; }
-		.dashboard-header-badges { align-items: flex-start; }
-		.sla-legend { display: grid; width: 100%; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .4rem; }
+		.request-panel-heading { width: 100%; justify-content: space-between; }
+		.ticket-list-tools { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+		.ticket-search { width: auto; min-width: 0; }
+		.dashboard-filter-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: .5rem; }
+		.dashboard-filter-summary { align-items: flex-start; }
+		.sla-legend { display: grid; width: 100%; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .4rem; }
 		:global(.sla-legend [data-slot='badge']) { min-width: 0; justify-content: center; padding-inline: .4rem; font-size: var(--type-xs); white-space: nowrap; }
-		.request-row { grid-template-columns: minmax(0, 1fr) auto; gap: .7rem; }
+		.request-row { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: .7rem; padding: .8rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 5%, transparent); }
+		.request-row:last-child { border-bottom: 1px solid var(--border); }
+		.request-row-main { grid-column: 1 / -1; }
 		.request-row-status { grid-column: 1; }
 		.request-row-time { grid-column: 1; }
-		.request-row-action { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
-		:global(.request-panel-header) { flex-direction: column; }
-		:global(.dashboard-content .app-page-heading-action) { justify-content: flex-end; }
-		:global(.dashboard-filter-popover) { width:min(24rem,calc(100vw - 1rem)); max-height:min(82dvh,44rem); }
+		.request-row-action { grid-column: 2; grid-row: 2 / span 2; align-self: center; }
+		:global(.dashboard-page .request-panel-header) { flex-direction: column; align-items: stretch; }
 		:global(.request-pagination) { align-items: stretch; flex-direction: column; }
 		.request-pagination-actions { display: grid; grid-template-columns: 1fr 1fr; }
 		.request-pagination-actions :global(button) { width: 100%; }
 	}
 	@media (max-width: 24rem) {
 		.metric-grid--branch, .metric-grid--unit, .metric-grid--admin { grid-template-columns: 1fr; }
-		.dashboard-header-actions { grid-template-columns: minmax(0,1fr) auto; }
-		.dashboard-header-badges { flex-direction: column; align-items: flex-start; }
-		.dashboard-filter-form { gap:.45rem; }
+		.dashboard-filter-row { grid-template-columns: minmax(0,1fr) auto; }
+		.dashboard-filter-summary { flex-direction: column; align-items: flex-start; }
+		:global(.dashboard-filter-fields) { grid-template-columns:minmax(0,1fr); gap:.45rem; }
+		.ticket-filter-fields { grid-template-columns: 1fr; }
 		.request-row { grid-template-columns: 1fr; }
 		.request-row-action { grid-column: auto; grid-row: auto; justify-self: stretch; }
 		.request-row-action :global(a) { width: 100%; }

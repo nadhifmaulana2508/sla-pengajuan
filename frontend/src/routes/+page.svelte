@@ -8,7 +8,14 @@
 	import { Label } from '#lib/components/ui/label/index.js';
 	import SearchableSelect from '#lib/components/SearchableSelect.svelte';
 	import { Eye, EyeOff, Moon, Sun } from '@lucide/svelte';
-	import { fetchDummyUsers, loginWithDummy, loginWithSso, type DummyUserOption } from '#lib/features/auth/auth.api.js';
+	import {
+		fetchDummyUsers,
+		fetchSsoDummyLoginStatus,
+		loginWithDummy,
+		loginWithSso,
+		loginWithSsoDummy,
+		type DummyUserOption
+	} from '#lib/features/auth/auth.api.js';
 	import {
 		authSession,
 		getRememberedEmployeeId,
@@ -23,7 +30,10 @@
 	let isPasswordVisible = $state(false);
 	let isSubmitting = $state(false);
 	let errorMessage = $state('');
+	let accessPending = $state(false);
+	let loginMode = $state<'sso' | 'sso-dummy' | 'demo'>('sso');
 	let dummyUsers = $state<DummyUserOption[] | null>(null);
+	let ssoDummyLoginEnabled = $state(false);
 	let selectedDummyId = $state('');
 	let dummyUserOptions = $derived((dummyUsers ?? []).map((user) => ({
 		value: user.employee_id,
@@ -33,11 +43,20 @@
 
 	onMount(() => {
 		employeeId = getRememberedEmployeeId();
+		if (new URLSearchParams(window.location.search).get('notice') === 'access-not-ready') {
+			accessPending = true;
+			errorMessage = 'SSO berhasil memverifikasi akun, tetapi akses Sistem SLA belum aktif. Hubungi Admin Sistem SLA untuk mengaktifkan akun dan menetapkan peran serta cakupannya.';
+		}
 		void fetchDummyUsers().then((users) => {
 			dummyUsers = users;
 			selectedDummyId = users[0]?.employee_id ?? '';
 		}).catch(() => {
 			// Dummy access stays hidden when the local-only API route is unavailable.
+		});
+		void fetchSsoDummyLoginStatus().then((enabled) => {
+			ssoDummyLoginEnabled = enabled;
+		}).catch(() => {
+			// Remote SSO dummy login stays hidden when the backend does not expose it.
 		});
 		const unsubscribe = authSession.subscribe((session) => {
 			if (session.token) void goto('/dashboard');
@@ -52,11 +71,18 @@
 		rememberEmployeeId(employeeId);
 	}
 
+	function selectLoginMode(mode: 'sso' | 'sso-dummy' | 'demo'): void {
+		loginMode = mode;
+		errorMessage = '';
+		accessPending = false;
+	}
+
 	async function submitDummyLogin(): Promise<void> {
 		if (isSubmitting || !selectedDummyId) return;
 
 		isSubmitting = true;
 		errorMessage = '';
+		accessPending = false;
 		try {
 			const session = await loginWithDummy(selectedDummyId);
 			setAuthenticatedSession(session.token, session.profile);
@@ -76,13 +102,17 @@
 
 		isSubmitting = true;
 		errorMessage = '';
+		accessPending = false;
 		rememberEmployeeId(employeeId);
 		try {
-			const session = await loginWithSso(employeeId.trim(), password);
+			const session = loginMode === 'sso-dummy'
+				? await loginWithSsoDummy(employeeId.trim())
+				: await loginWithSso(employeeId.trim(), password);
 			setAuthenticatedSession(session.token, session.profile);
 			password = '';
 			await goto('/dashboard');
 		} catch (error) {
+			accessPending = error instanceof ApiError && error.status === 403;
 			errorMessage = error instanceof ApiError
 				? error.message
 				: 'Login belum berhasil. Periksa koneksi, lalu coba lagi.';
@@ -152,102 +182,129 @@
 			<div class="login-heading">
 				<p class="section-label">Akses pegawai</p>
 				<h2 id="login-title">Masuk ke Sistem SLA</h2>
-				<p>Gunakan ID pegawai dan password akun SSO perusahaan.</p>
+			<p>{loginMode === 'sso'
+				? 'Gunakan ID pegawai dan password akun SSO perusahaan.'
+				: loginMode === 'sso-dummy'
+					? 'Masukkan ID pegawai untuk uji login pada SSO development.'
+					: 'Pilih akun demo untuk mencoba role dan alur kerja.'}</p>
 			</div>
 
-			<form class="login-form" onsubmit={submitLogin}>
-				<div class="field-group">
-					<Label for="employee-id">ID pegawai</Label>
-					<Input
-						id="employee-id"
-						name="id_peg"
-						autocomplete="username"
-						class="min-h-11 border-input text-sm focus-visible:ring-primary"
-						placeholder="Masukkan ID pegawai"
-						value={employeeId}
-						oninput={updateEmployeeId}
-						required
-						disabled={isSubmitting}
-					/>
+			{#if ssoDummyLoginEnabled || (dummyUsers && dummyUsers.length > 0)}
+				<div class="login-mode-switch" class:login-mode-switch--three={ssoDummyLoginEnabled && Boolean(dummyUsers?.length)} role="group" aria-label="Metode login">
+					<button
+						class="login-mode-option"
+						class:active={loginMode === 'sso'}
+						type="button"
+						aria-pressed={loginMode === 'sso'}
+						onclick={() => selectLoginMode('sso')}
+					>SSO</button>
+					{#if ssoDummyLoginEnabled}
+						<button class="login-mode-option" class:active={loginMode === 'sso-dummy'} type="button" aria-pressed={loginMode === 'sso-dummy'} onclick={() => selectLoginMode('sso-dummy')}>Uji SSO</button>
+					{/if}
+					{#if dummyUsers && dummyUsers.length > 0}
+						<button
+							class="login-mode-option"
+							class:active={loginMode === 'demo'}
+							type="button"
+							aria-pressed={loginMode === 'demo'}
+							onclick={() => selectLoginMode('demo')}
+						>Akun demo</button>
+					{/if}
 				</div>
+			{/if}
 
-				<div class="field-group">
-					<Label for="password">Password</Label>
-					<div class="password-field">
+			{#if errorMessage}
+				<Alert.Root class="mb-4" variant="destructive">
+					<Alert.Title>{accessPending ? 'Akun belum diaktifkan' : 'Login belum berhasil'}</Alert.Title>
+					<Alert.Description>{errorMessage}</Alert.Description>
+				</Alert.Root>
+			{/if}
+
+			{#if loginMode === 'sso' || (loginMode === 'sso-dummy' && ssoDummyLoginEnabled)}
+				<form class="login-form" onsubmit={submitLogin}>
+					<div class="field-group">
+						<Label for="employee-id">ID pegawai</Label>
 						<Input
-							id="password"
-							name="password"
-							type={isPasswordVisible ? 'text' : 'password'}
-							autocomplete="current-password"
-							class="min-h-11 border-input pr-12 text-sm focus-visible:ring-primary"
-							placeholder="Masukkan password SSO"
-							bind:value={password}
+							id="employee-id"
+							name="id_peg"
+							autocomplete="username"
+							class="min-h-11 border-input text-sm focus-visible:ring-primary"
+							placeholder="Masukkan ID pegawai"
+							value={employeeId}
+							oninput={updateEmployeeId}
 							required
 							disabled={isSubmitting}
 						/>
-						<Button
-							variant="ghost"
-							size="icon-lg"
-							class="absolute right-1 top-1/2 min-h-11 min-w-11 -translate-y-1/2 border-0 bg-transparent p-0 shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-transparent"
-							type="button"
-							aria-label={isPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password'}
-							title={isPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password'}
-							aria-pressed={isPasswordVisible}
-							disabled={isSubmitting}
-							onclick={() => (isPasswordVisible = !isPasswordVisible)}
-						>
-							{#if isPasswordVisible}<EyeOff class="size-4" aria-hidden="true" />{:else}<Eye class="size-4" aria-hidden="true" />{/if}
-						</Button>
 					</div>
-				</div>
 
-				{#if errorMessage}
-					<Alert.Root variant="destructive">
-						<Alert.Title>Login belum berhasil</Alert.Title>
-						<Alert.Description>{errorMessage}</Alert.Description>
-					</Alert.Root>
-				{/if}
-
-				<Button class="submit-button min-h-11 w-full" size="lg" type="submit" disabled={isSubmitting}>
-					{isSubmitting ? 'Memeriksa akun...' : 'Masuk'}
-				</Button>
-			</form>
-
-			<p class="form-note">
-				Password hanya dikirim ke backend untuk diteruskan ke SSO. Sistem SLA tidak menyimpannya.
-			</p>
-
-			{#if dummyUsers !== null}
-				<section class="dummy-login" aria-labelledby="dummy-login-title">
-					<h3 id="dummy-login-title">Pengujian akun</h3>
-					{#if dummyUsers.length > 0}
-						<div class="field-group">
-							<Label for="dummy-user">Akun dan role</Label>
-							<SearchableSelect
-								id="dummy-user"
-								label="Akun dan role"
-								options={dummyUserOptions}
-								value={selectedDummyId}
-								onValueChange={(value) => (selectedDummyId = value)}
-								placeholder="Pilih akun uji"
-								searchPlaceholder="Cari role, cakupan, atau ID..."
+					{#if loginMode === 'sso'}
+					<div class="field-group">
+						<Label for="password">Password</Label>
+						<div class="password-field">
+							<Input
+								id="password"
+								name="password"
+								type={isPasswordVisible ? 'text' : 'password'}
+								autocomplete="current-password"
+								class="min-h-11 border-input pr-12 text-sm focus-visible:ring-primary"
+								placeholder="Masukkan password SSO"
+								bind:value={password}
+								required
 								disabled={isSubmitting}
 							/>
+							<Button
+								variant="ghost"
+								size="icon-lg"
+								class="absolute right-1 top-1/2 min-h-11 min-w-11 -translate-y-1/2 border-0 bg-transparent p-0 shadow-none hover:bg-transparent hover:text-primary focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-transparent"
+								type="button"
+								aria-label={isPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password'}
+								title={isPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password'}
+								aria-pressed={isPasswordVisible}
+								disabled={isSubmitting}
+								onclick={() => (isPasswordVisible = !isPasswordVisible)}
+							>
+								{#if isPasswordVisible}<EyeOff class="size-4" aria-hidden="true" />{:else}<Eye class="size-4" aria-hidden="true" />{/if}
+							</Button>
 						</div>
-						<Button
-							class="submit-button min-h-11 w-full"
-							variant="outline"
-							size="lg"
-							type="button"
-							disabled={isSubmitting || !selectedDummyId}
-							onclick={submitDummyLogin}
-						>
-							{isSubmitting ? 'Membuka akun uji...' : 'Masuk sebagai akun uji'}
-						</Button>
-						<p class="form-note">Akun sintetis tersedia selama UAT pada lingkungan yang telah diaktifkan.</p>
-					{:else}
-						<p class="form-note">Belum ada akun uji. Jalankan `db:seed-dummy-users` pada backend UAT.</p>
+					</div>
 					{/if}
+
+					<Button class="submit-button min-h-11 w-full" size="lg" type="submit" disabled={isSubmitting || !employeeId.trim()}>
+						{isSubmitting ? 'Memeriksa akun...' : loginMode === 'sso-dummy' ? 'Uji login SSO dummy' : 'Masuk'}
+					</Button>
+				</form>
+				{#if loginMode === 'sso-dummy'}
+					<p class="form-note">Backend meminta token uji ke endpoint login-dummy SSO, lalu memeriksa profil memakai GET whoami. Mode ini hanya tersedia bila diaktifkan pada development.</p>
+				{:else}
+					<p class="form-note">Password hanya dikirim ke backend untuk diteruskan ke SSO. Sistem SLA tidak menyimpannya.</p>
+				{/if}
+			{:else if dummyUsers && dummyUsers.length > 0}
+				<section class="dummy-login" aria-labelledby="dummy-login-title">
+					<h3 id="dummy-login-title">Akun demo</h3>
+					<div class="field-group">
+						<Label for="dummy-user">Akun dan role</Label>
+						<SearchableSelect
+							id="dummy-user"
+							label="Akun dan role"
+							options={dummyUserOptions}
+							value={selectedDummyId}
+							onValueChange={(value) => (selectedDummyId = value)}
+							placeholder="Pilih akun demo"
+							searchPlaceholder="Cari role, cakupan, atau ID..."
+							disabled={isSubmitting}
+						/>
+					</div>
+					<Button
+						class="submit-button min-h-11 w-full"
+						variant="outline"
+						size="lg"
+						type="button"
+						disabled={isSubmitting || !selectedDummyId}
+						onclick={submitDummyLogin}
+					>
+						{isSubmitting ? 'Membuka akun demo...' : 'Masuk sebagai akun demo'}
+					</Button>
+					<p class="form-note">Akun demo hanya muncul saat fiturnya diaktifkan pada backend development atau UAT.</p>
 				</section>
 			{/if}
 		</div>
@@ -455,6 +512,48 @@
 		line-height: 1.6;
 	}
 
+	.login-mode-switch {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.25rem;
+		margin-bottom: 1.25rem;
+		padding: 0.25rem;
+		border: 1px solid var(--border);
+		border-radius: calc(var(--radius) + 0.1rem);
+		background: var(--muted);
+	}
+
+	.login-mode-switch--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+	.login-mode-option {
+		min-height: 2.75rem;
+		border: 1px solid transparent;
+		border-radius: calc(var(--radius) - 0.1rem);
+		background: transparent;
+		color: var(--muted-foreground);
+		font: inherit;
+		font-size: var(--type-sm);
+		font-weight: 600;
+		cursor: pointer;
+		transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+	}
+
+	.login-mode-option:hover {
+		color: var(--foreground);
+	}
+
+	.login-mode-option.active {
+		border-color: var(--border);
+		background: var(--card);
+		color: var(--foreground);
+		box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+	}
+
+	.login-mode-option:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+	}
+
 	.login-form {
 		display: grid;
 		gap: 1rem;
@@ -466,16 +565,13 @@
 	}
 
 	.dummy-login {
-		margin-top: 1.5rem;
-		padding-top: 1.25rem;
-		border-top: 1px solid var(--border);
 		display: grid;
 		gap: 0.9rem;
 	}
 
 	.dummy-login h3 {
 		margin: 0;
-		font-size: var(--type-sm);
+		font-size: var(--type-base);
 		font-weight: 600;
 	}
 

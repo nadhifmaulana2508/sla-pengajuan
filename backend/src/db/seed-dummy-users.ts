@@ -36,12 +36,14 @@ async function seedDummyUsers(): Promise<void> {
 		);
 		const divisions = new Map(divisionRows.map((division) => [division.kode, division]));
 		const [officeRows] = await connection.execute<Array<RowDataPacket & { kode_kantor: string; korwil: string; nama_kantor: string }>>(
-			"SELECT kode_kantor, korwil, nama_kantor FROM master_kantor WHERE is_active = 1 AND kode_kantor IN ('000', '001')"
+			"SELECT kode_kantor, korwil, nama_kantor FROM master_kantor WHERE is_active = 1 AND kode_kantor IN ('000', '001', '005')"
 		);
 		const offices = new Map(officeRows.map((office) => [office.kode_kantor, office]));
 		const office001 = offices.get('001');
+		const office005 = offices.get('005');
 		const office000 = offices.get('000');
-		if (!office001 || !office000) throw new Error('Master kantor 000 dan 001 harus tersedia sebelum seed akun dummy.');
+		if (!office001 || !office005 || !office000) throw new Error('Master kantor 000, 001, dan 005 harus tersedia sebelum seed akun dummy.');
+		if (office005.korwil !== office001.korwil) throw new Error('Kantor 005 harus berada di Korwil yang sama dengan kantor 001.');
 
 		const accounts: DummyAccount[] = [
 			{
@@ -55,13 +57,13 @@ async function seedDummyUsers(): Promise<void> {
 				unitKerja: office001.nama_kantor, branchName: office001.nama_kantor
 			},
 			{
-				employeeId: 'DUMMY-KORWIL-STAFF-SEMARANG', label: 'Petugas Korwil - Semarang', fullName: 'Akun Dummy - Petugas Korwil Semarang',
-				roleCode: 'korwil_staff', scopeType: 'korwil', kodeKantor: '001', korwil: office001.korwil, divisionCode: null,
-				unitKerja: 'Korwil Semarang Raya', branchName: 'Korwil Semarang Raya'
+				employeeId: 'DUMMY-BRANCH-005', label: `Pengguna Cabang - Kantor 005 (${office005.nama_kantor})`, fullName: 'Akun Dummy - Cabang 005',
+				roleCode: 'branch_user', scopeType: 'office', kodeKantor: '005', korwil: null, divisionCode: null,
+				unitKerja: office005.nama_kantor, branchName: office005.nama_kantor
 			},
 			{
-				employeeId: 'DUMMY-KORWIL-APPROVER-SEMARANG', label: 'Penyetuju Korwil - Semarang', fullName: 'Akun Dummy - Penyetuju Korwil Semarang',
-				roleCode: 'korwil_approver', scopeType: 'korwil', kodeKantor: '001', korwil: office001.korwil, divisionCode: null,
+				employeeId: 'DUMMY-KORWIL-STAFF-SEMARANG', label: 'Petugas Korwil - Semarang', fullName: 'Akun Dummy - Petugas Korwil Semarang',
+				roleCode: 'korwil_staff', scopeType: 'korwil', kodeKantor: '001', korwil: office001.korwil, divisionCode: null,
 				unitKerja: 'Korwil Semarang Raya', branchName: 'Korwil Semarang Raya'
 			},
 			...divisionRows.map((division) => ({
@@ -95,7 +97,9 @@ async function seedDummyUsers(): Promise<void> {
 			if (!roleId) throw new Error(`Role aktif ${account.roleCode} tidak ditemukan.`);
 			const divisionId = account.divisionCode ? divisions.get(account.divisionCode)?.id ?? null : null;
 			if (account.divisionCode && divisionId === null) throw new Error(`Divisi aktif ${account.divisionCode} tidak ditemukan.`);
-			if (account.scopeType === 'office' && account.kodeKantor !== '001') throw new Error(`Scope kantor tidak valid untuk ${account.employeeId}.`);
+			if (account.scopeType === 'office' && (!account.kodeKantor || !offices.has(account.kodeKantor) || account.kodeKantor === '000')) {
+				throw new Error(`Scope kantor tidak valid untuk ${account.employeeId}.`);
+			}
 
 			const [existingUsers] = await connection.execute<Array<RowDataPacket & { id: number; is_dummy: number }>>(
 				`SELECT u.id, (dummy.user_id IS NOT NULL) AS is_dummy

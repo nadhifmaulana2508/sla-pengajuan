@@ -12,13 +12,17 @@
 	import SearchableSelect from '#lib/components/SearchableSelect.svelte';
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import { authSession, clearAuthenticatedSession } from '#lib/features/auth/auth.store.js';
-	import { createRequest, fetchRequestOptions, type RequestOptions, type WorkFormField } from '#lib/features/requests/requests.api.js';
+	import { convertPhotoToWebp, createRequest, fetchRequestOptions, type FormUploadSelection, type RequestOptions, type WorkFormField } from '#lib/features/requests/requests.api.js';
 	import { ArrowLeft, Building2, CircleAlert, Plus, Send, Trash2 } from '@lucide/svelte';
+
+	const CREDIT_MINIMUM_AMOUNT = 200_000_000;
+	const CREDIT_MARKETING_THRESHOLD = 500_000_000;
 
 	let token = $state<string | null>(null);
 	let options = $state<RequestOptions | null>(null);
 	let isLoading = $state(true);
 	let isSaving = $state(false);
+	let pendingPhotoConversions = $state(0);
 	let errorMessage = $state('');
 	let authorityType = $state<'korwil' | 'central'>('korwil');
 	let divisionId = $state('');
@@ -30,6 +34,7 @@
 	let inofficeLetterFile = $state<File | null>(null);
 	let formAnswers = $state<Record<string, string | number>>({});
 	let formAnswerEntries = $state<Array<Record<string, string | number>>>([]);
+	let formFiles = $state<Record<string, File[]>>({});
 	let currencyInputValues = $state<Record<string, string>>({});
 	let selectedCatalog = $derived(options?.work_catalogs.find((item) => String(item.id) === catalogId) ?? null);
 	let selectedDivision = $derived(options?.divisions.find((item) => String(item.id) === divisionId) ?? null);
@@ -38,23 +43,19 @@
 	let isCreditApplication = $derived(selectedCatalog?.system_key === 'credit_application');
 	let korwilFormValue = $derived(isCreditApplication && authorityType === 'korwil' ? catalogId : 'none');
 	let creditAmount = $derived(Number(formAnswers.credit_amount ?? 0));
-	let marketingThreshold = $derived(selectedCatalog?.form_credit_routing?.marketing_threshold_amount ?? 500_000_000);
 	let routeSummary = $derived.by(() => {
 		if (isCreditApplication) {
-			if (creditAmount < 250_000_000) return {
-				title: 'Minimal Rp250.000.000',
+			if (creditAmount < CREDIT_MINIMUM_AMOUNT) return {
+				title: 'Minimal Rp200.000.000',
 				description: 'Nominal di bawah batas minimum tidak dapat dikirim.'
 			};
-			if (authorityType === 'korwil') return {
+			if (creditAmount < CREDIT_MARKETING_THRESHOLD) return {
 				title: 'Cabang → Korwil',
-				description: `Form Pengajuan Kredit dari Pemasaran dipakai; tiket ditangani Korwil saja. Nilai pengajuan ${formatCurrency(creditAmount)}.`
+				description: `Nilai Rp200.000.000 sampai di bawah Rp500.000.000 otomatis ditangani Korwil. Nilai pengajuan ${formatCurrency(creditAmount)}.`
 			};
-			const direct = selectedCatalog?.routing_flow === 'branch_central';
 			return {
-				title: direct ? 'Cabang → Pemasaran' : 'Cabang → Korwil → Pemasaran',
-				description: direct
-					? `Form Pengajuan Kredit digunakan untuk meminta penanganan Pemasaran. Nilai ${formatCurrency(creditAmount)} langsung masuk ke antreannya.`
-					: `Form Pengajuan Kredit digunakan untuk meminta penanganan Pemasaran. Korwil memeriksa lebih dulu; nilai pengajuan ${formatCurrency(creditAmount)}.`
+				title: 'Cabang → Korwil → Pemasaran',
+				description: `Mulai Rp500.000.000, tujuan otomatis Divisi Pemasaran setelah diperiksa Korwil. Nilai pengajuan ${formatCurrency(creditAmount)}.`
 			};
 		}
 		if (authorityType === 'korwil') return {
@@ -74,10 +75,8 @@
 		};
 	});
 	let submitTarget = $derived.by(() => {
+		if (isCreditApplication) return creditAmount >= CREDIT_MARKETING_THRESHOLD ? 'Korwil lalu Pemasaran' : 'Korwil';
 		if (authorityType === 'korwil') return 'Korwil';
-		if (isCreditApplication) return selectedCatalog?.routing_flow === 'branch_central'
-			? options?.divisions.find((division) => division.id === selectedCatalog.divisi_id)?.nama_divisi ?? 'Pemasaran'
-			: 'Korwil';
 		return selectedCatalog?.routing_flow === 'branch_central' ? selectedDivision?.nama_divisi ?? 'Pusat' : 'Korwil';
 	});
 	let visibleFields = $derived(authorityType === 'central' || isCreditApplication ? selectedCatalog?.form_fields ?? [] : []);
@@ -105,6 +104,7 @@
 		if (!creditCatalog) {
 			formAnswers = {};
 			formAnswerEntries = [];
+			formFiles = {};
 			currencyInputValues = {};
 		}
 		divisionId = value === 'central' && creditCatalog ? String(creditCatalog.divisi_id) : '';
@@ -114,10 +114,20 @@
 		catalogId = value;
 		formAnswers = {};
 		formAnswerEntries = options?.work_catalogs.find((item) => String(item.id) === value)?.form_repeatable ? [{}] : [];
+		formFiles = {};
 		currencyInputValues = {};
 	}
 	function chooseKorwilForm(value: string): void {
 		chooseCatalog(value === 'none' ? '' : value);
+	}
+	function changeCreditCatalog(): void {
+		catalogId = '';
+		divisionId = '';
+		authorityType = 'korwil';
+		formAnswers = {};
+		formAnswerEntries = [];
+		formFiles = {};
+		currencyInputValues = {};
 	}
 	function divisionNameFor(id: number): string {
 		return options?.divisions.find((division) => division.id === id)?.nama_divisi ?? 'Pusat';
@@ -127,8 +137,65 @@
 		return entryIndex === null ? field.key : `${entryIndex}.${field.key}`;
 	}
 
+	function uploadInputKey(field: WorkFormField, entryIndex: number | null): string {
+		return `${entryIndex === null ? 's' : entryIndex}:${field.key}`;
+	}
+
+	function selectedFiles(field: WorkFormField, entryIndex: number | null): File[] {
+		return formFiles[uploadInputKey(field, entryIndex)] ?? [];
+	}
+
+	async function selectFormFiles(field: WorkFormField, entryIndex: number | null, input: HTMLInputElement): Promise<void> {
+		const selected = [...(input.files ?? [])];
+		if (field.type === 'images' && selected.length > 4) {
+			input.value = '';
+			errorMessage = 'Maksimal 4 foto untuk setiap kolom.';
+			return;
+		}
+		try {
+			errorMessage = '';
+			const convertsPhoto = field.type === 'image' || field.type === 'images';
+			if (convertsPhoto) pendingPhotoConversions += 1;
+			const files = field.type === 'image' || field.type === 'images'
+				? await Promise.all(selected.map(convertPhotoToWebp))
+				: selected.map((file) => {
+					if (file.size > 10 * 1024 * 1024) throw new Error('Ukuran setiap dokumen maksimal 10 MB.');
+					return file;
+				});
+			formFiles = { ...formFiles, [uploadInputKey(field, entryIndex)]: files };
+		} catch (error) {
+			input.value = '';
+			errorMessage = error instanceof Error ? error.message : 'File belum dapat diproses.';
+		} finally {
+			if (field.type === 'image' || field.type === 'images') pendingPhotoConversions = Math.max(0, pendingPhotoConversions - 1);
+		}
+	}
+
+	function clearFormFiles(field: WorkFormField, entryIndex: number | null): void {
+		const key = uploadInputKey(field, entryIndex);
+		const next = { ...formFiles };
+		delete next[key];
+		formFiles = next;
+		const input = document.getElementById(`request-field-${entryIndex === null ? 'single' : entryIndex}-${field.key}`);
+		if (input instanceof HTMLInputElement) input.value = '';
+	}
+
+	function formUploadSelections(): FormUploadSelection[] {
+		return Object.entries(formFiles).flatMap(([key, files]) => {
+			if (!files.length) return [];
+			const [entry, fieldKey] = key.split(':');
+			return [{ fieldKey: fieldKey ?? '', entryIndex: entry === 's' ? null : Number(entry), files }];
+		});
+	}
+
 	function getFormAnswer(field: WorkFormField, entryIndex: number | null): string | number {
-		return entryIndex === null ? formAnswers[field.key] ?? '' : formAnswerEntries[entryIndex]?.[field.key] ?? '';
+		const answers = entryIndex === null ? formAnswers : formAnswerEntries[entryIndex] ?? {};
+		if (field.calculation?.operation === 'sum') {
+			const values = field.calculation.fields.map((key) => answers[key]);
+			if (values.some((value) => typeof value !== 'number' || !Number.isFinite(value))) return '';
+			return values.reduce<number>((sum, value) => sum + Number(value), 0);
+		}
+		return answers[field.key] ?? '';
 	}
 
 	function setAnswer(field: WorkFormField, value: string | number, entryIndex: number | null = null): void {
@@ -199,6 +266,13 @@
 	function removeFormAnswerEntry(entryIndex: number): void {
 		if (entryIndex < 1) return;
 		formAnswerEntries = formAnswerEntries.filter((_, index) => index !== entryIndex);
+		formFiles = Object.fromEntries(Object.entries(formFiles).flatMap(([key, files]) => {
+			const [entry, fieldKey] = key.split(':');
+			if (entry === 's') return [[key, files]];
+			const index = Number(entry);
+			if (index === entryIndex) return [];
+			return [[`${index > entryIndex ? index - 1 : index}:${fieldKey}`, files]];
+		}));
 		currencyInputValues = {};
 	}
 
@@ -208,11 +282,12 @@
 
 	async function submit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
+		if (pendingPhotoConversions > 0) { errorMessage = 'Tunggu sampai proses kompresi foto selesai.'; return; }
 		if (!token) { await goto('/'); return; }
 		isSaving = true; errorMessage = '';
 		try {
-			if (isCreditApplication && (!Number.isSafeInteger(creditAmount) || creditAmount < 250_000_000)) {
-				errorMessage = 'Pengajuan kredit minimal Rp250.000.000.';
+			if (isCreditApplication && (!Number.isSafeInteger(creditAmount) || creditAmount < CREDIT_MINIMUM_AMOUNT)) {
+				errorMessage = 'Pengajuan kredit minimal Rp200.000.000.';
 				isSaving = false;
 				return;
 			}
@@ -225,9 +300,14 @@
 				}
 			}
 			const catalog = authorityType === 'central' || isCreditApplication ? selectedCatalog : null;
+			const requestAuthority: 'korwil' | 'central' = isCreditApplication
+				? creditAmount >= CREDIT_MARKETING_THRESHOLD ? 'central' : 'korwil'
+				: authorityType;
 			const result = await createRequest(token, {
-				authority_type: authorityType,
-				central_division_id: authorityType === 'central' ? Number(divisionId) : null,
+				authority_type: requestAuthority,
+				central_division_id: requestAuthority === 'central'
+					? isCreditApplication ? Number(selectedCatalog?.divisi_id) : Number(divisionId)
+					: null,
 				work_catalog_id: catalog?.id ?? null,
 				form_version_id: typeof catalog?.form_version_id === 'number' ? catalog.form_version_id : null,
 				form_answers: typeof catalog?.form_version_id === 'number'
@@ -236,7 +316,8 @@
 				subject: subject.trim(), description: description.trim(),
 				inoffice_letter_number: inofficeLetterNumber.trim() || null,
 				inoffice_letter_date: inofficeLetterDate || null,
-				inoffice_letter: inofficeLetterFile
+				inoffice_letter: inofficeLetterFile,
+				form_files: formUploadSelections()
 			});
 			await goto(`/requests/${result.data.id}`);
 		} catch (error) {
@@ -251,7 +332,16 @@
 	{@const answer = getFormAnswer(field, entryIndex)}
 	<div class="field">
 		<Label for={fieldId}>{field.label}{#if field.required}<span class="required-mark" aria-hidden="true"> *</span>{/if}</Label>
-		{#if field.type === 'textarea'}
+		{#if field.calculation}
+			<Input id={fieldId} type="text" value={answer === '' ? '' : formatGroupedNumber(answer)} readonly aria-readonly="true" class="min-h-11" placeholder="Isi kedua nilai tunggakan untuk menghitung total" />
+			<p class="field-hint">Dihitung otomatis dari Tunggakan Pokok + Tunggakan Bunga.</p>
+		{:else if field.type === 'document' || field.type === 'image' || field.type === 'images'}
+			{@const files = selectedFiles(field, entryIndex)}
+			{@const isPhoto = field.type === 'image' || field.type === 'images'}
+			<input id={fieldId} type="file" accept={isPhoto ? 'image/*' : 'application/pdf,.pdf,.doc,.docx,text/plain,.txt'} multiple={field.type === 'images'} required={field.required && files.length === 0} class="min-h-11 file-input" onchange={(event) => void selectFormFiles(field, entryIndex, event.currentTarget)} />
+			<p class="field-hint">{field.type === 'document' ? 'PDF, Word (.doc/.docx), atau TXT · maksimal 10 MB. Dokumen dicoba dikompres saat disimpan.' : field.type === 'images' ? `WebP otomatis dikompres · maksimal 4 foto${files.length ? ` · ${files.length} dipilih` : ''}.` : 'Satu foto · otomatis diubah ke WebP dan dikompres.'}</p>
+			{#if files.length}<div class="selected-file"><span>{files.map((file) => file.name).join(' · ')}</span><Button type="button" variant="ghost" class="clear-file" onclick={() => clearFormFiles(field, entryIndex)}>Hapus file</Button></div>{/if}
+		{:else if field.type === 'textarea'}
 			<Textarea id={fieldId} value={String(answer)} oninput={(event) => setAnswer(field, event.currentTarget.value, entryIndex)} required={field.required} maxlength={5000} rows={4} class="min-h-24" />
 		{:else if field.type === 'select'}
 			<SearchableSelect id={fieldId} label={field.label} options={(field.options ?? []).map((option) => ({ value: option, label: option }))} value={String(answer)} onValueChange={(value) => setAnswer(field, value, entryIndex)} placeholder="Pilih jawaban" searchPlaceholder={`Cari ${field.label.toLocaleLowerCase('id-ID')}...`} />
@@ -282,11 +372,14 @@
 					<Card.Content class="form-fields">
 						<div class="destination"><Building2 class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span>Cabang <strong>{options.office.kode_kantor}</strong> · Korwil pemetaan <strong>{options.office.korwil}</strong></span></div>
 						<div class="field"><label for="subject">Perihal <span aria-hidden="true">*</span></label><Input id="subject" bind:value={subject} required minlength={3} maxlength={200} class="min-h-11" placeholder="Contoh: Permohonan persetujuan lelang" /></div>
-						<fieldset class="field-set"><legend>Kewenangan tujuan <span aria-hidden="true">*</span></legend><div class="authority-options">
+						{#if !isCreditApplication}<fieldset class="field-set"><legend>Kewenangan tujuan <span aria-hidden="true">*</span></legend><div class="authority-options">
 							<label class:chosen={authorityType === 'korwil'} class="authority-option"><input type="radio" name="authority" value="korwil" checked={authorityType === 'korwil'} onchange={() => chooseAuthority('korwil')} /><span><strong>Korwil</strong><small>Ditangani di tingkat Korwil</small></span></label>
 							<label class:chosen={authorityType === 'central'} class="authority-option"><input type="radio" name="authority" value="central" checked={authorityType === 'central'} onchange={() => chooseAuthority('central')} /><span><strong>Pusat</strong><small>Pilih divisi dan jenis pekerjaan</small></span></label>
 						</div></fieldset>
-						{#if authorityType === 'central'}
+						{/if}
+						{#if isCreditApplication}
+			<div class="destination credit-destination"><Building2 class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><div class="credit-destination-copy"><strong>{creditAmount >= CREDIT_MARKETING_THRESHOLD ? 'Tujuan otomatis: Pusat · Pemasaran' : creditAmount >= CREDIT_MINIMUM_AMOUNT ? 'Tujuan otomatis: Korwil' : 'Tujuan ditentukan dari nominal'}</strong><span>Form Pengajuan Kredit menggunakan katalog Pemasaran. Mulai Rp500 juta, Korwil memeriksa tiket lalu meneruskannya ke Pemasaran.</span></div><Button type="button" variant="outline" class="min-h-10" onclick={changeCreditCatalog}>Ganti pilihan</Button></div>
+						{:else if authorityType === 'central'}
 							<div class="field"><span id="division-label" class="field-label">Divisi Pusat <span aria-hidden="true">*</span></span><SearchableSelect id="division-select" label="Divisi Pusat" options={options.divisions.map((division) => ({ value: String(division.id), label: division.nama_divisi }))} value={divisionId} onValueChange={(value) => { divisionId = value; chooseCatalog(''); }} placeholder="Pilih divisi tujuan" searchPlaceholder="Cari divisi..." /></div>
 							<div class="field"><span id="catalog-label" class="field-label">Jenis pekerjaan <span aria-hidden="true">*</span></span><SearchableSelect id="catalog-select" label="Jenis pekerjaan" options={workCatalogs.map((item) => ({ value: String(item.id), label: item.nama_pekerjaan }))} value={catalogId} onValueChange={chooseCatalog} disabled={!divisionId} placeholder={divisionId ? 'Pilih jenis pekerjaan' : 'Pilih divisi lebih dulu'} searchPlaceholder="Cari pekerjaan..." />{#if divisionId && workCatalogs.length === 0}<p class="field-hint">Belum ada jenis pekerjaan aktif untuk divisi ini. Minta Admin menambahkannya.</p>{/if}</div>
 						{:else}
@@ -295,7 +388,7 @@
 						{#if selectedCatalog && (authorityType === 'central' || isCreditApplication)}
 							<div class="route-summary" aria-live="polite"><strong>{routeSummary?.title}</strong><span>{routeSummary?.description}</span></div>
 							{#if isCreditApplication}
-								<div class="credit-guidance"><strong>Batas dan panduan nilai kredit</strong><span>Nilai minimal Rp250.000.000. Ambang panduan Pemasaran saat ini {formatCurrency(marketingThreshold)}; tujuan akhir mengikuti pilihan kewenangan di atas.</span></div>
+								<div class="credit-guidance"><strong>Batas dan tujuan otomatis</strong><span>Minimal Rp200.000.000. Nilai Rp200.000.000 sampai di bawah Rp500.000.000 masuk Korwil; mulai Rp500.000.000 diarahkan ke Pemasaran melalui Korwil.</span></div>
 							{/if}
 							{#if selectedCatalog.form_version_id === null}<Alert.Root variant="destructive"><Alert.Title>Form pekerjaan belum tersedia</Alert.Title><Alert.Description>Hubungi Admin atau pengelola Divisi untuk menerbitkan form sebelum pengajuan dikirim.</Alert.Description></Alert.Root>{/if}
 							{#if repeatableForm}
@@ -322,12 +415,12 @@
 						</div></fieldset>
 						{#if errorMessage}<Alert.Root variant="destructive"><Alert.Title>Pengajuan belum terkirim</Alert.Title><Alert.Description>{errorMessage}</Alert.Description></Alert.Root>{/if}
 					</Card.Content>
-					<Card.Footer class="form-actions"><Button variant="outline" class="min-h-11" href="/requests">Batal</Button><Button type="submit" class="min-h-11" disabled={isSaving || (authorityType === 'central' && (!divisionId || !catalogId)) || (isCreditApplication && selectedCatalog?.form_version_id === null)}>{#if isSaving}Mengirim…{:else}<Send class="size-4" aria-hidden="true" />Kirim ke {submitTarget}{/if}</Button></Card.Footer>
+					<Card.Footer class="form-actions"><Button variant="outline" class="min-h-11" href="/requests">Batal</Button><Button type="submit" class="min-h-11" disabled={isSaving || pendingPhotoConversions > 0 || (!isCreditApplication && authorityType === 'central' && (!divisionId || !catalogId)) || (isCreditApplication && selectedCatalog?.form_version_id === null)}>{#if isSaving}Mengirim…{:else if pendingPhotoConversions > 0}Memproses foto…{:else}<Send class="size-4" aria-hidden="true" />Kirim ke {submitTarget}{/if}</Button></Card.Footer>
 				</Card.Root>
 			</form>
 			<aside class="aside-stack" aria-label="Informasi alur dan batasan form">
 				{#if isCreditApplication}
-					<Card.Root><Card.Header><Card.Title class="text-base">Jalur pengajuan kredit</Card.Title><Card.Description>Nilai minimum Rp250.000.000. Kewenangan yang dipilih menentukan tujuan; ambang Pemasaran menjadi panduan nilai.</Card.Description></Card.Header><Card.Content class="flow-copy"><p><span>1</span> Di bawah Rp250 juta tidak dapat dikirim.</p><p><span>2</span> Pilih Korwil untuk memakai form Kredit dan menangani tiket hanya di Korwil.</p><p><span>3</span> Pilih Pusat untuk mengirim ke Pemasaran melalui jalur katalog; ambang panduan saat ini {formatCurrency(marketingThreshold)}.</p></Card.Content></Card.Root>
+					<Card.Root><Card.Header><Card.Title class="text-base">Jalur pengajuan kredit</Card.Title><Card.Description>Tujuan otomatis mengikuti nominal pengajuan.</Card.Description></Card.Header><Card.Content class="flow-copy"><p><span>1</span> Di bawah Rp200 juta tidak dapat dikirim.</p><p><span>2</span> Rp200 juta sampai di bawah Rp500 juta ditangani Korwil.</p><p><span>3</span> Mulai Rp500 juta otomatis masuk jalur Korwil lalu Divisi Pemasaran.</p></Card.Content></Card.Root>
 				{/if}
 				<Card.Root><Card.Header><Card.Title class="text-base">Alur setelah dikirim</Card.Title></Card.Header><Card.Content class="flow-copy"><p><span>1</span> {routeSummary?.title ?? 'Pilih kewenangan tujuan'}</p><p><span>2</span> {routeSummary?.description ?? 'Untuk tujuan Pusat, pilih divisi dan jenis pekerjaan.'}</p><p><span>3</span> Antrean unit tujuan dicatat; timer proses dimulai saat petugas mengambil tiket.</p></Card.Content></Card.Root>
 			</aside>
@@ -344,6 +437,9 @@
 	:global(.form-fields) { gap:1.1rem; }
 	.destination { display:flex; align-items:flex-start; gap:.6rem; padding:.8rem .9rem; border:1px solid var(--border); border-radius:.5rem; background:var(--muted); font-size:var(--type-sm); line-height:1.5; }
 	.destination :global(svg) { margin-top:.08rem; }
+	.credit-destination { align-items:center; flex-wrap:wrap; }
+	.credit-destination-copy { display:grid; min-width:10rem; flex:1; gap:.2rem; }
+	.credit-destination-copy span { color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
 	.route-summary { display:grid; min-width:0; gap:.35rem; padding:.85rem .95rem; border-left:3px solid var(--primary); border-radius:var(--radius); background:var(--muted); }
 	.route-summary strong { font-size:var(--type-sm); }
 	.route-summary span { color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.55; overflow-wrap:anywhere; }

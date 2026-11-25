@@ -8,23 +8,26 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { Popover } from 'bits-ui';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
 	import SearchableSelect from '#lib/components/SearchableSelect.svelte';
-	import { Separator } from '#lib/components/ui/separator/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
 	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
-	import { Pencil, Plus, Search, Trash2, UsersRound, X } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2, UsersRound, X, ListFilter } from '@lucide/svelte';
 	import {
 		fetchAdminUsersWorkspace,
+		importSsoEmployee,
+		searchSsoEmployees,
 		updateAdminUserAccess,
 		type AdminAccessDivision,
 		type AdminAccessOffice,
 		type AdminAccessRole,
 		type AdminScopeType,
 		type AdminUser,
-		type AdminUserAssignmentInput
+		type AdminUserAssignmentInput,
+		type SsoEmployeeCandidate
 	} from '#lib/features/admin/admin.api.js';
 	import {
 		authSession,
@@ -57,6 +60,7 @@
 		pekalongan: 'Pekalongan Raya'
 	};
 	let nextAssignmentKey = 1;
+	const pageSize = 10;
 
 	let users = $state<AdminUser[]>([]);
 	let roles = $state<AdminAccessRole[]>([]);
@@ -69,24 +73,49 @@
 	let formError = $state('');
 	let statusMessage = $state('');
 	let searchQuery = $state('');
+	let unitFilter = $state('all');
+	let currentPage = $state(1);
 	let selectedUser = $state<AdminUser | null>(null);
 	let accessDialogOpen = $state(false);
+	let addDialogOpen = $state(false);
+	let addQuery = $state('');
+	let addCandidates = $state<SsoEmployeeCandidate[] | null>(null);
+	let isSearchingSso = $state(false);
+	let addingEmployeeId = $state('');
+	let addError = $state('');
+	let addMessage = $state('');
+	let filtersOpen = $state(false);
 	let isActive = $state(false);
 	let assignments = $state<AssignmentForm[]>([]);
 
+	let unitOptions = $derived.by(() => {
+		const options = new Map<string, string>();
+		for (const user of users) {
+			const unit = user.unit_kerja?.trim();
+			options.set(unit || '__unmapped__', unit || 'Unit kerja belum tercantum');
+		}
+		return [...options].map(([value, label]) => ({ value, label }))
+			.sort((left, right) => left.label.localeCompare(right.label, 'id-ID'));
+	});
 	let filteredUsers = $derived.by(() => {
 		const query = searchQuery.trim().toLocaleLowerCase('id-ID');
-		if (!query) return users;
-		return users.filter((user) => [
-			user.employee_id,
-			user.full_name,
-			user.branch_name,
-			user.unit_kerja,
-			user.nama_kantor
-		].filter(Boolean).join(' ').toLocaleLowerCase('id-ID').includes(query));
+		return users.filter((user) => {
+			const matchesSearch = !query || `${user.employee_id} ${user.full_name ?? ''}`.toLocaleLowerCase('id-ID').includes(query);
+			const unit = user.unit_kerja?.trim();
+			const matchesUnit = unitFilter === 'all' || (unitFilter === '__unmapped__' ? !unit : unit === unitFilter);
+			return matchesSearch && matchesUnit;
+		});
 	});
+	let pageCount = $derived(Math.max(1, Math.ceil(filteredUsers.length / pageSize)));
+	let pageStart = $derived(filteredUsers.length ? (currentPage - 1) * pageSize + 1 : 0);
+	let pageEnd = $derived(Math.min(currentPage * pageSize, filteredUsers.length));
+	let visibleUsers = $derived(filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize));
 	let roleItems = $derived(roles.map((role) => ({ value: String(role.id), label: role.nama_role })));
 	let currentEmployeeId = $derived($authSession.profile?.employee_id ?? '');
+
+	$effect(() => {
+		if (currentPage > pageCount) currentPage = pageCount;
+	});
 
 	$effect(() => {
 		if (!accessDialogOpen && selectedUser) {
@@ -161,7 +190,6 @@
 			admin: 'global',
 			branch_user: 'office',
 			korwil_staff: 'korwil',
-			korwil_approver: 'korwil',
 			division_staff: 'division'
 		};
 		return byRole[roleCode] ?? null;
@@ -172,7 +200,7 @@
 	}
 
 	function usesAutomaticScope(assignment: AssignmentForm): boolean {
-		return ['admin', 'branch_user', 'korwil_staff', 'korwil_approver', 'division_staff'].includes(roleCode(assignment) ?? '');
+		return ['admin', 'branch_user', 'korwil_staff', 'division_staff'].includes(roleCode(assignment) ?? '');
 	}
 
 	function automaticScopeInfo(assignment: AssignmentForm): { target: string; help: string; ready: boolean } {
@@ -184,7 +212,7 @@
 			}
 			return { target: 'Kantor belum terpetakan', help: 'Periksa kode kantor pada profil SSO dan statusnya di Master Kantor.', ready: false };
 		}
-		if (code === 'korwil_staff' || code === 'korwil_approver') {
+		if (code === 'korwil_staff') {
 			const korwil = selectedUser?.sso_korwil;
 			return korwil
 				? { target: korwilLabels[korwil] ?? korwil, help: 'Mengikuti wilayah pada profil organisasi SSO.', ready: true }
@@ -301,7 +329,7 @@
 					entry.kode_kantor = assignment.kode_kantor;
 				}
 			} else if (assignment.scope_type === 'korwil') {
-				if (['korwil_staff', 'korwil_approver'].includes(roleCode(assignment) ?? '')) {
+				if (roleCode(assignment) === 'korwil_staff') {
 					if (!selectedUser?.sso_korwil) {
 						formError = 'Profil SSO pegawai belum menunjukkan Korwil yang terdaftar.';
 						return null;
@@ -373,6 +401,67 @@
 		formError = '';
 	}
 
+	function openAddDialog(): void {
+		addDialogOpen = true;
+		addQuery = '';
+		addCandidates = null;
+		addError = '';
+		addMessage = '';
+	}
+
+	async function searchSsoDirectory(event: SubmitEvent): Promise<void> {
+		event.preventDefault();
+		const query = addQuery.trim();
+		const token = $authSession.token;
+		if (!query || isSearchingSso) return;
+		if (!token) {
+			clearAuthenticatedSession();
+			await goto('/');
+			return;
+		}
+
+		isSearchingSso = true;
+		addError = '';
+		addMessage = '';
+		addCandidates = null;
+		try {
+			const response = await searchSsoEmployees(token, query);
+			addCandidates = response.data;
+			if (!response.data.length) addMessage = 'Pegawai tidak ditemukan di direktori SSO.';
+		} catch (error) {
+			addError = error instanceof ApiError
+				? error.message
+				: 'Direktori SSO belum dapat dicari. Coba lagi.';
+		} finally {
+			isSearchingSso = false;
+		}
+	}
+
+	async function addSsoEmployee(employee: SsoEmployeeCandidate): Promise<void> {
+		const token = $authSession.token;
+		if (!token || addingEmployeeId) return;
+		addingEmployeeId = employee.employee_id;
+		addError = '';
+		try {
+			const result = await importSsoEmployee(token, employee.employee_id);
+			await loadAdminData(() => token);
+			const imported = users.find((user) => user.id === result.data.id);
+			if (!imported) {
+				addError = loadError || 'Pegawai berhasil ditambahkan tetapi daftar belum dapat diperbarui. Muat ulang halaman.';
+				return;
+			}
+			addDialogOpen = false;
+			editUser(imported);
+			statusMessage = result.message;
+		} catch (error) {
+			addError = error instanceof ApiError
+				? error.message
+				: 'Pegawai belum dapat ditambahkan. Coba lagi.';
+		} finally {
+			addingEmployeeId = '';
+		}
+	}
+
 </script>
 
 <svelte:head>
@@ -384,7 +473,60 @@
 	<AppNavbar />
 
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
-		<AppPageHeading eyebrow="Administrasi" title="Akses pegawai" description="Atur peran pegawai. Cakupan Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO." />
+		<AppPageHeading eyebrow="Administrasi" title="Akses pegawai" description="Atur peran pegawai. Cakupan Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO.">
+			{#snippet actions()}
+				<Button class="min-h-11" onclick={openAddDialog}><Plus class="size-4" aria-hidden="true" /> Tambah pegawai</Button>
+			{/snippet}
+		</AppPageHeading>
+
+		<Dialog.Root bind:open={addDialogOpen}>
+			<Dialog.Content class="add-employee-dialog" showCloseButton={false}>
+				<Dialog.Header class="access-dialog-header">
+					<div class="access-dialog-heading">
+						<Dialog.Title class="access-dialog-title">Tambah pegawai dari SSO</Dialog.Title>
+						<Dialog.Description>Cari dengan ID pegawai atau nama, lalu pilih pegawai yang benar.</Dialog.Description>
+					</div>
+					<Button type="button" variant="ghost" size="icon-lg" class="min-h-11 min-w-11 border-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground dark:hover:bg-transparent" aria-label="Tutup pencarian pegawai" onclick={() => (addDialogOpen = false)}>
+						<X class="size-4" aria-hidden="true" />
+					</Button>
+				</Dialog.Header>
+				<form class="sso-search-form" onsubmit={searchSsoDirectory}>
+					<div class="field-group">
+						<Label for="sso-employee-search">ID pegawai atau nama</Label>
+						<div class="search-control">
+							<Search class="search-icon" aria-hidden="true" />
+							<Input id="sso-employee-search" bind:value={addQuery} placeholder="Contoh: 102-119 atau nama pegawai" class="min-h-11 border-input" maxlength={120} required />
+						</div>
+					</div>
+					<Button type="submit" class="min-h-11" disabled={isSearchingSso || !addQuery.trim()}>
+						<Search class="size-4" aria-hidden="true" /> {isSearchingSso ? 'Mencari...' : 'Cari pegawai'}
+					</Button>
+				</form>
+				{#if addError}
+					<Alert.Root variant="destructive"><Alert.Title>Pencarian atau penambahan gagal</Alert.Title><Alert.Description>{addError}</Alert.Description></Alert.Root>
+				{:else if addMessage}
+					<p class="sso-search-message" role="status">{addMessage}</p>
+				{/if}
+				{#if addCandidates}
+					<div class="sso-candidate-list" aria-label="Hasil pencarian pegawai SSO">
+						{#each addCandidates as employee (employee.employee_id)}
+							{@const alreadyAdded = users.some((user) => user.employee_id === employee.employee_id)}
+							<article class="sso-candidate">
+								<div class="sso-candidate-copy">
+									<strong>{employee.full_name}</strong>
+									<span>ID {employee.employee_id} · Kantor {employee.kode || 'belum tercantum'}</span>
+									<span>{employee.unit_kerja || employee.branch_name || employee.job_position || 'Unit kerja belum tersedia dari SSO'}</span>
+								</div>
+								<Button type="button" variant={alreadyAdded ? 'outline' : 'default'} class="min-h-11" disabled={alreadyAdded || Boolean(addingEmployeeId)} onclick={() => void addSsoEmployee(employee)}>
+									{#if addingEmployeeId === employee.employee_id}Menambahkan...{:else if alreadyAdded}Sudah ada{:else}<Plus class="size-4" aria-hidden="true" /> Tambahkan{/if}
+								</Button>
+							</article>
+						{/each}
+					</div>
+				{/if}
+				<p class="sso-import-note">Role dan cakupan yang cocok dengan profil akan diisi otomatis. Akun tetap nonaktif sampai Admin mengaktifkannya.</p>
+			</Dialog.Content>
+		</Dialog.Root>
 
 		{#if statusMessage}
 			<p class="save-status" role="status" aria-live="polite">{statusMessage}</p>
@@ -511,24 +653,67 @@
 					<div class="list-heading-copy">
 						<Card.Title id="users-title">Daftar pegawai</Card.Title>
 						<Card.Description>
-							{#if isLoading}Sedang memuat data pegawai.{:else}Profil muncul setelah pegawai login SSO setidaknya sekali.{/if}
+							{#if isLoading}
+								Sedang memuat data pegawai.
+							{:else if loadError}
+								Daftar pegawai belum tersedia.
+							{:else}
+								{filteredUsers.length} pegawai · {filteredUsers.filter((user) => user.is_active).length} aktif. Profil muncul setelah login SSO.
+							{/if}
 						</Card.Description>
 					</div>
 				</div>
-				{#if !isLoading && !loadError}<Badge variant="secondary">{users.filter((user) => user.is_active).length} aktif</Badge>{/if}
+				<div class="users-header-actions">
+					<div class="users-search-control search-control">
+						<Search class="search-icon" aria-hidden="true" />
+						<Input
+							id="users-search"
+							type="search"
+							bind:value={searchQuery}
+							oninput={() => (currentPage = 1)}
+							aria-label="Cari pegawai berdasarkan nama atau ID pegawai"
+							placeholder="Cari nama atau ID"
+							class="min-h-11 border-input"
+						/>
+					</div>
+					<Popover.Root bind:open={filtersOpen}>
+						<Popover.Trigger>
+							{#snippet child({ props })}
+								<Button {...props} type="button" variant="outline" class="filter-trigger min-h-11" aria-haspopup="dialog" aria-expanded={filtersOpen}><ListFilter class="size-4" aria-hidden="true" />Filter</Button>
+							{/snippet}
+						</Popover.Trigger>
+						<Popover.Portal>
+							<Popover.Content class="app-filter-popover" side="top" align="end" sideOffset={8} trapFocus={false} aria-labelledby="users-filter-title" aria-describedby="users-filter-description">
+								<div class="app-filter-popover-header">
+									<h2 id="users-filter-title" class="app-filter-popover-title">Filter pegawai</h2>
+									<p id="users-filter-description" class="app-filter-popover-description">Saring daftar pegawai berdasarkan unit kerja.</p>
+								</div>
+								<form class="app-filter-popover-form" onsubmit={(event) => { event.preventDefault(); filtersOpen = false; }}>
+									<div class="app-filter-popover-fields">
+										<div class="user-filter-fields">
+										<SearchableSelect
+											id="user-unit-filter"
+											label="Unit kerja"
+											options={[{ value: 'all', label: 'Semua unit' }, ...unitOptions]}
+											value={unitFilter}
+											onValueChange={(value) => { unitFilter = value; currentPage = 1; }}
+											placeholder="Semua unit"
+											searchPlaceholder="Cari unit kerja..."
+											class="user-unit-select"
+										/>
+										</div>
+									</div>
+									<div class="app-filter-popover-actions">
+										<Button type="button" variant="outline" class="min-h-11" disabled={unitFilter === 'all'} onclick={() => { unitFilter = 'all'; currentPage = 1; filtersOpen = false; }}>Reset</Button>
+										<Button type="submit" class="min-h-11">Terapkan</Button>
+									</div>
+								</form>
+							</Popover.Content>
+						</Popover.Portal>
+					</Popover.Root>
+				</div>
 			</Card.Header>
 			<Card.Content class="users-content">
-				<div class="users-toolbar">
-					<div class="search-field">
-						<Label for="user-search" class="sr-only">Cari pegawai</Label>
-						<div class="search-control">
-							<Search class="search-icon" aria-hidden="true" />
-							<Input id="user-search" bind:value={searchQuery} placeholder="Cari nama, ID, kantor, atau unit kerja" class="min-h-11 border-input" />
-						</div>
-					</div>
-					{#if !isLoading && !loadError}<p class="result-count">{filteredUsers.length} pegawai</p>{/if}
-				</div>
-				<Separator class="list-separator" />
 				{#if isLoading}
 					<div class="state-panel" role="status" aria-live="polite"><strong>Memuat pengguna</strong><p>Profil pegawai dan assignment akses sedang diambil dari database.</p></div>
 				{:else if loadError}
@@ -540,7 +725,7 @@
 				{:else if filteredUsers.length === 0}
 					<div class="state-panel empty-panel">
 						<strong>{users.length ? 'Tidak ada pegawai yang cocok' : 'Belum ada profil pegawai'}</strong>
-						<p>{users.length ? 'Ubah kata pencarian untuk melihat akun lain.' : 'Akun akan muncul di sini setelah pegawai masuk dengan SSO. Setelah itu, Admin dapat menetapkan status, peran, dan cakupannya.'}</p>
+						<p>{users.length ? 'Ubah nama atau ID pegawai, atau pilih unit kerja lain.' : 'Gunakan Tambah pegawai untuk mencari dan memasukkan profil dari direktori SSO. Akun baru tetap nonaktif sampai Admin menetapkan aksesnya.'}</p>
 					</div>
 				{:else}
 					<div class="desktop-users">
@@ -548,7 +733,7 @@
 							<caption class="sr-only">Status akun dan akses Sistem SLA per pegawai</caption>
 							<thead><tr><th scope="col">Pegawai</th><th scope="col">Unit</th><th scope="col">Akses</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Tindakan</span></th></tr></thead>
 							<tbody>
-								{#each filteredUsers as user (user.id)}
+								{#each visibleUsers as user (user.id)}
 									<tr>
 										<th scope="row"><strong>{user.full_name || 'Nama belum tersinkron'}</strong><small>{user.employee_id}</small></th>
 										<td>{user.nama_kantor || user.branch_name || 'Kantor belum terpetakan'}<small>{user.unit_kerja || 'Unit kerja belum tercantum'}</small></td>
@@ -567,23 +752,34 @@
 						</Table.Root>
 					</div>
 					<div class="mobile-users">
-						{#each filteredUsers as user (user.id)}
-							<Card.Root size="sm" class="user-record" role="article" aria-labelledby={`user-record-${user.id}`}>
-								<Card.Content class="user-record-content">
-								<div class="user-record-heading">
-									<div><h3 id={`user-record-${user.id}`}>{user.full_name || 'Nama belum tersinkron'}</h3><p>{user.employee_id}</p></div>
-									<Badge variant={user.is_active ? 'secondary' : 'outline'} class={user.is_active ? 'status-badge status-badge--success' : ''}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
+						{#each visibleUsers as user (user.id)}
+							<article class="user-record" aria-labelledby={`user-record-${user.id}`}>
+								<div class="user-record-content">
+									<div class="user-record-heading">
+										<div><h3 id={`user-record-${user.id}`}>{user.full_name || 'Nama belum tersinkron'}</h3><p>{user.employee_id}</p></div>
+										<Badge variant={user.is_active ? 'secondary' : 'outline'} class={user.is_active ? 'status-badge status-badge--success' : ''}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
+									</div>
+									<p class="user-unit">{user.nama_kantor || user.branch_name || 'Kantor belum terpetakan'} · {user.unit_kerja || 'Unit kerja belum tercantum'}</p>
+									<div class="assignment-summary">{#if user.assignments.length}{#each user.assignments as assignment (assignment.id)}<span>{assignment.role_name} · {scopeSummary(assignment, user)}</span>{/each}{:else}<span class="muted-value">Belum diberi peran</span>{/if}</div>
+									<div class="user-record-actions">
+										{#if user.employee_id === currentEmployeeId}
+											<p class="current-session-note">Akun admin yang sedang dipakai tidak dapat diubah dari sesinya sendiri.</p>
+										{:else}
+											<Button variant="outline" size="sm" class="min-h-11 border-input" onclick={() => editUser(user)}><Pencil class="size-4" aria-hidden="true" />Atur akses</Button>
+										{/if}
+									</div>
 								</div>
-								<p class="user-unit">{user.nama_kantor || user.branch_name || 'Kantor belum terpetakan'} · {user.unit_kerja || 'Unit kerja belum tercantum'}</p>
-				<div class="assignment-summary">{#if user.assignments.length}{#each user.assignments as assignment (assignment.id)}<span>{assignment.role_name} · {scopeSummary(assignment, user)}</span>{/each}{:else}<span class="muted-value">Belum diberi peran</span>{/if}</div>
-				{#if user.employee_id === currentEmployeeId}
-					<p class="current-session-note">Akun admin yang sedang dipakai tidak dapat diubah dari sesinya sendiri.</p>
-				{:else}
-					<Button variant="outline" size="lg" class="min-h-11 w-full border-input" onclick={() => editUser(user)}><Pencil class="size-4" aria-hidden="true" /> Atur akses</Button>
-				{/if}
-								</Card.Content>
-							</Card.Root>
+							</article>
 						{/each}
+					</div>
+				{/if}
+				{#if !isLoading && !loadError && filteredUsers.length > pageSize}
+					<div class="users-pagination" aria-label="Navigasi halaman pegawai">
+						<p aria-live="polite">Menampilkan {pageStart}–{pageEnd} dari {filteredUsers.length} pegawai · Halaman {currentPage} dari {pageCount}</p>
+						<div class="users-pagination-actions">
+							<Button type="button" variant="outline" class="min-h-11" disabled={currentPage <= 1} onclick={() => (currentPage = Math.max(1, currentPage - 1))}><ChevronLeft class="size-4" aria-hidden="true" />Sebelumnya</Button>
+							<Button type="button" variant="outline" class="min-h-11" disabled={currentPage >= pageCount} onclick={() => (currentPage = Math.min(pageCount, currentPage + 1))}>Berikutnya<ChevronRight class="size-4" aria-hidden="true" /></Button>
+						</div>
 					</div>
 				{/if}
 			</Card.Content>
@@ -595,16 +791,15 @@
 	.admin-page { min-height: 100svh; background: var(--muted); color: var(--foreground); }
 	.admin-content { display: grid; align-content: start; grid-auto-rows: max-content; gap: 1rem; height: auto; min-height: 0; }
 	:global(.admin-content > .app-page-heading) { margin-bottom: 0; }
-	.users-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-	.search-field, .field-group { display: grid; min-width: 0; gap: 0.45rem; }
-	.search-field { width: min(100%, 32rem); }
+	.field-group { display: grid; min-width: 0; gap: 0.45rem; }
 	.search-control { position: relative; min-width: 0; }
 	.search-control :global(input) { padding-left: 2.5rem; }
 	:global(.search-icon) { position: absolute; z-index: 1; top: 50%; left: 0.8rem; width: 1rem; height: 1rem; color: var(--muted-foreground); transform: translateY(-50%); pointer-events: none; }
-	.result-count { margin: 0; color: var(--muted-foreground); font-size: var(--type-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.user-filter-fields { display: grid; gap: .45rem; }
 	.save-status { margin: 0 0 0.8rem; color: var(--foreground); font-size: var(--type-base); }
 	:global(.users-card) { min-width: 0; margin-top: 0; }
 	:global(.access-dialog) { width: min(52rem, calc(100vw - 2rem)); max-width: min(52rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; }
+	:global(.add-employee-dialog) { display: grid; width: min(46rem, calc(100vw - 2rem)); max-width: min(46rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); gap: 1rem; overflow-y: auto; }
 	:global(.access-dialog-header) { display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-right: 0; }
 	:global(.access-dialog-heading) { display: grid; min-width: 0; gap: 0.4rem; }
 	:global(.access-dialog-title[data-slot='dialog-title']) { font-size: var(--type-lg); font-weight: 650; line-height: 1.3; }
@@ -612,17 +807,29 @@
 	:global(.access-dialog-body) { min-width: 0; }
 	:global(.users-header[data-slot='card-header']) { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; padding-bottom: 0; }
 	.users-heading { display: flex; min-width: 0; flex: 1 1 auto; align-items: flex-start; gap: 0.65rem; }
+	.users-header-actions { display:flex; min-width:0; flex:0 1 auto; align-items:center; justify-content:flex-end; gap:.55rem; margin-left:auto; }
+	.users-search-control { width:min(18rem, 28vw); flex:0 1 18rem; }
 	:global(.list-heading-icon) { width: 1rem; height: 1rem; flex: 0 0 auto; margin-top: 0.15rem; color: var(--muted-foreground); }
 	.list-heading-copy { display: grid; min-width: 0; gap: 0.1rem; }
 	.list-heading-copy :global([data-slot='card-description']) { font-size: var(--type-xs); line-height: 1.45; }
 	:global(.users-content[data-slot='card-content']) { gap: 0.75rem; }
-	:global(.list-separator[data-slot='separator']) { margin: 0; }
+	.users-pagination { display:flex; min-width:0; align-items:center; justify-content:space-between; gap:.75rem; margin-top:.75rem; padding-top:.85rem; border-top:1px solid var(--border); }
+	.users-pagination p { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); font-variant-numeric:tabular-nums; }
+	.users-pagination-actions { display:flex; flex:0 0 auto; gap:.45rem; }
 	:global(.load-error) { display: grid; gap: 0.75rem; margin-top: 1rem; }
 	.state-panel { display: grid; min-height: 10rem; align-content: center; gap: 0.5rem; padding: 1.25rem 0.25rem; }
 	.state-panel strong { font-size: var(--type-base); }
 	.state-panel p { max-width: 42rem; margin: 0; color: var(--muted-foreground); font-size: var(--type-sm); line-height: 1.6; }
 	.empty-panel { min-height: 12rem; }
 	.access-form { display: grid; gap: 1.15rem; }
+	.sso-search-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 0.65rem; }
+	.sso-search-message, .sso-import-note { margin: 0; color: var(--muted-foreground); font-size: var(--type-sm); line-height: 1.5; }
+	.sso-candidate-list { display: grid; max-height: min(48dvh, 24rem); gap: 0.5rem; overflow-y: auto; }
+	.sso-candidate { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); }
+	.sso-candidate-copy { display: grid; min-width: 0; gap: 0.2rem; }
+	.sso-candidate-copy strong { font-size: var(--type-sm); font-weight: 620; }
+	.sso-candidate-copy span { color: var(--muted-foreground); font-size: var(--type-xs); line-height: 1.45; overflow-wrap: anywhere; }
+	.sso-import-note { padding-top: 0.25rem; }
 	.user-summary { display: grid; gap: 0.25rem; color: var(--muted-foreground); font-size: var(--type-sm); line-height: 1.5; }
 	.active-control { display: flex; min-height: 3.25rem; align-items: center; gap: 0.75rem; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); }
 	.active-copy { display: grid; gap: 0.2rem; }
@@ -666,14 +873,17 @@
 	.mobile-users { display: none; }
 	@media (max-width: 58rem) {
 		.desktop-users { display: none; }
-		.mobile-users { display: grid; gap: 0.7rem; margin-top: 0.15rem; }
-		:global(.user-record) { display: grid; min-width: 0; gap: 0; padding: 0; border: 0; background: var(--card); }
-		:global(.user-record-content[data-slot='card-content']) { display: grid; gap: 0.75rem; padding: 0.9rem; }
+		.mobile-users { display: grid; gap: 0; margin-top: 0.15rem; border-top:1px solid var(--border); }
+		.user-record { min-width:0; padding:.8rem 0; border-bottom:1px solid var(--border); }
+		.user-record:last-child { padding-bottom:0; border-bottom:0; }
+		.user-record-content { display:grid; min-width:0; gap:.4rem; }
 		.user-record-heading { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 0.55rem; }
 		.user-record-heading > div { min-width: 0; }
 		.user-record-heading h3 { margin: 0; font-size: var(--type-base); font-weight: 620; line-height: 1.4; overflow-wrap: anywhere; }
 		.user-record-heading p, .user-unit { margin: 0.25rem 0 0; color: var(--muted-foreground); font-size: var(--type-xs); line-height: 1.45; overflow-wrap: anywhere; }
 		.user-unit { margin: 0; }
+		.assignment-summary { gap:.2rem; }
+		.user-record-actions { display:flex; min-width:0; justify-content:flex-end; }
 	}
 	@media (max-width: 62rem) {
 		.assignment-row { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
@@ -684,11 +894,18 @@
 		.assignment-row.automatic-assignment :global(.remove-assignment) { grid-column: 2; grid-row: 1; }
 	}
 	@media (max-width: 42rem) {
+		.users-pagination { align-items:stretch; flex-direction:column; }
+		.users-pagination-actions { width:100%; }
+		.users-pagination-actions :global(button) { flex:1 1 0; justify-content:center; }
 		:global(.access-dialog) { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); padding: 1rem; }
+		:global(.add-employee-dialog) { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); padding: 1rem; }
 		:global(.access-dialog-header) { gap: 0.5rem; }
-		.users-toolbar { align-items: stretch; flex-direction: column; gap: 0.5rem; }
-		.search-field { width: 100%; }
-		.result-count { align-self: flex-end; }
+		.sso-search-form { grid-template-columns: minmax(0, 1fr); }
+		.sso-candidate { align-items: stretch; flex-direction: column; }
+		.sso-candidate :global(button) { width: 100%; }
+		:global(.users-header[data-slot='card-header']) { align-items:stretch; flex-direction:column; }
+		.users-header-actions { display:grid; width:100%; flex:1 1 100%; grid-template-columns:minmax(0, 1fr) auto; align-items:stretch; justify-content:stretch; gap:.5rem; margin-left:0; }
+		.users-search-control { width:auto; min-width:0; }
 		.assignment-heading { align-items: flex-start; flex-direction: column; }
 		.assignment-heading > :global(button) { width: 100%; }
 		.assignment-row { grid-template-columns: minmax(0, 1fr) auto; gap: 0.8rem; padding: 0.75rem; }

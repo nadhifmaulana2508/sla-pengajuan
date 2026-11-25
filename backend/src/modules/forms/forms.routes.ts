@@ -17,9 +17,9 @@ class FormManagementError extends Error {
 	}
 }
 
-const editorFieldSchema = z.object({
+const legacyEditorFieldSchema = z.object({
 	label: z.string().trim().min(1).max(160),
-	type: z.enum(['text', 'textarea', 'number', 'currency', 'date', 'select']),
+	type: z.enum(['text', 'textarea', 'number', 'currency', 'date', 'select', 'document', 'image', 'images']),
 	required: z.boolean(),
 	options: z.array(z.string().trim().min(1).max(160)).max(50).optional(),
 	min_value: z.number().finite().optional(),
@@ -43,11 +43,43 @@ const editorFieldSchema = z.object({
 	}
 });
 
+const catalogFieldSelectionSchema = z.object({
+	catalog_field_id: z.number().int().positive(),
+	required: z.boolean(),
+	requires_korwil_review: z.boolean().default(false),
+	min_value: z.number().finite().optional(),
+	max_value: z.number().finite().optional()
+}).strict().superRefine((field, context) => {
+	if (field.min_value !== undefined && field.max_value !== undefined && field.min_value > field.max_value) {
+		context.addIssue({ code: 'custom', message: 'Nilai minimum tidak boleh lebih besar dari maksimum.', path: ['min_value'] });
+	}
+});
+
+const editorFieldSchema = z.union([catalogFieldSelectionSchema, legacyEditorFieldSchema]);
+
 const publishSchema = z.object({
 	fields: z.array(editorFieldSchema).max(40, 'Form hanya dapat memuat maksimal 40 kolom tambahan.'),
 	repeatable: repeatableFormSchema.nullable().optional(),
 	credit_routing: creditRoutingSchema.nullable().optional()
 }).strict();
+const customFieldCreateSchema = z.object({
+	label: z.string().trim().min(1).max(160),
+	type: z.enum(['text', 'textarea', 'number', 'currency', 'date', 'select', 'document', 'image', 'images']),
+	options: z.array(z.string().trim().min(1).max(160)).max(50).optional()
+}).strict().superRefine((field, context) => {
+	if (field.type === 'select' && !field.options?.length) {
+		context.addIssue({ code: 'custom', message: 'Tambahkan pilihan untuk field bertipe pilihan.', path: ['options'] });
+	}
+	if (field.type !== 'select' && field.options?.length) {
+		context.addIssue({ code: 'custom', message: 'Pilihan hanya berlaku untuk field bertipe pilihan.', path: ['options'] });
+	}
+	if (field.type === 'select' && field.options) {
+		const normalizedOptions = field.options.map((option) => option.toLocaleLowerCase('id-ID'));
+		if (new Set(normalizedOptions).size !== normalizedOptions.length) {
+			context.addIssue({ code: 'custom', message: 'Opsi dalam satu field pilihan tidak boleh sama.', path: ['options'] });
+		}
+	}
+});
 const rejectionReasonCreateSchema = z.object({
 	catalog_id: z.number().int().positive(),
 	scope_type: z.enum(['system', 'division', 'catalog']),
@@ -111,23 +143,124 @@ function makeFieldKey(label: string, index: number, used: Set<string>): string {
 	return key;
 }
 
-function normalizePublisherFields(fields: z.infer<typeof publishSchema>['fields'], isCredit: boolean): FormFieldDefinition[] {
+type CatalogFieldRow = RowDataPacket & {
+	id: number; division_id: number | null; field_key: string; label: string; field_type: string;
+	options_json: unknown; calculation_json: unknown; is_standard: number; is_derived: number;
+};
+
+function decodeJsonValue<T>(value: unknown, fallback: T): T {
+	if (typeof value === 'string') {
+		try { return JSON.parse(value) as T; } catch { return fallback; }
+	}
+	return value !== null && typeof value === 'object' ? value as T : fallback;
+}
+
+function catalogFieldResponse(row: CatalogFieldRow) {
+	return {
+		id: Number(row.id),
+		division_id: row.division_id === null ? null : Number(row.division_id),
+		key: row.field_key,
+		label: row.label,
+		type: row.field_type,
+		options: decodeJsonValue<string[] | null>(row.options_json, null),
+		calculation: decodeJsonValue<FormFieldDefinition['calculation'] | null>(row.calculation_json, null),
+		is_standard: Number(row.is_standard) === 1,
+		is_derived: Number(row.is_derived) === 1
+	};
+}
+
+async function normalizePublisherFields(
+	connection: Awaited<ReturnType<typeof mysqlPool.getConnection>>,
+	divisionId: number,
+	fields: z.infer<typeof publishSchema>['fields'],
+	isCredit: boolean
+): Promise<FormFieldDefinition[]> {
+	const selectedCatalogIds = fields.flatMap((field) => 'catalog_field_id' in field ? [field.catalog_field_id] : []);
+	if (new Set(selectedCatalogIds).size !== selectedCatalogIds.length) {
+		throw new FormManagementError(400, 'Field katalog yang sama tidak boleh dipilih lebih dari satu kali.');
+	}
+	const catalogFieldsById = new Map<number, CatalogFieldRow>();
+	if (selectedCatalogIds.length > 0) {
+		const placeholders = selectedCatalogIds.map(() => '?').join(', ');
+		const [rows] = await connection.execute<CatalogFieldRow[]>(
+			`SELECT id, division_id, field_key, label, field_type, options_json, calculation_json, is_standard, is_derived
+			FROM form_field_catalog WHERE id IN (${placeholders})
+				AND (division_id IS NULL OR division_id = ?)`,
+			[...selectedCatalogIds, divisionId]
+		);
+		for (const row of rows) catalogFieldsById.set(Number(row.id), row);
+	}
+	if (catalogFieldsById.size !== selectedCatalogIds.length) {
+		throw new FormManagementError(400, 'Field katalog tidak tersedia untuk jenis pekerjaan ini. Muat ulang form lalu pilih kembali.');
+	}
+
 	const used = new Set<string>(isCredit ? ['credit_amount'] : []);
-	const customFields = fields.map((field, index) => ({
-		key: makeFieldKey(field.label, index, used),
-		...field,
-		options: field.type === 'select' ? field.options : undefined
-	}));
-	if (!isCredit) return customFields;
+	for (const row of catalogFieldsById.values()) used.add(row.field_key);
+	const selectedKeys = new Set([...catalogFieldsById.values()].map((row) => row.field_key));
+	if (selectedKeys.has('tunggakan_pokok') && selectedKeys.has('tunggakan_bunga')) used.add('total_tunggakan');
+	const resolvedFields: FormFieldDefinition[] = [];
+	for (const [index, field] of fields.entries()) {
+		if ('catalog_field_id' in field) {
+			const row = catalogFieldsById.get(field.catalog_field_id)!;
+			const options = decodeJsonValue<string[] | null>(row.options_json, null) ?? undefined;
+			const calculation = decodeJsonValue<FormFieldDefinition['calculation'] | null>(row.calculation_json, null) ?? undefined;
+			resolvedFields.push({
+				key: row.field_key,
+				catalog_field_id: Number(row.id),
+				label: row.label,
+				type: row.field_type as FormFieldDefinition['type'],
+				required: calculation ? false : field.required,
+				requires_korwil_review: calculation ? false : field.requires_korwil_review,
+				...(options ? { options } : {}),
+				...(field.min_value === undefined ? {} : { min_value: field.min_value }),
+				...(field.max_value === undefined ? {} : { max_value: field.max_value }),
+				...(calculation ? { calculation } : {})
+			});
+			continue;
+		}
+		resolvedFields.push({
+			key: makeFieldKey(field.label, index, used),
+			...field,
+			options: field.type === 'select' ? field.options : undefined
+		});
+	}
+
+	const hasPrincipalArrears = resolvedFields.some((field) => field.key === 'tunggakan_pokok');
+	const hasInterestArrears = resolvedFields.some((field) => field.key === 'tunggakan_bunga');
+	if (hasPrincipalArrears && hasInterestArrears && !resolvedFields.some((field) => field.calculation?.operation === 'sum' && field.key === 'total_tunggakan')) {
+		const [totalFields] = await connection.execute<CatalogFieldRow[]>(
+			`SELECT id, division_id, field_key, label, field_type, options_json, calculation_json, is_standard, is_derived
+			FROM form_field_catalog WHERE field_key = 'total_tunggakan' AND division_id IS NULL AND is_derived = 1 LIMIT 1`
+		);
+		const totalField = totalFields[0];
+		if (!totalField) throw new FormManagementError(500, 'Field hitung Total Tunggakan belum tersedia di katalog.');
+		resolvedFields.push({
+			key: totalField.field_key,
+			catalog_field_id: Number(totalField.id),
+			label: totalField.label,
+			type: 'currency',
+			required: false,
+			options: undefined,
+			calculation: decodeJsonValue<FormFieldDefinition['calculation']>(totalField.calculation_json, { operation: 'sum', fields: ['tunggakan_pokok', 'tunggakan_bunga'] })
+		});
+	}
+	if (resolvedFields.some((field) => field.calculation && field.key !== 'total_tunggakan')) {
+		throw new FormManagementError(400, 'Field turunan hanya dapat ditambahkan oleh sistem dari field sumber yang dipilih.');
+	}
+	if (resolvedFields.some((field) => field.key === 'total_tunggakan' && field.calculation) && (!hasPrincipalArrears || !hasInterestArrears)) {
+		throw new FormManagementError(400, 'Total Tunggakan memerlukan Tunggakan Pokok dan Tunggakan Bunga.');
+	}
+
+	if (!isCredit) return resolvedFields;
 	return [{
 		key: 'credit_amount',
 		label: 'Nilai pengajuan kredit (Rp)',
 		type: 'currency',
 		required: true,
-		min_value: 250000000,
+		min_value: 200000000,
 		system: true,
 		requires_korwil_review: true
-	}, ...customFields];
+	}, ...resolvedFields];
 }
 
 export const formsRouter = Router();
@@ -158,6 +291,15 @@ formsRouter.get('/manage', async (_request, response) => {
 			ORDER BY division.nama_divisi, catalog.nama_pekerjaan`,
 			[manager.divisionId, manager.divisionId]
 		);
+		const divisionIds = [...new Set(rows.map((row) => Number(row.divisi_id)))];
+		let fieldRows: CatalogFieldRow[] = [];
+		const divisionPlaceholders = divisionIds.map(() => '?').join(', ');
+		[fieldRows] = await mysqlPool.execute<CatalogFieldRow[]>(
+			`SELECT id, division_id, field_key, label, field_type, options_json, calculation_json, is_standard, is_derived
+			FROM form_field_catalog
+			WHERE division_id IS NULL${divisionIds.length ? ` OR division_id IN (${divisionPlaceholders})` : ''}
+			ORDER BY is_standard DESC, label`, divisionIds
+		);
 		response.status(200).json({
 			status: 200,
 			message: 'Daftar form pekerjaan berhasil dimuat.',
@@ -174,7 +316,10 @@ formsRouter.get('/manage', async (_request, response) => {
 						version_number: row.version_number === null ? null : Number(row.version_number),
 						form_fields: definition.fields,
 						form_repeatable: definition.repeatable ?? null,
-						form_credit_routing: definition.credit_routing ?? null
+						form_credit_routing: definition.credit_routing ?? null,
+						available_fields: fieldRows
+							.filter((field) => field.division_id === null || Number(field.division_id) === Number(row.divisi_id))
+							.map(catalogFieldResponse)
 					};
 				})
 			}
@@ -184,6 +329,60 @@ formsRouter.get('/manage', async (_request, response) => {
 		response.status(status).json({
 			status,
 			message: error instanceof FormManagementError ? error.message : 'Daftar form belum dapat dimuat. Coba lagi.',
+			data: null
+		});
+	}
+});
+
+formsRouter.post('/manage/:catalogId/fields', async (request, response) => {
+	const catalogId = Number(request.params.catalogId);
+	const parsed = customFieldCreateSchema.safeParse(request.body);
+	if (!Number.isSafeInteger(catalogId) || catalogId < 1) {
+		response.status(400).json({ status: 400, message: 'Jenis pekerjaan tidak valid.', data: null });
+		return;
+	}
+	if (!parsed.success) {
+		response.status(400).json({ status: 400, message: validationIssueMessage(parsed.error), data: null });
+		return;
+	}
+	try {
+		const manager = await getManagerAccess(response.locals.slaEmployeeId);
+		const [catalogRows] = await mysqlPool.execute<Array<RowDataPacket & { id: number; divisi_id: number }>>(
+			`SELECT id, divisi_id FROM work_catalogs WHERE id = ? LIMIT 1`, [catalogId]
+		);
+		const catalog = catalogRows[0];
+		if (!catalog) throw new FormManagementError(404, 'Jenis pekerjaan tidak ditemukan.');
+		if (!manager.isAdmin && Number(catalog.divisi_id) !== manager.divisionId) {
+			throw new FormManagementError(403, 'Kamu hanya dapat menambah field untuk divisi pada profil SSO kamu.');
+		}
+		const [duplicateRows] = await mysqlPool.execute<Array<RowDataPacket & { id: number }>>(
+			`SELECT id FROM form_field_catalog
+			WHERE label = ? AND (division_id IS NULL OR division_id = ?) LIMIT 1`,
+			[parsed.data.label, catalog.divisi_id]
+		);
+		if (duplicateRows.length) throw new FormManagementError(409, 'Nama field sudah tersedia di katalog Divisi ini. Pilih nama lain.');
+		const [existingKeys] = await mysqlPool.execute<Array<RowDataPacket & { field_key: string }>>(
+			'SELECT field_key FROM form_field_catalog'
+		);
+		const used = new Set(existingKeys.map((field) => field.field_key));
+		const fieldKey = makeFieldKey(parsed.data.label, 0, used);
+		const options = parsed.data.type === 'select' ? parsed.data.options ?? [] : null;
+		const [insert] = await mysqlPool.execute<ResultSetHeader>(
+			`INSERT INTO form_field_catalog
+				(division_id, field_key, label, field_type, options_json, is_standard, is_derived, created_by_user_id)
+			VALUES (?, ?, ?, ?, ?, 0, 0, ?)`,
+			[catalog.divisi_id, fieldKey, parsed.data.label, parsed.data.type, options === null ? null : JSON.stringify(options), manager.userId]
+		);
+		response.status(201).json({ status: 201, message: 'Field khusus berhasil ditambahkan ke katalog Divisi.', data: {
+			id: Number(insert.insertId), division_id: Number(catalog.divisi_id), key: fieldKey, label: parsed.data.label,
+			type: parsed.data.type, options, calculation: null, is_standard: false, is_derived: false
+		} });
+	} catch (error) {
+		const duplicateField = typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_DUP_ENTRY';
+		const status = error instanceof FormManagementError ? error.statusCode : duplicateField ? 409 : 500;
+		response.status(status).json({
+			status,
+			message: error instanceof FormManagementError ? error.message : duplicateField ? 'Nama field sudah tersedia di katalog Divisi ini. Pilih nama lain.' : 'Field khusus belum dapat ditambahkan. Coba lagi.',
 			data: null
 		});
 	}
@@ -324,10 +523,14 @@ formsRouter.post('/manage/:catalogId/publish', async (request, response) => {
 			throw new FormManagementError(400, 'Form Pengajuan Kredit tidak dapat diatur sebagai data berulang.');
 		}
 
+		const normalizedFields = await normalizePublisherFields(connection, Number(catalog.divisi_id), parsed.data.fields, catalog.system_key === 'credit_application');
+		if (normalizedFields.filter((field) => !field.system).length > maxCustomFields) {
+			throw new FormManagementError(400, `Form ini maksimal memiliki ${maxCustomFields} kolom tambahan${catalog.system_key === 'credit_application' ? ' karena nilai kredit dihitung sebagai kolom sistem' : ''}.`);
+		}
 		const parsedDefinition = formDefinitionSchema.safeParse({
-			fields: normalizePublisherFields(parsed.data.fields, catalog.system_key === 'credit_application'),
+			fields: normalizedFields,
 			...(parsed.data.repeatable ? { repeatable: parsed.data.repeatable } : {}),
-			...(isCredit ? { credit_routing: parsed.data.credit_routing ?? DEFAULT_CREDIT_ROUTING_CONFIG } : {})
+			...(isCredit ? { credit_routing: DEFAULT_CREDIT_ROUTING_CONFIG } : {})
 		});
 		if (!parsedDefinition.success) {
 			throw new FormManagementError(400, validationIssueMessage(parsedDefinition.error, catalog.system_key === 'credit_application' ? 1 : 0));

@@ -3,6 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { env } from './config/env.js';
 import { apiRouter } from './routes/api.routes.js';
+import { auditApiActivity } from './modules/audit/activity-audit.service.js';
 
 export const app = express();
 
@@ -28,6 +29,7 @@ app.use(
 	})
 );
 app.use(express.json({ limit: '1mb' }));
+app.use(auditApiActivity);
 app.use('/api/v1', apiRouter);
 
 app.use((_request, response) => {

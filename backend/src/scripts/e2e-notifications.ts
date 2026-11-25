@@ -14,6 +14,7 @@ import {
 	submitRequest
 } from '../modules/requests/requests.service.js';
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from '../modules/notifications/notifications.service.js';
+import { removePrivatePdf } from '../modules/requests/private-attachments.js';
 
 const fixturePrefix = 'e2e-notification-';
 
@@ -65,9 +66,19 @@ async function getDivisionId(code: string): Promise<number> {
 
 async function getCatalogId(divisionId: number): Promise<number> {
 	const [rows] = await mysqlPool.execute<Array<RowDataPacket & { id: number }>>(
-		'SELECT id FROM work_catalogs WHERE divisi_id = ? AND is_active = 1 ORDER BY id LIMIT 1', [divisionId]
+		`SELECT id FROM work_catalogs
+		 WHERE divisi_id = ? AND is_active = 1 AND system_key = 'credit_application' LIMIT 1`, [divisionId]
 	);
-	check(rows[0], 'Katalog aktif untuk fixture harus tersedia.');
+	check(rows[0], 'Katalog kredit untuk fixture notifikasi harus tersedia.');
+	return Number(rows[0].id);
+}
+
+async function getFormVersionId(catalogId: number): Promise<number> {
+	const [rows] = await mysqlPool.execute<Array<RowDataPacket & { id: number }>>(
+		`SELECT id FROM work_catalog_form_versions WHERE work_catalog_id = ? ORDER BY version_number DESC LIMIT 1`,
+		[catalogId]
+	);
+	check(rows[0], 'Versi form kredit untuk fixture notifikasi harus tersedia.');
 	return Number(rows[0].id);
 }
 
@@ -82,6 +93,19 @@ async function cleanupFixtures(): Promise<void> {
 	const userIds = await fixtureUserIds();
 	if (userIds.length === 0) return;
 	const placeholders = userIds.map(() => '?').join(', ');
+	const [attachments] = await mysqlPool.execute<Array<RowDataPacket & { storage_key: string }>>(
+		`SELECT attachment.storage_key FROM request_attachments attachment
+		INNER JOIN service_requests request ON request.id = attachment.request_id
+		WHERE request.created_by_user_id IN (${placeholders})`, userIds
+	);
+	for (const attachment of attachments) await removePrivatePdf(attachment.storage_key);
+	for (const table of ['request_decisions', 'request_attachments', 'request_revisions'] as const) {
+		await mysqlPool.execute(
+			`DELETE item FROM ${table} item
+			INNER JOIN service_requests request ON request.id = item.request_id
+			WHERE request.created_by_user_id IN (${placeholders})`, userIds
+		);
+	}
 	await mysqlPool.execute(
 		`DELETE notification FROM notifications notification
 		INNER JOIN service_requests request ON request.id = notification.request_id
@@ -107,7 +131,7 @@ async function assertFixturesRemoved(): Promise<void> {
 	assert.equal(Number(rows[0]?.count ?? 0), 0, 'Cleanup harus menghapus seluruh tiket fixture notifikasi.');
 }
 
-async function createFixtures(): Promise<{ users: Record<FixtureKey, FixtureUser>; divisionId: number; catalogId: number }> {
+async function createFixtures(): Promise<{ users: Record<FixtureKey, FixtureUser>; divisionId: number; catalogId: number; formVersionId: number }> {
 	await cleanupFixtures();
 	const branchRoleId = await getRoleId('branch_user');
 	const korwilRoleId = await getRoleId('korwil_staff');
@@ -115,6 +139,7 @@ async function createFixtures(): Promise<{ users: Record<FixtureKey, FixtureUser
 	const divisionId = await getDivisionId('pemasaran');
 	const outsideDivisionId = await getDivisionId('operasional');
 	const catalogId = await getCatalogId(divisionId);
+	const formVersionId = await getFormVersionId(catalogId);
 	const connection = await mysqlPool.getConnection();
 	try {
 		await connection.beginTransaction();
@@ -150,7 +175,7 @@ async function createFixtures(): Promise<{ users: Record<FixtureKey, FixtureUser
 			VALUES (?, ?, 'division', ?)`, [users.outsideDivision.id, divisionRoleId, outsideDivisionId]
 		);
 		await connection.commit();
-		return { users, divisionId, catalogId };
+		return { users, divisionId, catalogId, formVersionId };
 	} catch (error) {
 		await connection.rollback();
 		throw error;
@@ -173,6 +198,8 @@ async function run(): Promise<void> {
 	try {
 		const central = await submitRequest(branch, {
 			authority_type: 'central', central_division_id: fixture.divisionId, work_catalog_id: fixture.catalogId,
+			form_version_id: fixture.formVersionId,
+			form_answers: { credit_amount: 500_000_000, nama_nasabah: 'Fixture Nasabah' },
 			subject: '[FIXTURE NOTIFICATION] central', description: 'Fixture untuk verifikasi notifikasi.'
 		});
 		requestIds.push(central.id);
@@ -189,12 +216,12 @@ async function run(): Promise<void> {
 		await claimCentralRequest(division, central.id);
 		check((await eventTypes(branch)).filter((event) => event === 'request_claimed').length >= 2, 'Cabang harus menerima Ambil Divisi.');
 		await returnCentralRequestForDocuments(division, central.id, {
-			note: 'Perbaiki uraian fixture.', fields: [{ kind: 'description' }], documents: []
+			note: 'Perbarui metadata surat fixture.', fields: [{ kind: 'inoffice_letter_number' }], documents: []
 		});
 		check((await eventTypes(branch)).includes('documents_requested'), 'Cabang harus menerima permintaan kelengkapan.');
 		const revision = await submitBranchRevision(branch, central.id, {
 			response: 'Fixture mengirim jawaban kelengkapan.',
-			updates: [{ kind: 'description', value: 'Uraian fixture sudah diperbaiki.' }],
+			updates: [{ kind: 'inoffice_letter_number', value: 'FIXTURE-NOTIFICATION-001' }],
 			files: {}
 		});
 		assert.equal(revision.resumed_to_previous_handler, true);

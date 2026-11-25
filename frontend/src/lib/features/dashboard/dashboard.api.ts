@@ -3,7 +3,7 @@ import { apiRequest } from '#lib/api/client.js';
 export type ApiEnvelope<T> = { status: number; message: string; data: T };
 export type DashboardView = 'branch' | 'korwil' | 'division' | 'admin';
 export type SlaStatus = 'safe' | 'warning' | 'overdue';
-export type DashboardFilters = { from?: string; to?: string; korwil?: string; division_id?: number };
+export type DashboardFilters = { from?: string; to?: string; korwil?: string; division_id?: number; status?: string; work_catalog_id?: number };
 export type DashboardSla = {
 	target_minutes: number;
 	warning_minutes: number;
@@ -52,13 +52,17 @@ export type DashboardData = {
 		divisi_id?: number | null;
 		nama_divisi?: string | null;
 	};
-	filters: { from: string | null; to: string | null; korwil: string | null; divisionId: number | null };
+	filters: { from: string | null; to: string | null; korwil: string | null; divisionId: number | null; status: string | null; workCatalogId: number | null };
 	sla: DashboardSla;
 	summary: DashboardSummary;
 	status_counts: Array<{ status: string; count: number }>;
 	korwil_counts?: Array<{ korwil: string; count: number }>;
 	division_counts?: Array<{ id: number; nama_divisi: string; count: number }>;
-	filter_options?: { korwils: string[]; divisions: Array<{ id: number; nama_divisi: string }> };
+	filter_options?: {
+		korwils?: string[];
+		divisions?: Array<{ id: number; nama_divisi: string }>;
+		work_catalogs?: Array<{ id: number; nama_pekerjaan: string; is_active: boolean }>;
+	};
 	requests: DashboardRequest[];
 };
 
@@ -68,6 +72,8 @@ export async function fetchDashboard(token: string, filters: DashboardFilters = 
 	if (filters.to) params.set('to', filters.to);
 	if (filters.korwil) params.set('korwil', filters.korwil);
 	if (filters.division_id) params.set('division_id', String(filters.division_id));
+	if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+	if (filters.work_catalog_id) params.set('work_catalog_id', String(filters.work_catalog_id));
 	const query = params.toString();
 	return apiRequest<ApiEnvelope<DashboardData>>(`dashboard${query ? `?${query}` : ''}`, { token });
 }
@@ -78,6 +84,7 @@ export type ManagementRequestFilters = {
 	division_id?: number;
 	status?: string;
 	sla_status?: SlaStatus;
+	q?: string;
 	from?: string;
 	to?: string;
 	page?: number;
@@ -91,6 +98,7 @@ export type ManagementRequestsData = {
 		division_id: number | null;
 		status: string | null;
 		sla_status: SlaStatus | null;
+		search: string | null;
 		from: string | null;
 		to: string | null;
 		page: number;
@@ -115,6 +123,7 @@ export async function fetchManagementRequests(token: string, filters: Management
 	if (filters.division_id) params.set('division_id', String(filters.division_id));
 	if (filters.status && filters.status !== 'all') params.set('status', filters.status);
 	if (filters.sla_status) params.set('sla_status', filters.sla_status);
+	if (filters.q?.trim()) params.set('q', filters.q.trim());
 	if (filters.from) params.set('from', filters.from);
 	if (filters.to) params.set('to', filters.to);
 	if (filters.page) params.set('page', String(filters.page));

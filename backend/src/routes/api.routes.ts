@@ -7,6 +7,7 @@ import { inboxRouter } from '../modules/requests/inbox.routes.js';
 import { notificationsRouter } from '../modules/notifications/notifications.routes.js';
 import { dashboardRouter } from '../modules/dashboard/dashboard.routes.js';
 import { formsRouter } from '../modules/forms/forms.routes.js';
+import { recapsRouter } from '../modules/recaps/recaps.routes.js';
 
 export const apiRouter = Router();
 
@@ -17,4 +18,5 @@ apiRouter.use('/inbox', inboxRouter);
 apiRouter.use('/notifications', notificationsRouter);
 apiRouter.use('/dashboard', dashboardRouter);
 apiRouter.use('/forms', formsRouter);
+apiRouter.use('/recaps', recapsRouter);
 apiRouter.use(healthRouter);

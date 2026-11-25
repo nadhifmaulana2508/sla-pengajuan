@@ -23,7 +23,14 @@ type DashboardAccess = {
 	namaDivisi: string | null;
 };
 
-type DashboardFilters = { from: string | null; to: string | null; korwil: string | null; divisionId: number | null };
+type DashboardFilters = {
+	from: string | null;
+	to: string | null;
+	korwil: string | null;
+	divisionId: number | null;
+	status: ManagementRequestStatus | null;
+	workCatalogId?: number | null;
+};
 export type BranchFollowUpFilters = { kodeKantor: string | null };
 export const MANAGEMENT_REQUEST_STATUSES = [
 	'waiting_korwil', 'in_progress_korwil', 'waiting_central', 'in_progress_central',
@@ -36,6 +43,7 @@ export type ManagementRequestFilters = {
 	divisionId: number | null;
 	status: ManagementRequestStatus | null;
 	slaStatus: SlaStatus | null;
+	search: string | null;
 	from: string | null;
 	to: string | null;
 	page: number;
@@ -100,7 +108,12 @@ function buildScopeWhere(access: DashboardAccess, filters: DashboardFilters) {
 	if (access.view === 'branch' && access.kodeKantor) {
 		where = appendCondition(where, 'request.kode_kantor = ?', [access.kodeKantor]);
 	} else if (access.view === 'korwil' && access.korwil) {
-		where = appendCondition(where, 'request.korwil = ?', [access.korwil]);
+		where = appendCondition(where, `request.korwil = ? AND EXISTS (
+			SELECT 1 FROM request_status_histories korwil_history
+			WHERE korwil_history.request_id = request.id
+				AND korwil_history.unit_to_type = 'korwil'
+				AND korwil_history.unit_to_code = request.korwil
+		)`, [access.korwil]);
 	} else if (access.view === 'division' && access.divisiId) {
 		where = appendCondition(where, `EXISTS (
 			SELECT 1 FROM request_status_histories division_history
@@ -109,12 +122,18 @@ function buildScopeWhere(access: DashboardAccess, filters: DashboardFilters) {
 				AND division_history.unit_to_type = 'central'
 				AND division_history.unit_to_code = history_division.kode
 		)`, [access.divisiId]);
+		if (filters.workCatalogId != null) {
+			where = appendCondition(where, 'request.work_catalog_id = ?', [filters.workCatalogId]);
+		}
 	}
 	if (access.view === 'admin' && filters.korwil) {
 		where = appendCondition(where, 'request.korwil = ?', [filters.korwil]);
 	}
 	if (access.view === 'admin' && filters.divisionId !== null) {
 		where = appendCondition(where, 'request.central_division_id = ?', [filters.divisionId]);
+	}
+	if (filters.status !== null) {
+		where = appendCondition(where, 'request.status = ?', [filters.status]);
 	}
 	if (filters.from) where = appendCondition(where, 'request.submitted_at >= ?', [filters.from]);
 	if (filters.to) where = appendCondition(where, 'request.submitted_at < DATE_ADD(?, INTERVAL 1 DAY)', [filters.to]);
@@ -132,7 +151,7 @@ async function getDashboardAccess(employeeId: string): Promise<DashboardAccess> 
 
 	const view: DashboardView = access.role === 'branch_user'
 		? 'branch'
-		: access.role === 'korwil_staff' || access.role === 'korwil_approver'
+		: access.role === 'korwil_staff'
 			? 'korwil'
 			: access.role === 'division_staff'
 				? 'division'
@@ -333,6 +352,20 @@ async function getManagementFilterOptions() {
 	};
 }
 
+async function getDivisionWorkCatalogOptions(divisionId: number | null) {
+	if (divisionId === null) return [];
+	const [rows] = await mysqlPool.execute<Array<RowDataPacket & {
+		id: number; nama_pekerjaan: string; is_active: number;
+	}>>(
+		`SELECT id, nama_pekerjaan, is_active FROM work_catalogs
+		WHERE divisi_id = ? ORDER BY is_active DESC, nama_pekerjaan`,
+		[divisionId]
+	);
+	return rows.map((row) => ({
+		id: Number(row.id), nama_pekerjaan: row.nama_pekerjaan, is_active: Number(row.is_active) === 1
+	}));
+}
+
 async function getBranchFilterOptions() {
 	const [rows] = await mysqlPool.execute<Array<RowDataPacket & {
 		kode_kantor: string; nama_kantor: string; korwil: string;
@@ -375,6 +408,16 @@ function scopeLabel(access: DashboardAccess) {
 
 export async function getDashboard(employeeId: string, filters: DashboardFilters) {
 	const access = await getDashboardAccess(employeeId);
+	if (filters.workCatalogId !== undefined && filters.workCatalogId !== null) {
+		if (access.view !== 'division' || access.divisiId === null) {
+			throw new DashboardError(400, 'Filter jenis pekerjaan hanya tersedia pada Dashboard Divisi.');
+		}
+		const [catalogRows] = await mysqlPool.execute<Array<RowDataPacket & { id: number }>>(
+			'SELECT id FROM work_catalogs WHERE id = ? AND divisi_id = ? LIMIT 1',
+			[filters.workCatalogId, access.divisiId]
+		);
+		if (!catalogRows.length) throw new DashboardError(400, 'Jenis pekerjaan tidak tersedia dalam Divisi kamu.');
+	}
 	const where = buildScopeWhere(access, filters);
 	const [total, statusCounts, totalAge, revisionCount, requests, sla] = await Promise.all([
 		countRequests(where),
@@ -436,6 +479,9 @@ export async function getDashboard(employeeId: string, filters: DashboardFilters
 			sla,
 			summary,
 			status_counts: statusCounts,
+			...(access.view === 'division'
+				? { filter_options: { work_catalogs: await getDivisionWorkCatalogOptions(access.divisiId) } }
+				: {}),
 			requests
 		};
 	}
@@ -458,14 +504,22 @@ export async function getDashboard(employeeId: string, filters: DashboardFilters
 	};
 }
 
-export function parseDashboardFilters(from: unknown, to: unknown, korwil: unknown, divisionId: unknown): DashboardFilters {
+export function parseDashboardFilters(from: unknown, to: unknown, korwil: unknown, divisionId: unknown, status: unknown, workCatalogId: unknown): DashboardFilters {
 	const fromValue = queryValue(from);
 	const toValue = queryValue(to);
 	const korwilValue = queryValue(korwil);
 	const divisionValue = queryValue(divisionId);
+	const statusValue = queryValue(status);
+	const workCatalogValue = queryValue(workCatalogId);
 	for (const value of [fromValue, toValue]) {
 		if (value !== null && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
 			throw new DashboardError(400, 'Format tanggal harus YYYY-MM-DD.');
+		}
+		if (value !== null) {
+			const parsed = new Date(`${value}T00:00:00.000Z`);
+			if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+				throw new DashboardError(400, 'Tanggal tidak valid.');
+			}
 		}
 	}
 	if (fromValue && toValue && fromValue > toValue) {
@@ -478,7 +532,18 @@ export function parseDashboardFilters(from: unknown, to: unknown, korwil: unknow
 			throw new DashboardError(400, 'Divisi dashboard tidak valid.');
 		}
 	}
-	return { from: fromValue, to: toValue, korwil: korwilValue, divisionId: parsedDivisionId };
+	if (statusValue !== null && statusValue !== 'all' && !MANAGEMENT_REQUEST_STATUSES.includes(statusValue as ManagementRequestStatus)) {
+		throw new DashboardError(400, 'Status tiket tidak valid.');
+	}
+	const parsedWorkCatalogId = workCatalogValue === null ? null : parsePositiveInteger(workCatalogValue, 1, 'Jenis pekerjaan');
+	return {
+		from: fromValue,
+		to: toValue,
+		korwil: korwilValue,
+		divisionId: parsedDivisionId,
+		status: statusValue && statusValue !== 'all' ? statusValue as ManagementRequestStatus : null,
+		workCatalogId: parsedWorkCatalogId
+	};
 }
 
 export function parseBranchFollowUpFilters(kodeKantor: unknown): BranchFollowUpFilters {
@@ -502,7 +567,7 @@ function parsePositiveInteger(value: unknown, fallback: number, label: string, m
 
 export function parseManagementRequestFilters(
 	kodeKantor: unknown, korwil: unknown, divisionId: unknown, status: unknown,
-	from: unknown, to: unknown, slaStatus: unknown, page: unknown, pageSize: unknown
+	from: unknown, to: unknown, slaStatus: unknown, page: unknown, pageSize: unknown, search: unknown
 ): ManagementRequestFilters {
 	const office = parseBranchFollowUpFilters(kodeKantor).kodeKantor;
 	const korwilValue = queryValue(korwil);
@@ -511,6 +576,10 @@ export function parseManagementRequestFilters(
 	const fromValue = queryValue(from);
 	const toValue = queryValue(to);
 	const slaValue = queryValue(slaStatus);
+	const searchValue = queryValue(search);
+	if (searchValue !== null && searchValue.length > 120) {
+		throw new DashboardError(400, 'Pencarian maksimal 120 karakter.');
+	}
 	for (const value of [fromValue, toValue]) {
 		if (value !== null && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
 			throw new DashboardError(400, 'Format tanggal harus YYYY-MM-DD.');
@@ -549,6 +618,7 @@ export function parseManagementRequestFilters(
 		divisionId: parsedDivisionId,
 		status: statusValue && statusValue !== 'all' ? statusValue as ManagementRequestStatus : null,
 		slaStatus: slaValue && slaValue !== 'all' ? slaValue as SlaStatus : null,
+		search: searchValue,
 		from: fromValue,
 		to: toValue,
 		page: parsedPage,
@@ -561,8 +631,24 @@ export async function getManagementRequests(employeeId: string, filters: Managem
 	if (access.view !== 'admin') {
 		throw new DashboardError(403, 'Pemantauan semua tiket hanya tersedia untuk Manajemen, Supervisor, atau Admin global.');
 	}
-	let baseWhere = buildScopeWhere(access, { from: filters.from, to: filters.to, korwil: filters.korwil, divisionId: filters.divisionId });
+	let baseWhere = buildScopeWhere(access, {
+		from: filters.from,
+		to: filters.to,
+		korwil: filters.korwil,
+		divisionId: filters.divisionId,
+		status: null
+	});
 	if (filters.kodeKantor) baseWhere = appendCondition(baseWhere, 'request.kode_kantor = ?', [filters.kodeKantor]);
+	if (filters.search) {
+		const searchPattern = `%${filters.search.replace(/[!%_]/g, '!$&')}%`;
+		baseWhere = appendCondition(baseWhere, `(
+			request.request_number LIKE ? ESCAPE '!' OR request.subject LIKE ? ESCAPE '!'
+			OR request.kode_kantor LIKE ? ESCAPE '!' OR request.korwil LIKE ? ESCAPE '!'
+			OR EXISTS (SELECT 1 FROM master_kantor search_office WHERE search_office.kode_kantor = request.kode_kantor AND search_office.nama_kantor LIKE ? ESCAPE '!')
+			OR EXISTS (SELECT 1 FROM master_divisi search_division WHERE search_division.id = request.central_division_id AND search_division.nama_divisi LIKE ? ESCAPE '!')
+			OR EXISTS (SELECT 1 FROM work_catalogs search_catalog WHERE search_catalog.id = request.work_catalog_id AND search_catalog.nama_pekerjaan LIKE ? ESCAPE '!')
+		)`, Array.from({ length: 7 }, () => searchPattern));
+	}
 	let where = filters.status ? appendCondition(baseWhere, 'request.status = ?', [filters.status]) : baseWhere;
 	if (filters.slaStatus) {
 		const elapsed = 'TIMESTAMPDIFF(SECOND, request.submitted_at, COALESCE(request.closed_at, CURRENT_TIMESTAMP(3)))';
@@ -591,6 +677,7 @@ export async function getManagementRequests(employeeId: string, filters: Managem
 			division_id: filters.divisionId,
 			status: filters.status,
 			sla_status: filters.slaStatus,
+			search: filters.search,
 			from: filters.from,
 			to: filters.to,
 			page: filters.page,
@@ -614,7 +701,7 @@ export async function getBranchFollowUp(employeeId: string, filters: BranchFollo
 	if (access.view !== 'admin') {
 		throw new DashboardError(403, 'Halaman tindak lanjut Cabang hanya tersedia untuk Manajemen, Supervisor, atau Admin global.');
 	}
-	let where = buildScopeWhere(access, { from: null, to: null, korwil: null, divisionId: null });
+	let where = buildScopeWhere(access, { from: null, to: null, korwil: null, divisionId: null, status: null });
 	where = appendCondition(where, "request.status = 'waiting_branch_revision' AND request.current_unit_type = 'branch'");
 	if (filters.kodeKantor) where = appendCondition(where, 'request.kode_kantor = ?', [filters.kodeKantor]);
 	const [requests, sla] = await Promise.all([getRequests(where), getSlaCounts(where)]);
