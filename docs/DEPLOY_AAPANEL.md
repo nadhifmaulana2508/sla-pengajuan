@@ -195,6 +195,7 @@ Gunakan menu **Website → Node.js Project** atau plugin Node.js Project yang te
 - Port: `3000`
 - Node version: versi yang dipakai saat development, minimal Node 22 LTS
 - Process manager: PM2
+- Nama proses PM2: `sla-pengajuan-backend`
 - User: user aplikasi `www` atau user non-root yang sesuai
 
 Pastikan command build dan migrasi dilakukan sebelum restart project. aaPanel/PM2 hanya menjaga proses tetap hidup; migrasi database tetap dijalankan secara terkontrol saat release.
@@ -207,6 +208,7 @@ Pastikan command build dan migrasi dilakukan sebelum restart project. aaPanel/PM
 - Port: `4173`
 - Node version: sama dengan backend
 - Process manager: PM2
+- Nama proses PM2: `sla-pengajuan-frontend`
 - User: user aplikasi `www` atau user non-root yang sesuai
 
 Jika aaPanel meminta command, gunakan `npm run start`. Pastikan environment `PORT=4173` tersedia untuk proses frontend; adapter-node juga menerima `HOST` dan `PORT` dari environment.
@@ -268,25 +270,45 @@ Checklist browser:
 
 ## 8. Alur release dari GitHub ke aaPanel
 
-Simpan `.env` hanya di server. Pada setiap release:
+Buat backup database melalui aaPanel sebelum release yang menerapkan migration. Jangan menjalankan release dari laptop. Dari Terminal aaPanel, jalankan satu perintah ini di root repository:
 
 ```bash
-cd /www/wwwroot/sla-pengajuan
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-
-npm ci --prefix backend
-npm ci --prefix frontend
-npm run db:upgrade --prefix backend
-npm run prod
-
-git rev-parse --short HEAD
+npm run deploy:production
 ```
 
-Perintah `npm run prod` dari root repository membangun backend lalu frontend, dan berhenti jika salah satu build gagal. Verifikasi commit hasil pull dengan `git rev-parse --short HEAD`. Restart kedua project dari aaPanel/PM2 setelah build selesai. Backup database dilakukan sebelum migrasi yang mengubah schema. Migrations pada repository tidak memiliki rollback otomatis, sehingga rollback release dan rollback data harus diperlakukan sebagai dua langkah terpisah.
+Script memeriksa root dan identitas package repository, branch `main`, working tree bersih, konfigurasi backend/frontend tersedia, dan kedua proses PM2 sudah ada sebelum pull. Urutannya: `git pull --ff-only origin main`, `npm ci` untuk backend/frontend, `npm run db:upgrade --prefix backend`, `npm run prod`, restart kedua proses PM2 dengan `--update-env`, lalu health check. `db:upgrade` menerapkan migration yang belum tercatat dan seed master acuan; script tidak menjalankan `db:replace:prod` atau seeder snapshot. Isi tiket dan rekap tetap dipertahankan. Script hanya memeriksa keberadaan/konfigurasi; ia tidak menampilkan, mengedit, atau menimpa `.env`.
 
-Untuk pull dan mengganti seluruh data staging dengan fixture database lokal selama development, ikuti [panduan sinkronisasi staging](DATABASE_STAGING.md). Release rutin cukup memakai `npm run db:upgrade`; jangan jalankan `db:replace:prod` pada database production.
+Konfigurasi default mengikuti repo: API memakai port `3000` dari default `API_PORT` di backend, frontend memakai port `4173` dari runbook aaPanel dan `PORT` adapter-node. Health check backend menggunakan route database agar memeriksa koneksi API sekaligus MySQL. Port `3100` dan nama `sla-backend`/`sla-frontend` tidak menjadi default yang tercatat pada checkout ini. `API_PORT` dapat memakai port lain di server; sesuaikan URL health check jika demikian. Nama proses PM2 tidak ditetapkan di kode; nama default berikut mengikuti runbook dan dapat dioverride bila project aaPanel production memakai nama lain:
+
+| Environment variable | Default repo | Keterangan |
+| --- | --- | --- |
+| `BACKEND_PM2_NAME` | `sla-pengajuan-backend` | Nama proses PM2 backend |
+| `FRONTEND_PM2_NAME` | `sla-pengajuan-frontend` | Nama proses PM2 frontend |
+| `BACKEND_HEALTH_URL` | `http://127.0.0.1:3000/api/v1/health/database` | API dan koneksi database |
+| `FRONTEND_HEALTH_URL` | `http://127.0.0.1:4173/` | Halaman frontend |
+
+Jika konfigurasi production berbeda, isi nilainya pada environment Terminal aaPanel sebelum release, atau berikan inline saat menjalankan command. Contoh berikut hanya dipakai jika nama proses dan port lama sudah diverifikasi di aaPanel:
+
+```bash
+BACKEND_PM2_NAME=sla-backend FRONTEND_PM2_NAME=sla-frontend BACKEND_HEALTH_URL=http://127.0.0.1:3100/api/v1/health/database FRONTEND_HEALTH_URL=http://127.0.0.1:4173/ npm run deploy:production
+```
+
+Jalankan sebagai user Linux yang sama dengan pemilik proses PM2. Pastikan `backend/.env` dapat dibaca dan `frontend/.env` sudah memiliki `VITE_API_BASE_URL` (atau nilai itu tersedia pada environment Terminal). Script berhenti dengan pesan yang menyebut variabel jika nama/URL kosong atau tidak valid, dan berhenti sebelum pull jika proses PM2 tidak ditemukan. Nilai default dari runbook adalah pilihan yang didukung repo; pastikan nilainya cocok dengan proses dan port yang benar-benar aktif di server.
+
+Script tidak menampilkan atau mengubah file `.env`. Migration harus tetap memakai konfigurasi backend yang sudah tersedia di server. Jika pull, dependency, migration, atau build gagal, script berhenti sebelum restart. Migration database tidak memiliki rollback otomatis; siapkan backup sebelum release.
+
+`npm run db:upgrade --prefix backend` menerapkan migration SQL bernomor yang belum tercatat pada `schema_migrations`, lalu memasukkan data master acuan. Jangan membuat tabel atau menjalankan file SQL secara manual. Migration `021_create_request_recaps.sql` menambahkan tabel `request_recaps`, `request_recap_rows`, dan `request_recap_proposals`; migration berikutnya ikut diterapkan otomatis saat upgrade.
+
+Jika health check gagal setelah restart, script menampilkan command log PM2 untuk proses yang gagal dan keluar dengan status gagal. Jalankan command tersebut, lalu periksa status proses:
+
+```bash
+pm2 status
+pm2 logs sla-pengajuan-backend --lines 100
+pm2 logs sla-pengajuan-frontend --lines 100
+```
+
+Jika nama PM2 di server dioverride, ganti nama pada command log sesuai nilainya. Setelah health check backend dan frontend berhasil, script menampilkan short commit yang dirilis.
+
 
 ## 9. Backup dan keamanan minimum
 

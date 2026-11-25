@@ -1,6 +1,8 @@
 # Status Proyek Sistem SLA
 
-Terakhir diperbarui: 12 November 2026
+Terakhir diperbarui: 26 November 2026
+
+**Rilis production aaPanel (26 November 2026):** `npm run deploy:production` memvalidasi repository, branch `main`, working tree, konfigurasi, dan proses PM2; menjalankan pull ff-only, instalasi dependency FE/BE, `db:upgrade`, build FE/BE, restart, serta health check. Nama proses dan URL health dapat dioverride lewat environment. Seeder yang mengganti data tidak dipanggil; tidak ada deployment remote yang dijalankan.
 
 **Login dummy sementara untuk UAT pada `sla_pengajuan` (12 November 2026):** backend mode production mengizinkan login dummy hanya dengan `DUMMY_AUTH_ENABLED=true` dan `DB_NAME=sla_pengajuan` atau database berakhiran `_staging`; akun dummy tetap harus ada di database. Petunjuk UI, PRD, README, dan panduan deployment diselaraskan. `npm run prod` lulus; konfigurasi aaPanel, seed akun dummy, serta restart server belum dilakukan. Endpoint publik health merespons 200 tetapi `/api/v1/auth/dummy-users` merespons 404, sehingga frontend menyembunyikan bagian akun uji sampai backend mengaktifkan route tersebut. `db:replace:prod` tidak boleh dijalankan terhadap `sla_pengajuan`.
 
