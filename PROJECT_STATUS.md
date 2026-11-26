@@ -2,9 +2,11 @@
 
 Terakhir diperbarui: 26 November 2026
 
-**Pemusatan menu mobile pada build (26 November 2026):** kartu navigasi melebar hanya separuh layar karena `Dialog.Content` memakai CSS Grid dengan kolom implisit yang menyusut mengikuti lebar intrinsik menu. Lapisan dialog kini memakai Flex dan dimensi VisualViewport, lalu memusatkan kartu menu di dalamnya. Aturan Flex terkonfirmasi masuk ke CSS production hasil build. `frontend npm.cmd run check` menemukan 0 error dan 4 peringatan CSS yang sudah ada; `frontend npm.cmd run build` berhasil. Tampilan build pada iPhone fisik belum diklik ulang.
+**Pemusatan menu mobile pada build (26 November 2026):** kartu navigasi melebar hanya separuh layar karena `Dialog.Content` memakai CSS Grid dengan kolom implisit yang menyusut mengikuti lebar intrinsik menu. Lapisan dialog kini memakai Flex dan dimensi VisualViewport, lalu memusatkan kartu menu di dalamnya. Aturan Flex terkonfirmasi masuk ke CSS production hasil build. Pemeriksaan visual pada server masih perlu diulang setelah deploy dengan port frontend `4173` aktif.
 
 **Port frontend aaPanel (26 November 2026):** log release menunjukkan proses PM2 `online` tetapi `curl 127.0.0.1:4173` ditolak. Script deploy kini mengirim `PORT=4173` saat me-restart frontend, memvalidasi `FRONTEND_PORT`, dan hanya menandai release berhasil setelah health check lulus. Port alternatif memakai `FRONTEND_PORT` serta URL health/reverse proxy yang sama. Jalankan ulang deploy dari `main` agar listener frontend dan CSS produksi terbaru aktif.
+
+**Deploy frontend saja (26 November 2026):** perintah `npm run deploy:frontend` kini memperbarui checkout dari `main`, meng-install dependency dan membangun frontend, me-restart hanya proses frontend, serta memeriksa health pada port frontend. Backend dan migration dilewati; gunakan deploy penuh atau deploy backend terpisah bila perubahan UI memerlukan kontrak API baru.
 
 **Login lokal akun demo (26 November 2026):** frontend Vite dan backend API lokal berjalan pada port 5173 dan 3000. `DUMMY_AUTH_ENABLED=true` sudah aktif di environment development; endpoint akun demo merespons 200 dengan 15 akun sintetis dan CORS mengizinkan `http://localhost:5173`. Login menampilkan switch SSO/demo yang lebih jelas, panel demo diringkas, dan kegagalan pemuatan demo kini memberi petunjuk hanya saat development. `frontend npm.cmd run check` menemukan 0 error dan 4 peringatan selector CSS tak terpakai di halaman detail/master pekerjaan. Browser belum dikendalikan; pemilik proyek dapat memuat ulang tab localhost untuk melihat hasil.
 

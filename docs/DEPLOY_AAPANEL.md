@@ -272,6 +272,16 @@ Checklist browser:
 
 Buat backup database melalui aaPanel sebelum release yang menerapkan migration. Jangan menjalankan release dari laptop. Dari Terminal aaPanel, jalankan satu perintah ini di root repository:
 
+Untuk perubahan frontend saja, gunakan target terpisah berikut. Target ini menarik commit terbaru, meng-install dependency frontend, membangun frontend, me-restart proses frontend, dan memeriksa port frontend. Backend, dependency backend, migration, serta proses backend tidak disentuh:
+
+```bash
+FRONTEND_PM2_NAME=sla-frontend npm run deploy:frontend
+```
+
+Port default `4173` dapat dioverride lewat `FRONTEND_PORT`; health check akan mengikuti port tersebut kecuali `FRONTEND_HEALTH_URL` diatur sendiri. Jika frontend release memerlukan kontrak API/backend yang belum tersedia di server, gunakan deploy penuh atau deploy backend secara terpisah sebelum mengandalkan fitur terkait.
+
+Untuk release frontend dan backend sekaligus, gunakan:
+
 ```bash
 npm run deploy:production
 ```
