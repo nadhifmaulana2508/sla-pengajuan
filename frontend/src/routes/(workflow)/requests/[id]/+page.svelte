@@ -535,14 +535,16 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 		<Alert.Root variant="destructive"><Alert.Title>Detail belum dapat dimuat</Alert.Title><Alert.Description>{errorMessage}</Alert.Description><Alert.Action><Button variant="outline" class="min-h-11" onclick={() => void load()}>Coba lagi</Button></Alert.Action></Alert.Root>
 	{:else if detail}
 		{@const item = detail.request}
-		<AppPageHeading id="page-title" meta={`${item.request_number} · ${formatDate(item.submitted_at)}`} title={item.nama_pekerjaan ?? 'Pengajuan'} titleCharacterLimit={50} description={`${item.nama_kantor} · Korwil ${item.korwil}`} actionsBelowTitle flush>
-			{#snippet actions()}
-				<div class="heading-badges">
-					<Badge variant={item.status === 'rejected' ? 'destructive' : item.status.startsWith('in_progress') ? 'default' : 'secondary'} class={item.status === 'rejected' ? 'status-badge status-badge--risk' : ''}>{statusLabels[item.status] ?? item.status}</Badge>
-					<Badge variant="outline" class={slaClass(item.sla_status)}>{slaLabel(item.sla_status)}</Badge>
-				</div>
-			{/snippet}
-		</AppPageHeading>
+		<div class="detail-heading-inset">
+			<AppPageHeading id="page-title" meta={`${item.request_number} · ${formatDate(item.submitted_at)}`} title={item.nama_pekerjaan ?? 'Pengajuan'} titleCharacterLimit={50} description={`${item.nama_kantor} · Korwil ${item.korwil}`} actionsBelowTitle flush>
+				{#snippet actions()}
+					<div class="heading-badges">
+						<Badge variant={item.status === 'rejected' ? 'destructive' : item.status.startsWith('in_progress') ? 'default' : 'secondary'} class={item.status === 'rejected' ? 'status-badge status-badge--risk' : ''}>{statusLabels[item.status] ?? item.status}</Badge>
+						<Badge variant="outline" class={slaClass(item.sla_status)}>{slaLabel(item.sla_status)}</Badge>
+					</div>
+				{/snippet}
+			</AppPageHeading>
+		</div>
 		{#if actionNotice}<Alert.Root><Alert.Title>Perubahan tersimpan</Alert.Title><Alert.Description>{actionNotice}</Alert.Description></Alert.Root>{/if}
 		{#if detail.capabilities.can_request_documents || detail.capabilities.can_forward_to_central || detail.capabilities.can_complete || detail.capabilities.can_reject}
 			<Card.Root size="sm" class="action-card"><Card.Header class="action-header">
@@ -784,6 +786,7 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 	.detail-grid--with-aside { grid-template-columns:minmax(0,1.5fr) minmax(18rem,.8fr); }
 	.main-column, aside { display:grid; align-content:start; gap:.75rem; min-width:0; }
 	.detail-sidebar { min-width:0; }
+	.detail-heading-inset { min-width:0; }
 	.heading-badges { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:.4rem; }
 	:global(.request-detail-page .app-page-heading-copy) { gap:.15rem; }
 	:global(.request-detail-page .app-page-meta) { margin-bottom:.1rem; }
@@ -906,6 +909,9 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 		.answer-list div, .revision-diff div { grid-template-columns:minmax(0,1fr); gap:.25rem; }
 	}
 	@media(max-width:40rem) {
+		.detail-topbar, .detail-heading-inset { padding-inline:.75rem; }
+		:global(.request-detail-page .app-page-meta) { margin-bottom:.2rem; font-size:.8rem; font-variant-numeric:tabular-nums; line-height:1.45; }
+		:global(.request-detail-page .app-page-title) { line-height:1.18; }
 		.heading-badges { justify-content:flex-start; }
 		:global(.request-detail-page .app-page-title-row) { display:grid; grid-template-columns:minmax(0,1fr) 2.75rem; align-items:start; gap:.2rem .25rem; }
 		:global(.request-detail-page .app-page-title) { width:100%; min-width:0; }
