@@ -545,32 +545,34 @@
 </header>
 
 	<Dialog.Root bind:open={mobileMenuOpen}>
-		<Dialog.Content id="mobile-nav-dialog" class="mobile-menu-dialog gap-5 p-5" showCloseButton={false}>
-			<Dialog.Header class="mobile-menu-header flex-row items-center justify-between gap-3">
-				<Dialog.Title class="text-base">Navigasi</Dialog.Title>
-				<Dialog.Close>
-					{#snippet child({ props })}
-						<Button {...props} variant="ghost" size="icon-lg" class="min-h-11 min-w-11 border-0 bg-transparent p-0 shadow-none hover:bg-transparent hover:text-primary dark:hover:bg-transparent" aria-label="Tutup menu navigasi" title="Tutup menu navigasi">
-							<X class="size-4" aria-hidden="true" />
-						</Button>
-					{/snippet}
-				</Dialog.Close>
-			</Dialog.Header>
-			<Dialog.Description class="sr-only">Pilih halaman atau ubah pengaturan akun.</Dialog.Description>
+		<Dialog.Content id="mobile-nav-dialog" class="mobile-menu-dialog" showCloseButton={false}>
+			<div class="mobile-menu-card">
+				<Dialog.Header class="mobile-menu-header flex-row items-center justify-between gap-3">
+					<Dialog.Title class="text-base">Navigasi</Dialog.Title>
+					<Dialog.Close>
+						{#snippet child({ props })}
+							<Button {...props} variant="ghost" size="icon-lg" class="min-h-11 min-w-11 border-0 bg-transparent p-0 shadow-none hover:bg-transparent hover:text-primary dark:hover:bg-transparent" aria-label="Tutup menu navigasi" title="Tutup menu navigasi">
+								<X class="size-4" aria-hidden="true" />
+							</Button>
+						{/snippet}
+					</Dialog.Close>
+				</Dialog.Header>
+				<Dialog.Description class="sr-only">Pilih halaman atau ubah pengaturan akun.</Dialog.Description>
 
-			<div class="mobile-menu-nav-scroll">
-				<nav class="mobile-nav" aria-label="Navigasi utama">
-					{@render navigationLinks(true)}
-				</nav>
-			</div>
+				<div class="mobile-menu-nav-scroll">
+					<nav class="mobile-nav" aria-label="Navigasi utama">
+						{@render navigationLinks(true)}
+					</nav>
+				</div>
 
-			<div class="mobile-menu-actions" aria-label="Aksi akun">
-				<Button variant="ghost" class="mobile-menu-action min-h-11 h-auto min-w-0 justify-center gap-2 whitespace-nowrap px-2" type="button" onclick={toggleTheme}>
-					{#if $theme === 'dark'}<Sun class="size-4" aria-hidden="true" /><span>Mode terang</span>{:else}<Moon class="size-4" aria-hidden="true" /><span>Mode gelap</span>{/if}
-				</Button>
-				<Button variant="ghost" class="mobile-menu-action min-h-11 h-auto min-w-0 justify-center gap-2 whitespace-nowrap px-2" type="button" onclick={logout}>
-					<LogOut class="size-4" aria-hidden="true" /><span>Keluar</span>
-				</Button>
+				<div class="mobile-menu-actions" aria-label="Aksi akun">
+					<Button variant="ghost" class="mobile-menu-action min-h-11 h-auto min-w-0 justify-center gap-2 whitespace-nowrap px-2" type="button" onclick={toggleTheme}>
+						{#if $theme === 'dark'}<Sun class="size-4" aria-hidden="true" /><span>Mode terang</span>{:else}<Moon class="size-4" aria-hidden="true" /><span>Mode gelap</span>{/if}
+					</Button>
+					<Button variant="ghost" class="mobile-menu-action min-h-11 h-auto min-w-0 justify-center gap-2 whitespace-nowrap px-2" type="button" onclick={logout}>
+						<LogOut class="size-4" aria-hidden="true" /><span>Keluar</span>
+					</Button>
+				</div>
 			</div>
 		</Dialog.Content>
 	</Dialog.Root>
@@ -702,8 +704,6 @@
 	.mobile-menu-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 	.mobile-menu-actions :global(.mobile-menu-action) { min-height: 2.9rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--muted); color: var(--foreground); }
 	.mobile-menu-actions :global(.mobile-menu-action:hover) { border-color: color-mix(in srgb,var(--ring) 42%,var(--border)); background: color-mix(in srgb,var(--ring) 8%,var(--muted)); }
-	:global(.mobile-menu-dialog) { display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: .85rem; width: min(29rem, calc(var(--app-visual-viewport-width, 100vw) - 1rem)); max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 2rem), 42rem); overflow: hidden; }
-
 	@media (min-width: 72.001rem) {
 		:global(body:has(.desktop-sidebar) #main-content) {
 			width: calc(100% - 15rem);
@@ -876,19 +876,30 @@
 
 	@media (max-width: 72rem) {
 		:global(.mobile-menu-dialog[data-slot='dialog-content']) {
-			top: 50%;
+			position: fixed;
+			top: var(--app-visual-viewport-top, 0px);
 			right: auto;
 			bottom: auto;
-			left: 50%;
-			width: min(29rem, calc(100% - 2rem));
-			max-width: calc(100% - 2rem);
-			max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 2rem), 42rem);
+			left: var(--app-visual-viewport-left, 0px);
+			box-sizing: border-box;
+			width: var(--app-visual-viewport-width, 100vw);
+			height: var(--app-visual-viewport-height, 100dvh);
+			max-width: none;
+			max-height: none;
 			margin: 0;
-			transform: translate(-50%, -50%);
-			translate: 0 0;
-			border-radius: 1rem;
+			padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border: 0;
+			border-radius: 0;
+			background: transparent;
+			box-shadow: none;
+			transform: none;
+			translate: none;
+			overflow: hidden;
 		}
-		:global(.mobile-menu-dialog[data-slot='dialog-content']) { grid-template-rows: auto minmax(0,1fr) auto; overflow: hidden; }
+		.mobile-menu-card { display: grid; width: 100%; max-width: 29rem; min-width: 0; max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 2rem), 42rem); grid-template-rows: auto minmax(0,1fr) auto; gap: .85rem; overflow: hidden; padding: 1.25rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--card); color: var(--foreground); box-shadow: 0 24px 70px rgb(0 0 0 / .16), 0 2px 8px rgb(0 0 0 / .06); }
 		.mobile-menu-nav-scroll { overscroll-behavior: contain; }
 	}
 </style>
