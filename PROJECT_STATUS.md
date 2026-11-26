@@ -2,7 +2,7 @@
 
 Terakhir diperbarui: 26 November 2026
 
-**Pemusatan menu mobile pada build (26 November 2026):** kartu navigasi melebar hanya separuh layar karena `Dialog.Content` memakai CSS Grid dengan kolom implisit yang menyusut mengikuti lebar intrinsik menu. Lapisan dialog kini memakai Flex dan dimensi VisualViewport, lalu memusatkan kartu menu di dalamnya. Aturan Flex terkonfirmasi masuk ke CSS production hasil build. Pemeriksaan visual pada server masih perlu diulang setelah deploy dengan port frontend `4173` aktif.
+**Dialog mobile terpotong (26 November 2026):** utility Tailwind `-translate-x-1/2` dan `-translate-y-1/2` bawaan `Dialog.Content` tetap menggeser menu dan drawer aktivitas karena Tailwind memakai variabel translasi terpisah dari `transform`. `layout.css` kini menolkan variabel tersebut pada seluruh dialog; tiap dialog tetap memakai posisi dan ukurannya sendiri. Svelte check lulus dan production build berhasil; CSS production memuat reset variabel bersama. Pemeriksaan visual pada perangkat/server masih perlu diulang.
 
 **Port frontend aaPanel (26 November 2026):** log release menunjukkan proses PM2 `online` tetapi `curl 127.0.0.1:4173` ditolak. Script deploy kini mengirim `PORT=4173` saat me-restart frontend, memvalidasi `FRONTEND_PORT`, dan hanya menandai release berhasil setelah health check lulus. Port alternatif memakai `FRONTEND_PORT` serta URL health/reverse proxy yang sama. Jalankan ulang deploy dari `main` agar listener frontend dan CSS produksi terbaru aktif.
 

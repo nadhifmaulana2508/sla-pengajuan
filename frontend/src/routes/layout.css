@@ -571,6 +571,12 @@
 	}
 }
 
+/* Dialog.Content's centering utilities use individual translate properties; positioning is owned by the dialog rules below. */
+.dialog-viewport-content[data-slot='dialog-content'] {
+	--tw-translate-x: 0 !important;
+	--tw-translate-y: 0 !important;
+}
+
 /* Keep viewport positioning outside Tailwind layers so it overrides fixed/center utilities. */
 .dialog-viewport-content[data-slot='dialog-content']:not(.activity-drawer):not(.mobile-menu-dialog):not(.pdf-preview-dialog) {
 	position: fixed;
