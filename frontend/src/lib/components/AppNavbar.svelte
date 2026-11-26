@@ -50,7 +50,7 @@
 		} catch {
 			sidebarExpanded = true;
 		}
-		return authSession.subscribe((session) => {
+		const unsubscribeSession = authSession.subscribe((session) => {
 			activeToken = session.token;
 			profile = session.profile;
 			role = session.profile?.sla_access.role ?? null;
@@ -71,6 +71,86 @@
 				notificationsError = '';
 			}
 		});
+
+		const visualViewport = window.visualViewport;
+		const root = document.documentElement;
+		let restingTabbarBottom: number | null = null;
+		let tabbarShift = 0;
+		let viewportFrame = 0;
+
+		function isTextEntry(target: EventTarget | null): boolean {
+			if (!(target instanceof HTMLElement)) return false;
+			if (target.isContentEditable || target.getAttribute('role') === 'textbox') return true;
+			if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+			if (!(target instanceof HTMLInputElement)) return false;
+			return !['button', 'checkbox', 'color', 'file', 'image', 'radio', 'range', 'reset', 'submit'].includes(target.type);
+		}
+
+		function resetTabbarShift(): void {
+			tabbarShift = 0;
+			root.style.removeProperty('--mobile-tabbar-keyboard-shift');
+			restingTabbarBottom = null;
+		}
+
+		function updateTabbarForKeyboard(): void {
+			viewportFrame = 0;
+			const tabbar = document.querySelector<HTMLElement>('.mobile-tabbar');
+			if (!tabbar || window.innerWidth > 1152) {
+				resetTabbarShift();
+				return;
+			}
+
+			const focused = isTextEntry(document.activeElement);
+			const currentBottom = tabbar.getBoundingClientRect().bottom;
+			if (focused && restingTabbarBottom === null) restingTabbarBottom = currentBottom;
+			if (restingTabbarBottom === null) return;
+
+			const visibleBottom = (visualViewport?.offsetTop ?? 0) + (visualViewport?.height ?? window.innerHeight);
+			const viewportReduced = restingTabbarBottom - visibleBottom > 80;
+			const unshiftedBottom = currentBottom - tabbarShift;
+			const dockMovedWithKeyboard = restingTabbarBottom - unshiftedBottom > 80;
+
+			if (focused && viewportReduced && dockMovedWithKeyboard) {
+				const nextShift = Math.max(0, restingTabbarBottom - unshiftedBottom);
+				if (Math.abs(nextShift - tabbarShift) > 1) {
+					tabbarShift = nextShift;
+					root.style.setProperty('--mobile-tabbar-keyboard-shift', `${tabbarShift}px`);
+				}
+			} else if (tabbarShift > 0 && !viewportReduced) {
+				resetTabbarShift();
+			} else if (!focused && tabbarShift === 0 && !viewportReduced) {
+				restingTabbarBottom = null;
+			}
+		}
+
+		function scheduleTabbarUpdate(): void {
+			if (viewportFrame) cancelAnimationFrame(viewportFrame);
+			viewportFrame = requestAnimationFrame(updateTabbarForKeyboard);
+		}
+
+		function captureTextEntry(event: FocusEvent): void {
+			if (!isTextEntry(event.target)) return;
+			const tabbar = document.querySelector<HTMLElement>('.mobile-tabbar');
+			if (tabbar && restingTabbarBottom === null) restingTabbarBottom = tabbar.getBoundingClientRect().bottom;
+			scheduleTabbarUpdate();
+		}
+
+		document.addEventListener('focusin', captureTextEntry);
+		document.addEventListener('focusout', scheduleTabbarUpdate);
+		visualViewport?.addEventListener('resize', scheduleTabbarUpdate);
+		visualViewport?.addEventListener('scroll', scheduleTabbarUpdate);
+		window.addEventListener('resize', scheduleTabbarUpdate);
+
+		return () => {
+			unsubscribeSession();
+			document.removeEventListener('focusin', captureTextEntry);
+			document.removeEventListener('focusout', scheduleTabbarUpdate);
+			visualViewport?.removeEventListener('resize', scheduleTabbarUpdate);
+			visualViewport?.removeEventListener('scroll', scheduleTabbarUpdate);
+			window.removeEventListener('resize', scheduleTabbarUpdate);
+			if (viewportFrame) cancelAnimationFrame(viewportFrame);
+			resetTabbarShift();
+		};
 	});
 
 	function loadNotifications(token: string): Promise<void> {
@@ -751,6 +831,8 @@
 			box-shadow: 0 10px 34px rgb(0 0 0 / .14);
 			-webkit-backdrop-filter: blur(18px) saturate(1.2);
 			backdrop-filter: blur(18px) saturate(1.2);
+			transform: translateY(var(--mobile-tabbar-keyboard-shift, 0px));
+			will-change: transform;
 		}
 		.mobile-tabbar :global(.mobile-tab-link) {
 			display: flex;
@@ -791,15 +873,15 @@
 		:global(.notification-header) { padding-inline: 0.75rem; }
 	}
 
-	@media (max-width: 42rem) {
+	@media (max-width: 72rem) {
 		:global(.mobile-menu-dialog[data-slot='dialog-content']) {
-			top: 50%;
+			top: var(--app-visual-viewport-center-y, 50vh);
 			right: auto;
 			bottom: auto;
-			left: 50%;
-			width: calc(100vw - 2rem);
-			max-width: calc(100vw - 2rem);
-			max-height: min(84dvh, 42rem);
+			left: var(--app-visual-viewport-center-x, 50vw);
+			width: min(29rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem));
+			max-width: calc(var(--app-visual-viewport-width, 100vw) - 2rem);
+			max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 2rem), 42rem);
 			margin: 0;
 			transform: translate(-50%, -50%);
 			translate: 0 0;

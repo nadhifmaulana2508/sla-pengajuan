@@ -926,4 +926,28 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 		:global(.pdf-preview-dialog) { width:calc(100vw - 1rem); height:calc(100dvh - 1rem); padding:.75rem; }
 		.pdf-preview-actions :global(button) { flex:1; }
 	}
+	@media(max-width:72rem) {
+		:global(.activity-drawer[data-slot='dialog-content']) {
+			inset: var(--app-visual-viewport-top, 0px) auto auto var(--app-visual-viewport-left, 0px);
+			width: var(--app-visual-viewport-width, 100vw);
+			height: var(--app-visual-viewport-height, 100dvh);
+			max-height: var(--app-visual-viewport-height, 100dvh);
+			padding: 0 0 env(safe-area-inset-bottom);
+			border-radius: 0;
+		}
+		:global(.activity-drawer-header[data-slot='dialog-header']) {
+			padding: calc(.75rem + env(safe-area-inset-top)) 3.5rem .75rem max(1rem, env(safe-area-inset-left));
+		}
+		.activity-tabs { padding-inline: max(.35rem, env(safe-area-inset-left)) max(.35rem, env(safe-area-inset-right)); }
+		.activity-drawer-feed { padding: .85rem max(1rem, env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); }
+		:global(.pdf-preview-dialog[data-slot='dialog-content']) {
+			top: var(--app-visual-viewport-center-y, 50vh);
+			left: var(--app-visual-viewport-center-x, 50vw);
+			width: calc(var(--app-visual-viewport-width, 100vw) - 1rem);
+			height: calc(var(--app-visual-viewport-height, 100dvh) - 1rem);
+			max-height: calc(var(--app-visual-viewport-height, 100dvh) - 1rem);
+			transform: translate(-50%, -50%);
+			translate: 0 0;
+		}
+	}
 </style>
