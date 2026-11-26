@@ -660,8 +660,8 @@
 	.navbar-actions :global([data-slot='button']:hover) { background: var(--muted); color: var(--foreground); }
 	:global(.notification-trigger) { flex: 0 0 auto; }
 	:global(.notification-count) { position: absolute; top: 0.15rem; right: 0.1rem; min-width: 1rem; height: 1rem; padding-inline: 0.18rem; border-radius: 999px; background: var(--destructive); color: var(--destructive-foreground); font-size: 0.625rem; font-weight: 700; line-height: 1rem; text-align: center; }
-	:global(.notification-popover) { z-index: 50; display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(24rem, calc(100vw - 1rem)); max-height: min(80dvh, 38rem); overflow: hidden; border: 1px solid var(--border); border-radius: .8rem; background: var(--popover); color: var(--popover-foreground); box-shadow: 0 16px 44px rgb(0 0 0 / .16); }
-	:global(.profile-popover) { z-index: 50; width: min(22rem, calc(100vw - 1rem)); max-height: min(80dvh, 38rem); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border); border-radius: .8rem; background: var(--popover); color: var(--popover-foreground); padding: .75rem; box-shadow: 0 16px 44px rgb(0 0 0 / .16); }
+	:global(.notification-popover) { z-index: 50; display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(24rem, calc(var(--app-visual-viewport-width, 100vw) - 1rem)); max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 1rem), 38rem); overflow: hidden; border: 1px solid var(--border); border-radius: .8rem; background: var(--popover); color: var(--popover-foreground); box-shadow: 0 16px 44px rgb(0 0 0 / .16); }
+	:global(.profile-popover) { z-index: 50; width: min(22rem, calc(var(--app-visual-viewport-width, 100vw) - 1rem)); max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 1rem), 38rem); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border); border-radius: .8rem; background: var(--popover); color: var(--popover-foreground); padding: .75rem; box-shadow: 0 16px 44px rgb(0 0 0 / .16); }
 	.popover-title { margin: 0; font-size: var(--type-base); font-weight: 620; }
 	.popover-description { margin: .2rem 0 0; color: var(--muted-foreground); font-size: var(--type-xs); }
 	.profile-popover-identity { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); align-items: center; gap: .75rem; padding: .4rem .35rem .85rem; border-bottom: 1px solid var(--border); }
@@ -677,7 +677,7 @@
 	.profile-loading { margin: .25rem 0; color: var(--muted-foreground); font-size: var(--type-sm); }
 	:global(.notification-header) { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 1rem 1rem 0.8rem; border-bottom: 1px solid var(--border); }
 	.notification-mark-label { white-space: nowrap; }
-	.notification-list { min-height: 0; max-height: min(65dvh, 34rem); overflow-y: auto; overscroll-behavior: contain; padding: 0.35rem; list-style: none; }
+	.notification-list { min-height: 0; max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 6rem), 34rem); overflow-y: auto; overscroll-behavior: contain; padding: 0.35rem; list-style: none; }
 	.notification-list li + li { border-top: 1px solid var(--border); }
 	.notification-item { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr); width: 100%; min-height: 4.5rem; align-items: start; gap: 0.55rem; padding: 0.8rem 0.65rem; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 	.notification-item:hover { background: color-mix(in srgb, var(--muted) 55%, transparent); }
@@ -702,7 +702,7 @@
 	.mobile-menu-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 	.mobile-menu-actions :global(.mobile-menu-action) { min-height: 2.9rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--muted); color: var(--foreground); }
 	.mobile-menu-actions :global(.mobile-menu-action:hover) { border-color: color-mix(in srgb,var(--ring) 42%,var(--border)); background: color-mix(in srgb,var(--ring) 8%,var(--muted)); }
-	:global(.mobile-menu-dialog) { display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: .85rem; width: min(29rem, calc(100vw - 1rem)); max-height: min(84dvh, 42rem); overflow: hidden; }
+	:global(.mobile-menu-dialog) { display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: .85rem; width: min(29rem, calc(var(--app-visual-viewport-width, 100vw) - 1rem)); max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 2rem), 42rem); overflow: hidden; }
 
 	@media (min-width: 72.001rem) {
 		:global(body:has(.desktop-sidebar) #main-content) {
@@ -816,17 +816,18 @@
 		:global(.mobile-menu-trigger) { display: none; }
 		.mobile-tabbar {
 			position: fixed;
-			inset-inline: max(.65rem, env(safe-area-inset-left)) max(.65rem, env(safe-area-inset-right));
-			bottom: calc(.5rem + env(safe-area-inset-bottom));
-			z-index: 30;
+			inset-inline: 0;
+			bottom: 0;
+			z-index: 45;
 			display: grid;
 			grid-auto-flow: column;
 			grid-auto-columns: minmax(0, 1fr);
 			align-items: stretch;
 			gap: .25rem;
-			padding: .35rem;
+			padding: .35rem max(.65rem, env(safe-area-inset-right)) calc(.35rem + env(safe-area-inset-bottom)) max(.65rem, env(safe-area-inset-left));
 			border: 1px solid var(--border);
-			border-radius: 1.1rem;
+			border-bottom: 0;
+			border-radius: 1rem 1rem 0 0;
 			background: color-mix(in srgb, var(--background) 90%, transparent);
 			box-shadow: 0 10px 34px rgb(0 0 0 / .14);
 			-webkit-backdrop-filter: blur(18px) saturate(1.2);
@@ -875,12 +876,12 @@
 
 	@media (max-width: 72rem) {
 		:global(.mobile-menu-dialog[data-slot='dialog-content']) {
-			top: var(--app-visual-viewport-center-y, 50vh);
+			top: 50%;
 			right: auto;
 			bottom: auto;
-			left: var(--app-visual-viewport-center-x, 50vw);
-			width: min(29rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem));
-			max-width: calc(var(--app-visual-viewport-width, 100vw) - 2rem);
+			left: 50%;
+			width: min(29rem, calc(100% - 2rem));
+			max-width: calc(100% - 2rem);
 			max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 2rem), 42rem);
 			margin: 0;
 			transform: translate(-50%, -50%);
