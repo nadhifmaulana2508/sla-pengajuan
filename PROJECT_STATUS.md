@@ -1,6 +1,10 @@
 # Status Proyek Sistem SLA
 
-Terakhir diperbarui: 26 November 2026
+Terakhir diperbarui: 27 November 2026
+
+**Login dummy SSO untuk UAT (27 November 2026):** pemilik proyek menetapkan aaPanel sebagai UAT/testing dengan data sintetis dan akses terbatas. Backend kini mendukung remote SSO dummy pada production-mode hanya jika opt-in `SSO_DUMMY_LOGIN_UAT_ENABLED=true`, `SSO_DUMMY_LOGIN_ENABLED=true`, database allowlist (`sla_pengajuan` atau `_staging`), dan token SSO tersedia. Login akun dummy lokal tetap memakai `DUMMY_AUTH_ENABLED`. Runbook dan PRD menjelaskan endpoint SSO UAT, pembatasan VPN/IP, serta kewajiban menonaktifkan semua dummy login sebelum go-live. Belum diterapkan ke server; URL/token SSO UAT dan keberadaan akun dummy pada database perlu dipastikan pemilik proyek.
+
+**Deploy aaPanel tertahan oleh konfigurasi dummy SSO (26 November 2026):** output terminal menunjukkan validasi `SSO_DUMMY_LOGIN_ENABLED` menolak konfigurasi production sebelum migration berjalan. Perintah sudah melewati pull dan instalasi dependency, tetapi gagal saat `db:migrate`; `db:seed-reference`, build, dan restart PM2 belum tercapai. Kebijakan awal hanya mengizinkan login SSO dummy di development; entry UAT 27 November menambahkan opt-in terpisah untuk server UAT yang dibatasi.
 
 **CI GitHub Actions (26 November 2026):** workflow `.github/workflows/ci.yml` menjalankan instalasi lockfile backend/frontend, type-check backend, pemeriksaan Svelte, dan build produksi pada pull request ke `main` serta push ke `main`. Run pertama menemukan peer dependency SvelteKit 2 yang belum tercatat di lockfile frontend; lockfile disinkronkan dengan npm 10 untuk kompatibilitas Node 22. Run #2 pada commit `c0e3cd7` lulus untuk kedua `npm ci`, check backend/frontend, dan build produksi. Tidak ada deploy otomatis atau akses ke database production.
 

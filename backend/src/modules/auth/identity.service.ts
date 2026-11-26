@@ -1,5 +1,5 @@
 import type { RowDataPacket } from 'mysql2';
-import { env } from '../../config/env.js';
+import { env, isUatDatabaseName } from '../../config/env.js';
 import { mysqlPool } from '../../db/client.js';
 import { resolveSlaAccess, syncSsoProfile } from './access.service.js';
 import { createSsoClient, SsoAuthError, type SsoProfile } from './auth.service.js';
@@ -27,7 +27,16 @@ export type DummyUserOption = {
 function dummyAuthEnabled(): boolean {
 	if (!env.DUMMY_AUTH_ENABLED) return false;
 	if (env.NODE_ENV === 'development') return true;
-	return env.NODE_ENV === 'production' && (/^sla_pengajuan$/i.test(env.DB_NAME) || /_staging$/i.test(env.DB_NAME));
+	return env.NODE_ENV === 'production' && isUatDatabaseName(env.DB_NAME);
+}
+
+function ssoDummyLoginEnabled(): boolean {
+	const environmentAllowed = env.NODE_ENV === 'development' || (
+		env.NODE_ENV === 'production' &&
+		env.SSO_DUMMY_LOGIN_UAT_ENABLED &&
+		isUatDatabaseName(env.DB_NAME)
+	);
+	return environmentAllowed && env.SSO_DUMMY_LOGIN_ENABLED && Boolean(env.SSO_APP_TOKEN);
 }
 
 async function findDummyProfile(employeeId: string): Promise<SsoProfile | null> {
@@ -91,8 +100,8 @@ export async function loginWithSso(idPeg: string, password: string): Promise<{ t
 }
 
 export async function loginWithSsoDummy(idPeg: string): Promise<{ token: string; profile: SsoProfile }> {
-	if (env.NODE_ENV !== 'development' || !env.SSO_DUMMY_LOGIN_ENABLED) {
-		throw new SsoAuthError(403, 'Uji login dummy SSO hanya tersedia jika diaktifkan pada backend development.');
+	if (!ssoDummyLoginEnabled()) {
+		throw new SsoAuthError(403, 'Uji login dummy SSO hanya tersedia pada development atau UAT yang diizinkan.');
 	}
 	const result = await sso.loginDummy(idPeg);
 	await syncSsoProfile(result.profile);
@@ -104,7 +113,7 @@ export async function searchSsoEmployees(query: string) {
 }
 
 export function isSsoDummyLoginAvailable(): boolean {
-	return env.NODE_ENV === 'development' && env.SSO_DUMMY_LOGIN_ENABLED && Boolean(env.SSO_APP_TOKEN);
+	return ssoDummyLoginEnabled();
 }
 
 export async function resolveBearerIdentity(token: string): Promise<SsoProfile> {

@@ -128,12 +128,29 @@ DB_PASSWORD=ISI_DI_SERVER_SAJA
 SSO_BASE_URL=https://apisso.bkkjateng.co.id
 SSO_APP_CODE=simpeg
 SSO_TIMEOUT_MS=10000
+SSO_DUMMY_LOGIN_ENABLED=false
+SSO_DUMMY_LOGIN_UAT_ENABLED=false
 SSO_CONNECT_IP=
+DUMMY_AUTH_ENABLED=false
 
 PRIVATE_UPLOAD_DIR=/www/private/sla-pengajuan/uploads
 
 SLA_INITIAL_ADMIN_EMPLOYEE_ID=
 ```
+
+Pada production final, `SSO_DUMMY_LOGIN_ENABLED`, `SSO_DUMMY_LOGIN_UAT_ENABLED`, dan `DUMMY_AUTH_ENABLED` harus `false`. Backend memvalidasi konfigurasi ini saat proses migration maupun saat aplikasi dimulai.
+
+Untuk UAT yang dibatasi VPN/IP tepercaya dan berisi data sintetis, kedua metode login dummy dapat diaktifkan pada database bernama `sla_pengajuan` atau berakhiran `_staging`. Tambahkan/ubah flag berikut di `backend/.env`:
+
+```dotenv
+SSO_DUMMY_LOGIN_ENABLED=true
+SSO_DUMMY_LOGIN_UAT_ENABLED=true
+DUMMY_AUTH_ENABLED=true
+```
+
+Pertahankan `NODE_ENV=production`. Isi `SSO_BASE_URL` dan `SSO_APP_TOKEN` dengan endpoint serta token aplikasi milik SSO UAT yang secara resmi mendukung `api/auth/login-dummy`; jangan gunakan endpoint SSO production untuk login dummy. Jika environment variable juga dikelola pada Node.js Project/PM2 aaPanel, samakan ketiga flag tersebut di sana karena environment proses dapat menimpa `.env`. Batasi host UAT di firewall/reverse proxy agar hanya VPN atau IP tepercaya yang dapat mengaksesnya. Flag ini tidak membuat akun; login Akun demo membutuhkan baris aktif pada `dummy_users` beserta user, role, dan scope aktif.
+
+Login SSO dummy memakai `GET /api/v1/auth/sso-dummy-login-status` dan `POST /api/v1/auth/sso-dummy-login` dengan body `{"id_peg":"ID_UJI"}`. Login Akun demo lokal memakai `GET /api/v1/auth/dummy-users` dan `POST /api/v1/auth/dummy-login` dengan body `{"employee_id":"ID_UJI"}`. Setelah mengubah `.env`, lakukan backup database dan jalankan deploy penuh agar validasi, build, dan restart backend memakai konfigurasi baru.
 
 `SSO_CONNECT_IP=10.0.2.2` adalah pola untuk environment lokal yang membutuhkan pemetaan host. Di production, kosongkan kecuali jaringan VPS memang secara resmi membutuhkan IP tersebut dan sudah diuji. Hostname SSO tetap digunakan untuk SNI dan validasi sertifikat.
 `PRIVATE_UPLOAD_DIR` harus menunjuk ke direktori persisten di luar document root frontend/Nginx. Buat direktori tersebut dan beri hak tulis hanya kepada user proses backend; sertakan direktori ini dalam backup terenkripsi bersama database. File di dalamnya tidak boleh disajikan langsung oleh web server.

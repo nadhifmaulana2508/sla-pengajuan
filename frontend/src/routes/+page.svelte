@@ -278,7 +278,7 @@
 					</Button>
 				</form>
 				{#if loginMode === 'sso-dummy'}
-					<p class="form-note">Backend meminta token uji ke endpoint login-dummy SSO, lalu memeriksa profil memakai GET whoami. Mode ini hanya tersedia bila diaktifkan pada development.</p>
+					<p class="form-note">Backend meminta token uji ke endpoint login-dummy SSO, lalu memeriksa profil memakai GET whoami. Mode ini tersedia di development atau UAT yang diizinkan.</p>
 				{:else}
 					<p class="form-note">Password hanya dikirim ke backend untuk diteruskan ke SSO. Sistem SLA tidak menyimpannya.</p>
 				{/if}
