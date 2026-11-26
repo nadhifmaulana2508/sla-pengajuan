@@ -278,6 +278,8 @@ Untuk perubahan frontend saja, gunakan target terpisah berikut. Target ini menar
 FRONTEND_PM2_NAME=sla-frontend npm run deploy:frontend
 ```
 
+Jika checkout lama sudah menolak deploy karena `package-lock.json` root tak terlacak, jalankan `git pull --ff-only origin main` satu kali terlebih dahulu untuk mengambil aturan ignore lockfile tersebut, lalu jalankan perintah deploy di atas.
+
 Port default `4173` dapat dioverride lewat `FRONTEND_PORT`; health check akan mengikuti port tersebut kecuali `FRONTEND_HEALTH_URL` diatur sendiri. Jika frontend release memerlukan kontrak API/backend yang belum tersedia di server, gunakan deploy penuh atau deploy backend secara terpisah sebelum mengandalkan fitur terkait.
 
 Untuk release frontend dan backend sekaligus, gunakan:

@@ -8,6 +8,8 @@ Terakhir diperbarui: 26 November 2026
 
 **Deploy frontend saja (26 November 2026):** perintah `npm run deploy:frontend` kini memperbarui checkout dari `main`, meng-install dependency dan membangun frontend, me-restart hanya proses frontend, serta memeriksa health pada port frontend. Backend dan migration dilewati; gunakan deploy penuh atau deploy backend terpisah bila perubahan UI memerlukan kontrak API baru.
 
+**Lockfile root pada aaPanel (26 November 2026):** deploy frontend sempat berhenti karena `package-lock.json` tak terlacak di root. `package.json` root hanya berisi script dan tidak memiliki dependency; `.gitignore` kini mengabaikan lockfile root saja. Lockfile backend dan frontend tetap dilacak. Setelah perubahan ini ditarik, jalankan ulang `npm run deploy:frontend`.
+
 **Login lokal akun demo (26 November 2026):** frontend Vite dan backend API lokal berjalan pada port 5173 dan 3000. `DUMMY_AUTH_ENABLED=true` sudah aktif di environment development; endpoint akun demo merespons 200 dengan 15 akun sintetis dan CORS mengizinkan `http://localhost:5173`. Login menampilkan switch SSO/demo yang lebih jelas, panel demo diringkas, dan kegagalan pemuatan demo kini memberi petunjuk hanya saat development. `frontend npm.cmd run check` menemukan 0 error dan 4 peringatan selector CSS tak terpakai di halaman detail/master pekerjaan. Browser belum dikendalikan; pemilik proyek dapat memuat ulang tab localhost untuk melihat hasil.
 
 **Judul detail pengajuan (26 November 2026):** judul tiket kini memakai jenis pekerjaan/form; perihal tampil di kartu “Uraian pengajuan” bersama deskripsi. Perubahan hanya pada tampilan, pemeriksaan browser belum dijalankan.
