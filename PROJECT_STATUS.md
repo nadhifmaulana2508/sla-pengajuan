@@ -2,7 +2,7 @@
 
 Terakhir diperbarui: 26 November 2026
 
-**CI GitHub Actions (26 November 2026):** workflow `.github/workflows/ci.yml` menjalankan instalasi lockfile backend/frontend, type-check backend, pemeriksaan Svelte, dan build produksi pada pull request ke `main` serta push ke `main`. Run pertama menemukan peer dependency SvelteKit 2 yang belum tercatat di lockfile frontend; lockfile disinkronkan dengan npm 10 untuk kompatibilitas Node 22. Rerun CI menunggu push; tidak ada deploy otomatis atau akses ke database production.
+**CI GitHub Actions (26 November 2026):** workflow `.github/workflows/ci.yml` menjalankan instalasi lockfile backend/frontend, type-check backend, pemeriksaan Svelte, dan build produksi pada pull request ke `main` serta push ke `main`. Run pertama menemukan peer dependency SvelteKit 2 yang belum tercatat di lockfile frontend; lockfile disinkronkan dengan npm 10 untuk kompatibilitas Node 22. Run #2 pada commit `c0e3cd7` lulus untuk kedua `npm ci`, check backend/frontend, dan build produksi. Tidak ada deploy otomatis atau akses ke database production.
 
 **Header detail pengajuan mobile (26 November 2026):** gutter tombol kembali dan judul kini diselaraskan lebih dekat dengan isi kartu, sementara nomor/tanggal dibuat lebih terbaca dengan angka tabular. Svelte check lulus 0 error/0 warning dan production build berhasil; verifikasi visual browser belum tersedia pada sesi ini.
 
