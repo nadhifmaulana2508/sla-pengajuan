@@ -91,8 +91,8 @@
 	:global(.app-page-info-trigger:active),
 	:global(.app-page-info-trigger[data-state='open']) { display: inline-flex; min-height: 2.75rem; min-width: 2.75rem; align-items: center; justify-content: center; padding: 0; background: transparent !important; color: var(--muted-foreground); box-shadow: none !important; }
 	:global(.app-page-info-trigger:hover) { color: var(--foreground); }
-	:global(.app-page-info-dialog[data-slot='dialog-content']) { width: min(28rem, calc(100vw - 1.5rem)); max-height: min(82dvh, 32rem); overflow-y: auto; }
-	:global(.app-page-info-dialog--wide[data-slot='dialog-content']) { width: min(48rem, calc(100vw - 2rem)); max-width: min(48rem, calc(100vw - 2rem)); max-height: min(92dvh, 48rem); }
+	:global(.app-page-info-dialog[data-slot='dialog-content']) { width: min(28rem, calc(var(--app-visual-viewport-width, 100vw) - 1.5rem)); max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 1.5rem), 32rem); overflow-y: auto; }
+	:global(.app-page-info-dialog--wide[data-slot='dialog-content']) { width: min(48rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem)); max-width: min(48rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem)); max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 1.5rem), 48rem); }
 	:global(.app-page-info-header[data-slot='dialog-header']) { padding-right: 2rem; }
 	:global(.app-page-info-title[data-slot='dialog-title']) { font-size: var(--type-lg); font-weight: 650; line-height: 1.3; }
 	:global(.app-page-info-header [data-slot='dialog-description']) { line-height: 1.6; }

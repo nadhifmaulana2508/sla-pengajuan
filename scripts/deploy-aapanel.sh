@@ -5,8 +5,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd -P)"
 BACKEND_PM2_NAME="${BACKEND_PM2_NAME-sla-pengajuan-backend}"
 FRONTEND_PM2_NAME="${FRONTEND_PM2_NAME-sla-pengajuan-frontend}"
+FRONTEND_PORT="${FRONTEND_PORT-4173}"
 BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL-http://127.0.0.1:3000/api/v1/health/database}"
-FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL-http://127.0.0.1:4173/}"
+FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL-http://127.0.0.1:$FRONTEND_PORT/}"
 
 fail() {
 	printf 'Deploy dibatalkan: %s\n' "$1" >&2
@@ -34,6 +35,7 @@ node -e 'const fs = require("node:fs"); const expected = [["package.json", "sla-
 [[ -r frontend/.env || -n "${VITE_API_BASE_URL:-}" ]] || fail "VITE_API_BASE_URL belum tersedia di frontend/.env atau environment Terminal aaPanel."
 [[ -n "$BACKEND_PM2_NAME" ]] || fail "BACKEND_PM2_NAME belum diisi."
 [[ -n "$FRONTEND_PM2_NAME" ]] || fail "FRONTEND_PM2_NAME belum diisi."
+[[ "$FRONTEND_PORT" =~ ^[0-9]{1,5}$ ]] && (( 10#$FRONTEND_PORT >= 1 && 10#$FRONTEND_PORT <= 65535 )) || fail "FRONTEND_PORT harus berupa port 1-65535."
 [[ "$BACKEND_HEALTH_URL" == http://* || "$BACKEND_HEALTH_URL" == https://* ]] || fail "BACKEND_HEALTH_URL harus berupa URL HTTP/HTTPS."
 [[ "$FRONTEND_HEALTH_URL" == http://* || "$FRONTEND_HEALTH_URL" == https://* ]] || fail "FRONTEND_HEALTH_URL harus berupa URL HTTP/HTTPS."
 
@@ -60,7 +62,7 @@ npm run prod
 
 printf 'Restart proses aaPanel/PM2...\n'
 pm2 restart "$BACKEND_PM2_NAME" --update-env
-pm2 restart "$FRONTEND_PM2_NAME" --update-env
+PORT="$FRONTEND_PORT" pm2 restart "$FRONTEND_PM2_NAME" --update-env
 
 check_health() {
 	local service="$1"

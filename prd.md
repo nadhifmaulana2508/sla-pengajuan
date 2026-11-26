@@ -24,7 +24,7 @@ Daftar awal sembilan Divisi Pusat sudah dicatat. Aturan bisnis yang belum disahk
 | Database | MySQL |
 | Lingkungan database | Selama UAT, aplikasi memakai database `sla_pengajuan`. Setelah UAT disetujui, sediakan server database development dan production terpisah; development tidak lagi memakai database MySQL lokal. |
 | Login | SSO perusahaan melalui API yang diberikan; app code `simpeg` dipakai sementara |
-| Hak akses organisasi | Admin menetapkan role/status. Scope Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO, bukan pilihan scope manual |
+| Hak akses organisasi | Admin mendaftarkan dan mengaktifkan akun; role serta cakupan kerja Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO terkini. Role Admin diberikan manual |
 | Struktur organisasi | 28 Cabang, 4 Korwil, dan 9 Divisi Pusat |
 | Jalur utama | Setiap katalog pekerjaan Pusat memilih jalur Cabang → Korwil → Pusat atau Cabang → Pusat langsung |
 | Pemilihan tujuan | Cabang memilih kewenangan. Jika memilih Pusat, Cabang memilih Divisi Pusat dan jenis pekerjaan dari dropdown |
@@ -79,6 +79,8 @@ Sistem harus menjawab pertanyaan berikut pada setiap pengajuan:
 - Timeline pengajuan dan audit log.
 - Dashboard Cabang, Korwil, Divisi Pusat, Supervisor, dan Admin.
 - Notifikasi dasar di dalam aplikasi.
+- Email untuk semua pengguna aktif di scope unit tujuan saat tiket masuk ke unit tersebut.
+- Draft pengajuan Cabang yang bisa disimpan sebelum pengajuan dikirim.
 
 ### Belum termasuk
 
@@ -87,8 +89,9 @@ Sistem harus menjawab pertanyaan berikut pada setiap pengajuan:
 - Pekerjaan beberapa Divisi Pusat secara paralel dalam satu pengajuan.
 - Portal untuk nasabah atau pihak eksternal.
 - Pengambilan keputusan kredit atau keputusan bisnis otomatis.
-- Integrasi email atau sistem lain sebelum standar IT ditetapkan. Login SSO termasuk dalam MVP dengan app code sementara `simpeg`.
+- Push notification PWA; kanal ini direncanakan setelah email memakai peristiwa notifikasi yang sama.
 - Penghapusan atau pembuatan nomor baru saat revisi. Revisi tetap memakai nomor pengajuan yang sama.
+- Integrasi sistem lain selain email sebelum standar IT ditetapkan. Login SSO termasuk dalam MVP dengan app code sementara `simpeg`.
 
 ## 4. Struktur organisasi dan master data
 
@@ -153,11 +156,11 @@ Jenis pekerjaan dan Divisi Pusat harus saling membatasi. Cabang tidak boleh memi
 | Admin | Mengelola pengguna, organisasi, katalog pekerjaan, aturan SLA, konfigurasi, dan semua form pekerjaan | Seluruh sistem |
 | Manajemen | Melihat ringkasan status, SLA, backlog, dan histori sesuai hak akses | Seluruh organisasi atau cakupan yang ditetapkan |
 
-Hak akses diperiksa di sisi server pada setiap akses dan tindakan. Menyembunyikan menu saja tidak cukup untuk membatasi data. Saat Admin mengimpor pegawai dari direktori SSO, sistem otomatis memberi assignment khusus pegawai Kantor Pusat (`kode = '000'`) jika organisasinya cocok: `unit_kerja` yang cocok dengan divisi memberi role Petugas Divisi, atau informasi organisasi yang cocok dengan Korwil memberi role Petugas Korwil jika tidak ada alias divisi yang cocok. Untuk pegawai Cabang, Admin tetap memilih role Pengguna Cabang dan backend menetapkan cakupan kantor dari kode SSO. Role Admin, Supervisor, Manajemen, dan Penyetuju Korwil tidak pernah diberikan otomatis. Seluruh akun hasil impor tetap nonaktif sampai Admin mengaktifkannya. Admin tidak memilih cakupan untuk role organisasi. Alias `IT` dipetakan ke Divisi Operasional. Cakupan Pengguna Cabang mengikuti kode kantor SSO yang cocok dengan `master_kantor` aktif. Cakupan Petugas Korwil mengikuti Korwil dari mapping kantor aktif; untuk profil berkantor Pusat atau tanpa mapping kantor, sistem mencocokkan informasi organisasi SSO (`unit_kerja`, `branch_name`, dan `job_position`) dengan Korwil yang dikenal. Cakupan Petugas Divisi Pusat mengikuti `unit_kerja` yang cocok dengan nama atau alias SSO pada `master_divisi` aktif. Admin dapat mengubah nama divisi dan daftar alias `unit_kerja` dari master Divisi Pusat; alias unik lintas divisi dan dipakai sebagai pemetaan profil. Admin dapat memberi izin terpisah untuk mengelola form kepada Petugas Divisi Pusat. Izin itu hanya berlaku pada divisi yang cocok dengan profil SSO dan assignment aktif; Admin global dapat mengelola semua form. Backend memeriksa izin dan cakupan pada setiap penerbitan. Cakupan diperbarui ketika profil tersinkron. Jika organisasi tidak dapat dipetakan, akun tetap nonaktif dan akses workflow ditolak sampai profil SSO cocok.
+Hak akses diperiksa di sisi server pada setiap akses dan tindakan. Menyembunyikan menu saja tidak cukup untuk membatasi data. Admin mendaftarkan akun dan dapat mengaktifkan atau menonaktifkannya; Admin juga dapat memberikan role Admin secara manual. Role dan cakupan kerja operasional Cabang, Korwil, serta Divisi Pusat ditentukan dari profil SSO terkini, bukan dipilih sebagai petugas perorangan oleh Admin. Kode kantor Cabang yang cocok dengan `master_kantor` aktif memetakan pengguna ke Cabang; mapping kantor atau informasi organisasi SSO (`unit_kerja`, `branch_name`, dan `job_position`) memetakan pengguna ke Korwil; `unit_kerja` yang cocok dengan nama atau alias pada `master_divisi` aktif memetakan pengguna ke Divisi Pusat. Alias `IT` dipetakan ke Divisi Operasional. Role Supervisor dan Manajemen tetap mengikuti assignment khusus yang sudah berlaku dan tidak diberikan otomatis oleh pemetaan organisasi. Pengguna aktif dalam cakupan unit yang sama berbagi akses antrean dan dapat melakukan tindakan yang tersedia; sistem mencatat pegawai yang melakukan tiap tindakan, tetapi unit tidak memerlukan satu petugas tetap yang ditunjuk Admin. Cakupan diperbarui saat profil SSO tersinkron. Jika organisasi tidak dapat dipetakan, akses kerja ditolak sampai profil cocok. Admin dapat mengubah nama divisi dan alias `unit_kerja`; alias harus unik lintas divisi. Admin dapat memberi izin terpisah `can_manage_forms` kepada pengguna Divisi dalam scope aktifnya; backend memeriksa izin dan scope pada setiap akses dan penerbitan form.
 
-Sistem hanya memiliki satu peran Korwil, yaitu Petugas Korwil. Petugas Korwil yang mengambil tiket dapat menjalankan tindakan yang tersedia pada tahap Korwil, termasuk menyetujui penerusan ke Pusat. Persetujuan dan aktornya dicatat pada histori keputusan tiket.
+Semua pengguna Korwil aktif dalam scope yang sama dapat menangani antrean Korwil, termasuk menyetujui penerusan ke Pusat. Semua pengguna Divisi aktif dalam scope yang sama dapat menangani antrean Divisi. Pengguna Cabang aktif berbagi akses atas pengajuan kantornya. Aksi, keputusan, dan identitas pelakunya tetap dicatat pada histori tiket.
 
-Pengajuan dimiliki kantor Cabang, bukan pegawai yang membuatnya. Identitas pembuat tetap disimpan untuk audit. Pegawai baru yang telah diberi role Pengguna Cabang di kantor tersebut dapat melihat dan melanjutkan tiket yang dibuat pegawai sebelumnya. Saat pegawai rotasi dan data SSO terbaru tersinkron, cakupan role-nya mengikuti kantor baru; histori dan pengajuan tetap pada kantor asal.
+Pengajuan dimiliki kantor Cabang, bukan pegawai yang membuatnya. Identitas pembuat tetap disimpan untuk audit. Pengguna aktif lain dengan scope kantor yang sama dapat melihat dan melanjutkan tiket. Saat pegawai rotasi dan profil SSO terbaru tersinkron, aksesnya mengikuti scope baru dan scope lama tidak lagi tampil pada akunnya. Tiket dan histori tidak ikut berpindah atau dihapus: pengguna yang saat ini memiliki scope terkait tetap dapat melihat dan melanjutkannya, sedangkan audit mempertahankan identitas pelaku sebelumnya. Jika pegawai yang kehilangan scope sedang memegang tiket Korwil atau Divisi, sistem melepas pemegang saat ini dan mengembalikan tiket ke antrean unit asal agar pengguna lain dapat mengambilnya. Sesi SLA unit tetap berjalan dan perubahan dicatat pada timeline serta notifikasi unit.
 
 ## 6. Form dan routing pengajuan
 
@@ -246,6 +249,10 @@ Pengaturan ini berlaku untuk pekerjaan baru maupun yang sudah ada. Migrasi awal 
 ### Katalog sebagai sumber aturan
 
 Admin global dapat menerbitkan form untuk semua divisi; Petugas Divisi Pusat hanya dapat mengubah form pada divisinya bila assignment-nya diberi izin kelola form. Pekerjaan selain Pengajuan Kredit dan Keringanan bunga tetap memakai perihal dan uraian umum sampai form diterbitkan. Rincian field Keringanan bunga masih menunggu pengesahan pengelola proses.
+
+### Draft pengajuan Cabang
+
+Cabang dapat menyimpan isian sebagai draft dan melanjutkannya sebelum pengajuan dikirim. Draft belum masuk ke antrean, belum memulai SLA, dan belum mengirim notifikasi tiket masuk. Validasi wajib dan aturan routing diterapkan saat pengajuan dikirim. Siapa yang dapat melihat draft lintas pegawai dalam satu Cabang dan apakah draft tetap memakai versi form saat mulai diisi masih perlu diputuskan.
 
 Katalog dan routing menentukan apakah jenis pekerjaan:
 
@@ -440,6 +447,9 @@ Jatuh tempo: Selasa 21:00
 | FR-26 | Audit aktivitas pengguna | Admin dapat mencari dan memfilter login/logout berhasil serta request API pengguna menurut pengguna, metode, tanggal, dan hasil; payload dan kredensial tidak disimpan |
 | FR-27 | Filter pekerjaan Dashboard Divisi | Petugas Divisi dapat memfilter tiket yang pernah masuk ke Divisinya menurut jenis pekerjaan dalam Divisi tersebut; semua ringkasan dan daftar mengikuti filter yang sama |
 | FR-28 | Rekap pemantauan proses | Divisi menerbitkan rekap dari tiket yang dipilih; baris mengikuti kelompok data form dan snapshot versinya. Cabang hanya melihat baris kantor sendiri dan mengusulkan perubahan kolom pemantauan untuk persetujuan Divisi |
+| FR-29 | Cakupan pengguna operasional | Role dan scope Cabang, Korwil, atau Divisi mengikuti profil SSO terkini setelah akun didaftarkan dan diaktifkan; beberapa pengguna aktif dalam scope yang sama berbagi antrean dan setiap tindakan mencatat aktornya |
+| FR-30 | Draft Cabang | Cabang dapat menyimpan form yang belum siap dikirim dan melanjutkannya; draft tidak membuat tiket proses, memulai SLA, atau mengirim notifikasi masuk |
+| FR-31 | Email tiket masuk | Semua akun aktif dengan scope yang cocok menerima email ketika tiket masuk ke unit tersebut; isi email memberi ringkasan dan tautan, sedangkan akses tiket tetap diverifikasi backend |
 
 ## 11. Dashboard dan notifikasi
 
@@ -472,11 +482,11 @@ Notifikasi aplikasi dikirim saat:
 - pengajuan mendekati atau melewati SLA;
 - pengajuan ditolak atau selesai.
 
-Penerima mengikuti keanggotaan unit yang aktif di Sistem SLA. Pengajuan baru dan pelengkapan Cabang dikirim ke unit tujuan; saat pengajuan diambil, dikembalikan, diminta kelengkapan, ditolak, atau selesai, Cabang pemilik tiket diberi kabar; jawaban kelengkapan dikirim ke unit yang meminta. Daftar hanya menampilkan tiket yang masih dapat diakses pengguna berdasarkan cakupan saat ini. Notifikasi dapat ditandai dibaca satu per satu atau sekaligus dan membuka detail tiket.
+Penerima mengikuti cakupan aktif berdasarkan profil SSO. Email tiket masuk dikirim ke semua pengguna aktif yang cakupannya cocok dengan unit tujuan; jika ada lima pengguna aktif dalam scope tersebut, kelimanya menerima email. Peristiwa yang sama menjadi sumber notifikasi aplikasi dan email. Email berisi informasi ringkas serta tautan ke tiket; akses detail tetap diperiksa sesuai scope saat ini. Pengguna dalam satu unit berbagi akses antrean, tanpa satu penerima yang ditunjuk sebagai petugas tetap. Daftar notifikasi aplikasi hanya menampilkan tiket yang masih dapat diakses pengguna berdasarkan cakupan saat ini; notifikasi dapat ditandai dibaca satu per satu atau sekaligus dan membuka detail tiket.
 
 Badge mendekati atau melewati SLA sudah memakai target umum MVP 7 hari dan ambang 3 hari. Notifikasi otomatis untuk peringatan SLA belum diaktifkan; kanal dan frekuensi notifikasinya ditentukan setelah dashboard diuji.
 
-Kanal email atau pesan eksternal ditentukan setelah kebutuhan dan akses organisasi disahkan.
+Email untuk tiket masuk ke unit termasuk dalam pekerjaan berikutnya. Pengiriman harus memakai alamat email profil SSO dan konfigurasi layanan email dari environment; kredensial layanan tidak boleh masuk repository. Push notification PWA direncanakan sesudah kanal email dan memakai peristiwa tiket yang sama. Detail penyedia email dan kredensial environment perlu disiapkan sebelum uji kirim.
 
 ## 12. Audit, keamanan, dan kebutuhan nonfungsional
 
@@ -616,22 +626,24 @@ Antarmuka memakai gaya shadcn yang bersih, tetapi tidak menyalin produk tertentu
 | Pengguna Cabang 008 mengirim pekerjaan yang disetel melalui Korwil | Sistem mengarahkan pengajuan ke Korwil Solo Raya |
 | Pengguna Cabang 015 mengirim pekerjaan yang disetel melalui Korwil | Sistem mengarahkan pengajuan ke Korwil Banyumas Raya |
 | Pengguna Cabang 022 mengirim pekerjaan yang disetel melalui Korwil | Sistem mengarahkan pengajuan ke Korwil Pekalongan Raya |
-| Admin memberi role Pengguna Cabang kepada pegawai | Backend menetapkan cakupan kantor dari profil SSO terkini; Admin tidak memilih kantor pada form |
+| Admin mendaftarkan dan mengaktifkan pegawai dengan profil Cabang yang terpetakan | Backend menurunkan role Pengguna Cabang dan scope kantor dari profil SSO terkini; Admin tidak memilih role atau kantor Cabang |
 | Admin mencari pegawai dari Akses Pegawai dengan ID atau sebagian nama | Backend mencari melalui SSO; jika nama cocok ke beberapa orang, Admin memilih ID yang benar sebelum impor |
-| Admin mengimpor pegawai dengan kode Cabang aktif | Sistem membuat akun nonaktif tanpa assignment role; Admin memilih Pengguna Cabang, lalu backend menetapkan scope kantor hasil mapping kode SSO |
-| Admin mengimpor pegawai kode Pusat dengan `unit_kerja` yang cocok dengan alias divisi | Sistem membuat akun nonaktif dengan assignment Petugas Divisi pada divisi yang cocok; alias `IT` mengarah ke Operasional |
-| Admin mengimpor pegawai kode Pusat yang terpetakan ke Korwil namun tidak cocok dengan alias divisi | Sistem membuat akun nonaktif dengan assignment Petugas Korwil pada Korwil hasil mapping SSO |
-| Profil dari SSO tidak cukup untuk memetakan role organisasi | Sistem tetap mengimpor profil nonaktif tanpa assignment otomatis; Admin dapat melengkapi mapping, lalu mengatur akses |
+| Admin mengimpor pegawai dengan kode Cabang aktif | Sistem membuat akun nonaktif; setelah Admin mengaktifkannya, backend menurunkan role dan scope Cabang dari kode SSO |
+| Admin mengimpor pegawai kode Pusat dengan `unit_kerja` yang cocok dengan alias divisi | Sistem membuat akun nonaktif; setelah Admin mengaktifkannya, backend menurunkan role dan scope Divisi yang cocok; alias `IT` mengarah ke Operasional |
+| Admin mengimpor pegawai yang profil organisasinya cocok dengan Korwil | Sistem membuat akun nonaktif; setelah Admin mengaktifkannya, backend menurunkan role dan scope Korwil dari profil SSO |
+| Profil dari SSO tidak cukup untuk memetakan cakupan kerja | Sistem menolak akses operasional sampai master pemetaan cocok; Admin tidak memilih scope secara manual |
 | Pegawai belum diaktifkan Admin setelah impor | Login SSO ditolak dengan penjelasan akses Sistem SLA belum aktif |
-| Pegawai Cabang pindah ke kantor lain | Setelah profil SSO terbaru tersinkron, cakupan role mengikuti kantor baru tanpa mengubah kantor asal atau histori tiket |
-| Kacab baru diberi role Pengguna Cabang pada kantor yang sama | Ia dapat melihat dan melanjutkan pengajuan kantor tersebut, termasuk pengajuan yang dibuat Kacab sebelumnya |
+| Pegawai Cabang pindah ke kantor lain | Setelah profil SSO terbaru tersinkron, role dan scope mengikuti kantor baru; tiket lama tetap di kantor asal dan tidak lagi muncul pada scope baru pegawai tersebut |
+| Pengguna baru diaktifkan pada kantor Cabang yang sama | Ia dapat melihat dan melanjutkan pengajuan kantor tersebut, termasuk pengajuan yang dibuat pegawai sebelumnya |
 | Profil SSO menunjukkan Pusat atau kode kantor belum terpetakan untuk role Pengguna Cabang | Sistem tidak menampilkan akses Cabang dan API menolak akses Cabang |
-| Admin memberi role Petugas Korwil | Backend menetapkan Korwil dari mapping kantor aktif atau profil organisasi SSO; Admin tidak memilih Korwil pada form |
-| Pegawai Korwil pindah wilayah | Setelah profil SSO terbaru tersinkron, scope Korwil mengikuti wilayah baru; scope lama tidak memberikan akses |
-| Admin memberi role Petugas Divisi Pusat | Backend menetapkan divisi dari `unit_kerja` SSO yang cocok dengan master divisi aktif; Admin tidak memilih divisi pada form |
-| Pegawai Divisi Pusat pindah divisi | Setelah profil SSO terbaru tersinkron, scope mengikuti divisi baru dan divisi lama tidak lagi memberi akses |
-| `unit_kerja` SSO belum cocok dengan divisi aktif | Role tetap ditetapkan secara lokal, tetapi API tidak memberi akses sebagai petugas divisi sampai profil dapat dipetakan |
-| `unit_kerja` SSO bernilai `Satuan Kerja Audit Internal` | Alias master memetakan profil ke SKAI saat profil tersinkron; role dan status aktif tetap harus ditetapkan Admin |
+| Profil SSO pegawai cocok dengan Korwil | Setelah Admin mengaktifkan akun, backend memberi akses ke Korwil dari mapping kantor atau profil organisasi SSO; Admin tidak memilih Korwil |
+| Pegawai Korwil pindah wilayah | Setelah profil SSO terbaru tersinkron, scope Korwil mengikuti wilayah baru; scope lama tidak lagi memberikan akses pada akun tersebut, tetapi tiket dan audit lama tetap tersimpan serta dapat diakses pengguna dengan scope lama |
+| Profil SSO pegawai cocok dengan Divisi Pusat | Setelah Admin mengaktifkan akun, backend memberi akses ke divisi dari `unit_kerja` SSO; Admin tidak memilih divisi |
+| Pegawai Divisi Pusat pindah divisi | Setelah profil SSO terbaru tersinkron, scope mengikuti divisi baru; scope lama tidak lagi memberikan akses pada akun tersebut, tetapi tiket dan audit lama tetap tersimpan serta dapat diakses pengguna dengan scope lama |
+| Pegawai kehilangan scope ketika sedang memegang tiket Korwil atau Divisi | Sistem melepas pemegang, mengembalikan tiket ke antrean unit asal tanpa mengubah sesi SLA, dan mencatat perubahan pada timeline; pengguna lain di scope lama dapat mengambil tiket |
+| Beberapa pegawai aktif berada pada satu scope Cabang, Korwil, atau Divisi | Mereka melihat antrean bersama dan dapat melakukan aksi sesuai tahap; histori mencatat pegawai yang melakukan tiap aksi |
+| `unit_kerja` SSO belum cocok dengan divisi aktif | Akses operasional Divisi ditolak sampai profil dapat dipetakan; Admin tidak menetapkan divisi manual |
+| `unit_kerja` SSO bernilai `Satuan Kerja Audit Internal` | Alias master memetakan profil ke SKAI saat profil tersinkron; akun tetap perlu diaktifkan Admin |
 | Admin mengubah alias unit SSO pada Divisi Pusat | Alias tersimpan unik pada satu divisi dan cakupan pegawai diperbarui saat profil SSO berikutnya tersinkron |
 | Admin memasukkan alias yang sudah dimiliki divisi lain | API menolak perubahan dan tidak mengubah master divisi |
 | Cabang mengajukan kredit di bawah Rp200 juta | Sistem menolak dan tidak membuat tiket |
@@ -672,10 +684,12 @@ Antarmuka memakai gaya shadcn yang bersih, tetapi tidak menyalin produk tertentu
 5. Apakah setelah MVP target SLA dihitung per jenis pekerjaan atau tetap memakai target umum.
 6. Aturan perubahan substansi yang wajib kembali ke Korwil.
 7. Aturan pembatalan setelah pengajuan diambil.
-8. Kanal notifikasi setelah notifikasi aplikasi diuji.
-9. Pendaftaran app code khusus Sistem SLA untuk menggantikan sementara `simpeg`.
-10. Masa berlaku token dan format error resmi dari SSO.
-11. Standar hosting, storage, backup, dan logging dari tim IT.
+8. Siapa saja dalam satu Cabang yang dapat melihat dan melanjutkan draft pegawai lain.
+9. Apakah draft tetap terikat pada versi form saat pertama kali dibuat atau memakai versi terbaru saat dikirim.
+10. Penyedia layanan email dan konfigurasi SMTP/API untuk environment development dan production.
+11. Pendaftaran app code khusus Sistem SLA untuk menggantikan sementara `simpeg`.
+12. Masa berlaku token dan format error resmi dari SSO.
+13. Standar hosting, storage, backup, dan logging dari tim IT.
 
 ## 18. Ukuran keberhasilan
 

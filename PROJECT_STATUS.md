@@ -2,6 +2,24 @@
 
 Terakhir diperbarui: 26 November 2026
 
+**Pemusatan menu mobile pada build (26 November 2026):** kartu navigasi melebar hanya separuh layar karena `Dialog.Content` memakai CSS Grid dengan kolom implisit yang menyusut mengikuti lebar intrinsik menu. Lapisan dialog kini memakai Flex dan dimensi VisualViewport, lalu memusatkan kartu menu di dalamnya. Aturan Flex terkonfirmasi masuk ke CSS production hasil build. `frontend npm.cmd run check` menemukan 0 error dan 4 peringatan CSS yang sudah ada; `frontend npm.cmd run build` berhasil. Tampilan build pada iPhone fisik belum diklik ulang.
+
+**Port frontend aaPanel (26 November 2026):** log release menunjukkan proses PM2 `online` tetapi `curl 127.0.0.1:4173` ditolak. Script deploy kini mengirim `PORT=4173` saat me-restart frontend, memvalidasi `FRONTEND_PORT`, dan hanya menandai release berhasil setelah health check lulus. Port alternatif memakai `FRONTEND_PORT` serta URL health/reverse proxy yang sama. Jalankan ulang deploy dari `main` agar listener frontend dan CSS produksi terbaru aktif.
+
+**Login lokal akun demo (26 November 2026):** frontend Vite dan backend API lokal berjalan pada port 5173 dan 3000. `DUMMY_AUTH_ENABLED=true` sudah aktif di environment development; endpoint akun demo merespons 200 dengan 15 akun sintetis dan CORS mengizinkan `http://localhost:5173`. Login menampilkan switch SSO/demo yang lebih jelas, panel demo diringkas, dan kegagalan pemuatan demo kini memberi petunjuk hanya saat development. `frontend npm.cmd run check` menemukan 0 error dan 4 peringatan selector CSS tak terpakai di halaman detail/master pekerjaan. Browser belum dikendalikan; pemilik proyek dapat memuat ulang tab localhost untuk melihat hasil.
+
+**Judul detail pengajuan (26 November 2026):** judul tiket kini memakai jenis pekerjaan/form; perihal tampil di kartu “Uraian pengajuan” bersama deskripsi. Perubahan hanya pada tampilan, pemeriksaan browser belum dijalankan.
+
+**Master pekerjaan mobile (26 November 2026):** judul dan aksi tambah dibuat satu baris di layar sempit dengan label tombol ringkas; form tambah/ubah dibuka sebagai modal. Pencarian dan filter Divisi tampil berdampingan di dalam card; popover Filter dihapus karena hanya ada satu kriteria filter. Pemeriksaan browser belum dijalankan.
+
+**Navigasi bawah mobile (26 November 2026):** tab navigasi memakai dock fixed selebar layar dan menempel di bawah viewport, dengan padding safe area untuk home indicator. Konten halaman sudah menyisakan ruang di bawah agar item terakhir tetap bisa digulir melewati dock. Pemeriksaan browser belum dijalankan.
+
+**Modal responsif lintas halaman (26 November 2026):** centering dialog umum dipindah ke CSS global di luar layer komponen Tailwind agar tidak kalah oleh utility posisi `fixed` dan `translate`. Modal info, rekap, akses pegawai, divisi, dan tindakan memakai pusat serta batas lebar/tinggi VisualViewport dengan gulir internal. Posisi menu mobile memakai persentase dalam containing block yang sama agar tidak bergeser di aaPanel; tinggi menu, drawer Aktivitas, dan pratinjau PDF mengikuti viewport terlihat. Popover filter, notifikasi, dan profil juga membatasi ukurannya ke viewport terlihat. `frontend npm.cmd run check` menemukan 0 error dan 4 peringatan selector CSS tak terpakai di halaman detail/master pekerjaan; `frontend npm.cmd run build` sukses. Perubahan menu disimpan pada commit lokal `fa2767f`; push ke `origin/main` ditolak auto-review dan belum dilakukan. Pemeriksaan visual perangkat belum dijalankan; pemilik proyek akan mengecek di iPhone.
+
+**Akses operasional mengikuti profil SSO (26 November 2026):** alur registrasi kini menurunkan role dan scope Cabang/Korwil/Divisi dari profil SSO, termasuk role Cabang pada saat impor bila kode kantor terpetakan. Admin hanya mengelola aktivasi akun, role khusus, dan izin kelola form; role organisasi tidak bisa dipilih manual. Sinkronisasi yang memindahkan scope menonaktifkan scope lama, membuat assignment terbaru, dan melepas tiket Korwil/Divisi yang sedang dipegang agar kembali ke antrean unit asal; sesi SLA, timeline, notifikasi unit, dan identitas pelaku sebelumnya dipertahankan. Perubahan kode sudah diterapkan pada auth, admin API, dan halaman Akses Pegawai, tetapi pemeriksaan otomatis belum dijalankan.
+
+**Keputusan email, draft, dan PWA (26 November 2026):** tiket masuk akan mengirim email kepada semua pengguna aktif dalam scope unit tujuan. Cabang dapat menyimpan draft tanpa memulai SLA atau notifikasi masuk. Draft lintas-pegawai dan perilaku versi form masih menunggu keputusan; PWA menjadi kanal lanjutan setelah email. Kebutuhan sudah dicatat di PRD; kanal email dan draft belum diimplementasikan.
+
 **Viewport mobile lintas menu (26 November 2026):** shell melacak ukuran dan offset VisualViewport agar dialog shadcn tetap terpusat serta membatasi gulir pada tinggi layar yang sedang terlihat. Dock bawah kembali ke posisi dasarnya ketika keyboard virtual mendorongnya naik. Drawer Aktivitas detail menjadi layar penuh di ponsel/tablet, menghormati safe area, dan mempertahankan area gulir timeline sendiri; menu Lainnya mengikuti viewport yang sama. `frontend npm.cmd run check` lulus 0 error/0 warning dan `frontend npm.cmd run build` sukses. Visual click-through tidak dijalankan: host browser tidak tersedia dan kontrol Chrome lokal ditolak otomatis; pemilik proyek akan memeriksa hasil pada iPhone.
 
 **Rilis production aaPanel (26 November 2026):** `npm run deploy:production` memvalidasi repository, branch `main`, working tree, konfigurasi, dan proses PM2; menjalankan pull ff-only, instalasi dependency FE/BE, `db:upgrade`, build FE/BE, restart, serta health check. Nama proses dan URL health dapat dioverride lewat environment. Seeder yang mengganti data tidak dipanggil; tidak ada deployment remote yang dijalankan.
@@ -491,9 +509,15 @@ Backend membagi endpoint dan aturan domain dalam modul. Frontend memakai `routes
 
 ## Tugas berikutnya
 
-**Verifikasi impor pegawai SSO** saat app token development tersedia: cari pegawai dengan ID dan nama, pastikan hasil nama ganda dapat dipilih, impor akun berkode Cabang/Pusat, dan pastikan role Korwil/Divisi (termasuk unit `IT`) terpetakan sementara status tetap nonaktif. Uji login memakai dummy SSO development, verifikasi `GET whoami`, lalu aktifkan hanya akun pengujian. Jangan memakai kredensial SSO asli.
+**Prioritas berikutnya — verifikasi akses otomatis SSO:** gunakan akun demo untuk memastikan import Cabang, Korwil, dan Divisi menurunkan akses sesuai profil; uji rotasi antar-scope, pembatasan setelah pindah, pelepasan tiket aktif kembali ke antrean, serta akses beberapa pengguna pada unit yang sama. Jangan memakai kredensial SSO asli.
 
-Setelah verifikasi SSO, lanjutkan **verifikasi rekap lintas jenis pekerjaan** dengan akun demo: buat dan edit rekap dari dua katalog yang definisi form-nya sama, gunakan filter daftar dan baris, tambahkan tiket yang belum direkap ke rekap terbit, lalu pastikan tiket yang sudah masuk rekap lain, katalog dengan struktur form berbeda, tiket Ditolak, dan tiket di luar scope tidak muncul.
+**Setelah akses otomatis — email tiket masuk:** sambungkan peristiwa notifikasi workflow yang sudah ada ke kanal email. Semua pengguna aktif yang scope-nya cocok dengan unit tujuan menerima email; email berisi ringkasan dan tautan, sementara backend tetap memeriksa akses saat tiket dibuka. Provider dan konfigurasi SMTP/API perlu disiapkan sebelum uji kirim.
+
+**Berikutnya — draft Cabang:** simpan dan lanjutkan pengajuan yang belum dikirim; jangan mulai SLA atau notifikasi sampai submit. Implementasi menunggu keputusan apakah draft terlihat bagi pegawai lain di Cabang yang sama dan apakah draft tetap memakai versi form awal atau versi terbaru saat submit.
+
+**Sesudah email — PWA:** gunakan peristiwa notifikasi yang sama untuk push notification setelah fondasi email siap.
+
+Setelah itu, lanjutkan **verifikasi rekap lintas jenis pekerjaan** dengan akun demo: buat dan edit rekap dari dua katalog yang definisi form-nya sama, gunakan filter daftar dan baris, tambahkan tiket yang belum direkap ke rekap terbit, lalu pastikan tiket yang sudah masuk rekap lain, katalog dengan struktur form berbeda, tiket Ditolak, dan tiket di luar scope tidak muncul.
 
 **Login SSO asli** tetap menunggu sesi uji dan profil SSO yang tersedia. Jangan memakai password contoh; uji login, reload, logout, dan akses scope setelah kredensial uji resmi tersedia.
 

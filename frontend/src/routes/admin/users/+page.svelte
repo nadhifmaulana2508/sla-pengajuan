@@ -86,6 +86,7 @@
 	let addMessage = $state('');
 	let filtersOpen = $state(false);
 	let isActive = $state(false);
+	let canManageForms = $state(false);
 	let assignments = $state<AssignmentForm[]>([]);
 
 	let unitOptions = $derived.by(() => {
@@ -110,7 +111,9 @@
 	let pageStart = $derived(filteredUsers.length ? (currentPage - 1) * pageSize + 1 : 0);
 	let pageEnd = $derived(Math.min(currentPage * pageSize, filteredUsers.length));
 	let visibleUsers = $derived(filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize));
-	let roleItems = $derived(roles.map((role) => ({ value: String(role.id), label: role.nama_role })));
+	let roleItems = $derived(roles
+		.filter((role) => !['branch_user', 'korwil_staff', 'division_staff'].includes(role.kode))
+		.map((role) => ({ value: String(role.id), label: role.nama_role })));
 	let currentEmployeeId = $derived($authSession.profile?.employee_id ?? '');
 
 	$effect(() => {
@@ -200,7 +203,7 @@
 	}
 
 	function usesAutomaticScope(assignment: AssignmentForm): boolean {
-		return ['admin', 'branch_user', 'korwil_staff', 'division_staff'].includes(roleCode(assignment) ?? '');
+		return roleCode(assignment) === 'admin';
 	}
 
 	function automaticScopeInfo(assignment: AssignmentForm): { target: string; help: string; ready: boolean } {
@@ -230,8 +233,10 @@
 		selectedUser = user;
 		accessDialogOpen = true;
 		isActive = user.is_active;
-		assignments = user.assignments.length
-			? user.assignments.map((assignment) => ({
+		const manualAssignments = user.assignments.filter((assignment) =>
+			!['branch_user', 'korwil_staff', 'division_staff'].includes(assignment.role_code)
+		);
+		assignments = manualAssignments.map((assignment) => ({
 				key: nextAssignmentKey++,
 				role_id: String(assignment.role_id),
 				scope_type: assignment.scope_type,
@@ -239,8 +244,10 @@
 				korwil: assignment.korwil ?? '',
 				divisi_id: assignment.divisi_id === null ? '' : String(assignment.divisi_id),
 				can_manage_forms: assignment.can_manage_forms
-			}))
-			: [blankAssignment()];
+			}));
+		canManageForms = user.assignments.some((assignment) =>
+			assignment.role_code === 'division_staff' && assignment.can_manage_forms
+		);
 		formError = '';
 		statusMessage = '';
 	}
@@ -301,6 +308,12 @@
 		return assignment.nama_divisi ?? 'Divisi Pusat';
 	}
 
+	function organizationAssignments(user: AdminUser) {
+		return user.assignments.filter((assignment) =>
+			['branch_user', 'korwil_staff', 'division_staff'].includes(assignment.role_code)
+		);
+	}
+
 	function serializeAssignments(): AdminUserAssignmentInput[] | null {
 		const result: AdminUserAssignmentInput[] = [];
 		for (const assignment of assignments) {
@@ -355,10 +368,6 @@
 			}
 			result.push(entry);
 		}
-		if (isActive && result.length === 0) {
-			formError = 'Akun aktif harus memiliki setidaknya satu peran dan cakupan.';
-			return null;
-		}
 		return result;
 	}
 
@@ -380,7 +389,8 @@
 		try {
 			const result = await updateAdminUserAccess(token, selectedUser.id, {
 				is_active: isActive,
-				assignments: serialized
+				assignments: serialized,
+				can_manage_forms: canManageForms
 			});
 			statusMessage = result.message;
 			closeEditor();
@@ -473,7 +483,7 @@
 	<AppNavbar />
 
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
-		<AppPageHeading eyebrow="Administrasi" title="Akses pegawai" description="Atur peran pegawai. Cakupan Cabang, Korwil, dan Divisi Pusat mengikuti profil SSO.">
+		<AppPageHeading eyebrow="Administrasi" title="Akses pegawai" description="Daftarkan dan aktifkan pegawai. Akses Cabang, Korwil, dan Divisi mengikuti profil SSO.">
 			{#snippet actions()}
 				<Button class="min-h-11" onclick={openAddDialog}><Plus class="size-4" aria-hidden="true" /> Tambah pegawai</Button>
 			{/snippet}
@@ -560,14 +570,46 @@
 								<Checkbox id="user-active" bind:checked={isActive} class="size-5 after:-inset-y-3" aria-describedby="active-help" />
 								<div class="active-copy">
 									<Label for="user-active" class="active-label">Akun aktif</Label>
-									<p id="active-help">Jika dimatikan, pegawai tidak dapat masuk ke proses SLA.</p>
+								<p id="active-help">Jika dimatikan, pegawai tidak dapat masuk ke proses SLA.</p>
 								</div>
 							</div>
 
+							<section class="derived-access" aria-labelledby="derived-access-title">
+								<div class="assignment-heading">
+									<div>
+										<h3 id="derived-access-title">Akses dari profil SSO</h3>
+										<p>Scope Cabang, Korwil, atau Divisi mengikuti profil terbaru dan tidak dipilih manual.</p>
+									</div>
+								</div>
+								{#if organizationAssignments(selectedUser).length}
+									{#each organizationAssignments(selectedUser) as assignment (assignment.id)}
+										<div class="scope-note">
+											<span>{assignment.role_name}</span>
+											<strong>{scopeSummary(assignment, selectedUser)}</strong>
+											<p>Semua pegawai aktif dalam unit ini berbagi akses antrean. Pelaku setiap tindakan tetap tercatat.</p>
+											{#if assignment.role_code === 'division_staff'}
+												<div class="form-manager-permission">
+													<Checkbox id="manage-forms" bind:checked={canManageForms} class="size-5 after:-inset-y-3" />
+													<div>
+														<Label for="manage-forms">Boleh mengelola dan menerbitkan form</Label>
+														<p>Izin ini hanya berlaku selama profil SSO tetap cocok dengan divisi tersebut.</p>
+													</div>
+												</div>
+										{/if}
+										</div>
+									{/each}
+								{:else}
+									<div class="scope-note scope-unmapped">
+										<strong>Belum terpetakan</strong>
+										<p>Profil SSO belum cocok dengan kantor Cabang, Korwil, atau alias Divisi aktif. Periksa data profil dan master pemetaan.</p>
+									</div>
+								{/if}
+							</section>
+
 							<div class="assignment-heading">
 								<div>
-									<h3>Peran</h3>
-									<p>Cakupan Cabang, Korwil, dan Divisi mengikuti profil SSO. Cakupan khusus Supervisor atau Manajemen tetap perlu ditentukan.</p>
+									<h3>Peran khusus</h3>
+									<p>Role Admin dan peran khusus lain dikelola Admin; akses unit operasional mengikuti SSO.</p>
 								</div>
 								<Button type="button" variant="outline" size="lg" class="min-h-11 border-input" onclick={() => assignments = [...assignments, blankAssignment()]}>
 									<Plus class="size-4" aria-hidden="true" /> Tambah peran
@@ -737,7 +779,7 @@
 									<tr>
 										<th scope="row"><strong>{user.full_name || 'Nama belum tersinkron'}</strong><small>{user.employee_id}</small></th>
 										<td>{user.nama_kantor || user.branch_name || 'Kantor belum terpetakan'}<small>{user.unit_kerja || 'Unit kerja belum tercantum'}</small></td>
-						<td>{#if user.assignments.length}<div class="assignment-summary">{#each user.assignments as assignment (assignment.id)}<span>{assignment.role_name} · {scopeSummary(assignment, user)}</span>{/each}</div>{:else}<span class="muted-value">Belum diberi peran</span>{/if}</td>
+										<td>{#if user.assignments.length}<div class="assignment-summary">{#each user.assignments as assignment (assignment.id)}<span>{assignment.role_name} · {scopeSummary(assignment, user)}</span>{/each}</div>{:else}<span class="muted-value">Belum terpetakan dari SSO</span>{/if}</td>
 										<td><Badge variant={user.is_active ? 'secondary' : 'outline'} class={user.is_active ? 'status-badge status-badge--success' : ''}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge></td>
 						<td class="action-cell">
 							{#if user.employee_id === currentEmployeeId}
@@ -760,7 +802,7 @@
 										<Badge variant={user.is_active ? 'secondary' : 'outline'} class={user.is_active ? 'status-badge status-badge--success' : ''}>{user.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
 									</div>
 									<p class="user-unit">{user.nama_kantor || user.branch_name || 'Kantor belum terpetakan'} · {user.unit_kerja || 'Unit kerja belum tercantum'}</p>
-									<div class="assignment-summary">{#if user.assignments.length}{#each user.assignments as assignment (assignment.id)}<span>{assignment.role_name} · {scopeSummary(assignment, user)}</span>{/each}{:else}<span class="muted-value">Belum diberi peran</span>{/if}</div>
+									<div class="assignment-summary">{#if user.assignments.length}{#each user.assignments as assignment (assignment.id)}<span>{assignment.role_name} · {scopeSummary(assignment, user)}</span>{/each}{:else}<span class="muted-value">Belum terpetakan dari SSO</span>{/if}</div>
 									<div class="user-record-actions">
 										{#if user.employee_id === currentEmployeeId}
 											<p class="current-session-note">Akun admin yang sedang dipakai tidak dapat diubah dari sesinya sendiri.</p>
@@ -798,8 +840,8 @@
 	.user-filter-fields { display: grid; gap: .45rem; }
 	.save-status { margin: 0 0 0.8rem; color: var(--foreground); font-size: var(--type-base); }
 	:global(.users-card) { min-width: 0; margin-top: 0; }
-	:global(.access-dialog) { width: min(52rem, calc(100vw - 2rem)); max-width: min(52rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; }
-	:global(.add-employee-dialog) { display: grid; width: min(46rem, calc(100vw - 2rem)); max-width: min(46rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); gap: 1rem; overflow-y: auto; }
+	:global(.access-dialog) { width: min(52rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem)); max-width: min(52rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem)); max-height: calc(var(--app-visual-viewport-height, 100dvh) - 2rem); overflow-y: auto; }
+	:global(.add-employee-dialog) { display: grid; width: min(46rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem)); max-width: min(46rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem)); max-height: calc(var(--app-visual-viewport-height, 100dvh) - 2rem); gap: 1rem; overflow-y: auto; }
 	:global(.access-dialog-header) { display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-right: 0; }
 	:global(.access-dialog-heading) { display: grid; min-width: 0; gap: 0.4rem; }
 	:global(.access-dialog-title[data-slot='dialog-title']) { font-size: var(--type-lg); font-weight: 650; line-height: 1.3; }
@@ -897,8 +939,8 @@
 		.users-pagination { align-items:stretch; flex-direction:column; }
 		.users-pagination-actions { width:100%; }
 		.users-pagination-actions :global(button) { flex:1 1 0; justify-content:center; }
-		:global(.access-dialog) { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); padding: 1rem; }
-		:global(.add-employee-dialog) { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); padding: 1rem; }
+		:global(.access-dialog) { width: calc(var(--app-visual-viewport-width, 100vw) - 1rem); max-height: calc(var(--app-visual-viewport-height, 100dvh) - 1rem); padding: 1rem; }
+		:global(.add-employee-dialog) { width: calc(var(--app-visual-viewport-width, 100vw) - 1rem); max-height: calc(var(--app-visual-viewport-height, 100dvh) - 1rem); padding: 1rem; }
 		:global(.access-dialog-header) { gap: 0.5rem; }
 		.sso-search-form { grid-template-columns: minmax(0, 1fr); }
 		.sso-candidate { align-items: stretch; flex-direction: column; }

@@ -6,6 +6,7 @@
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import * as Table from '#lib/components/ui/table/index.js';
@@ -15,8 +16,7 @@
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import AppNavbar from '#lib/components/AppNavbar.svelte';
 	import AppPageHeading from '#lib/components/AppPageHeading.svelte';
-	import { Popover } from 'bits-ui';
-	import { BriefcaseBusiness, ListFilter, Plus, Search } from '@lucide/svelte';
+	import { BriefcaseBusiness, Plus, Search } from '@lucide/svelte';
 	import {
 		createWorkCatalog,
 		fetchAdminMasterData,
@@ -69,7 +69,6 @@
 	let form = $state<CatalogForm>(emptyForm());
 	let divisionFilter = $state('all');
 	let searchQuery = $state('');
-	let isFiltersOpen = $state(false);
 	let divisionFilterItems = $derived.by(() => [
 		{ value: 'all', label: 'Semua divisi' },
 		...divisions.map((division) => ({ value: String(division.id), label: division.nama_divisi }))
@@ -87,11 +86,6 @@
 			return matchesDivision && matchesQuery;
 		});
 	});
-
-	function resetCatalogFilters(): void {
-		divisionFilter = 'all';
-		searchQuery = '';
-	}
 
 	onMount(() => {
 		let token: string | null = null;
@@ -264,7 +258,7 @@
 	<section class="admin-content app-page-shell" aria-labelledby="page-title">
 		<AppPageHeading eyebrow="Administrasi" title="Master pekerjaan" description="Atur jalur pengajuan dan target SLA untuk setiap jenis pekerjaan di Divisi Pusat." descriptionInInfoOnly>
 			{#snippet actions()}
-				<Button size="lg" class="min-h-11 create-button" onclick={startNewWorkCatalog}><Plus class="size-4" aria-hidden="true" />Tambah pekerjaan</Button>
+				<Button size="lg" class="min-h-11 create-button" aria-label="Tambah pekerjaan" title="Tambah pekerjaan" onclick={startNewWorkCatalog}><Plus class="size-4" aria-hidden="true" /><span class="create-button-label">Tambah pekerjaan</span><span class="create-button-label-compact">Tambah</span></Button>
 			{/snippet}
 		</AppPageHeading>
 
@@ -272,15 +266,14 @@
 			<p class="save-status" role="status" aria-live="polite">{statusMessage}</p>
 		{/if}
 
-		<div class="workspace" class:has-editor={formOpen}>
+		<Dialog.Root bind:open={formOpen}>
 			{#if formOpen}
-				<Card.Root class="editor-card" aria-labelledby="editor-title">
-					<Card.Header>
-						<Card.Title id="editor-title">{editingId === null ? 'Tambah pekerjaan' : 'Ubah pekerjaan'}</Card.Title>
-						<Card.Description>Jenis pekerjaan terhubung ke satu divisi. Pekerjaan nonaktif tidak tampil di pilihan Cabang.</Card.Description>
-					</Card.Header>
-					<Card.Content>
-						<form class="catalog-form" onsubmit={saveWorkCatalog}>
+				<Dialog.Content class="catalog-dialog">
+					<Dialog.Header class="catalog-dialog-header">
+						<Dialog.Title id="editor-title">{editingId === null ? 'Tambah pekerjaan' : 'Ubah pekerjaan'}</Dialog.Title>
+						<Dialog.Description>Jenis pekerjaan terhubung ke satu divisi. Pekerjaan nonaktif tidak tampil di pilihan Cabang.</Dialog.Description>
+					</Dialog.Header>
+					<form class="catalog-form" onsubmit={saveWorkCatalog}>
 							<div class="field-group">
 								<Label for="work-division">Divisi tujuan</Label>
 								<SearchableSelect id="work-division" label="Divisi tujuan" options={activeDivisionItems} value={form.divisi_id} onValueChange={(value) => (form.divisi_id = value)} placeholder="Pilih divisi" searchPlaceholder="Cari divisi..." />
@@ -329,11 +322,12 @@
 									{isSaving ? 'Menyimpan...' : editingId === null ? 'Simpan pekerjaan' : 'Simpan perubahan'}
 								</Button>
 							</div>
-						</form>
-					</Card.Content>
-				</Card.Root>
+					</form>
+				</Dialog.Content>
 			{/if}
+		</Dialog.Root>
 
+		<div class="workspace">
 			<div class="catalog-section">
 				<Card.Root size="sm" class="catalog-card" aria-labelledby="catalog-title">
 					<Card.Header class="catalog-header">
@@ -355,33 +349,9 @@
 								<Search class="search-icon" aria-hidden="true" />
 								<Input id="catalog-search" bind:value={searchQuery} placeholder="Cari pekerjaan atau divisi" class="min-h-11 border-input" aria-label="Cari pekerjaan atau divisi" />
 							</div>
-							<Popover.Root bind:open={isFiltersOpen}>
-								<Popover.Trigger>
-									{#snippet child({ props })}
-										<Button {...props} type="button" variant="outline" class="filter-trigger min-h-11" aria-haspopup="dialog" aria-expanded={isFiltersOpen}><ListFilter class="size-4" aria-hidden="true" />Filter</Button>
-									{/snippet}
-								</Popover.Trigger>
-								<Popover.Portal>
-									<Popover.Content class="app-filter-popover" side="bottom" align="end" sideOffset={8} trapFocus={false} aria-labelledby="catalog-filter-title" aria-describedby="catalog-filter-description">
-										<div class="app-filter-popover-header">
-											<h2 id="catalog-filter-title" class="app-filter-popover-title">Filter pekerjaan</h2>
-											<p id="catalog-filter-description" class="app-filter-popover-description">Pilih divisi untuk menyaring daftar pekerjaan.</p>
-										</div>
-										<form class="app-filter-popover-form" onsubmit={(event) => { event.preventDefault(); isFiltersOpen = false; }}>
-											<div class="app-filter-popover-fields">
-												<div class="filter-field">
-													<Label for="division-filter">Divisi</Label>
-													<SearchableSelect id="division-filter" label="Divisi" options={divisionFilterItems} value={divisionFilter} onValueChange={(value) => (divisionFilter = value)} placeholder="Semua divisi" searchPlaceholder="Cari divisi..." />
-												</div>
-											</div>
-											<div class="app-filter-popover-actions">
-												<Button type="button" variant="outline" class="min-h-11" disabled={divisionFilter === 'all' && !searchQuery} onclick={() => { resetCatalogFilters(); isFiltersOpen = false; }}>Reset</Button>
-												<Button type="submit" class="min-h-11">Terapkan</Button>
-											</div>
-										</form>
-									</Popover.Content>
-								</Popover.Portal>
-							</Popover.Root>
+							<div class="catalog-division-filter">
+								<SearchableSelect id="division-filter" label="Filter divisi" options={divisionFilterItems} value={divisionFilter} onValueChange={(value) => (divisionFilter = value)} placeholder="Semua divisi" searchPlaceholder="Cari divisi..." />
+							</div>
 						</div>
 					</Card.Header>
 					<Card.Content class="catalog-content">
@@ -510,15 +480,20 @@
 		flex: 1 1 14rem;
 	}
 
-	.filter-field,
+	.catalog-division-filter {
+		width: 13rem;
+		min-width: 0;
+		flex: 0 1 13rem;
+	}
+
+	.create-button-label-compact {
+		display: none;
+	}
+
 	.field-group {
 		display: grid;
 		min-width: 0;
 		gap: 0.45rem;
-	}
-
-	.filter-field {
-		width: 100%;
 	}
 
 	.search-control {
@@ -532,6 +507,17 @@
 
 	.catalog-search-control :global(input) {
 		width: 100%;
+	}
+
+	:global(.catalog-dialog[data-slot='dialog-content']) {
+		width: min(44rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem));
+		max-width: min(44rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem));
+		max-height: calc(var(--app-visual-viewport-height, 100dvh) - 2rem);
+		overflow-y: auto;
+	}
+
+	:global(.catalog-dialog-header[data-slot='dialog-header']) {
+		padding-right: 2rem;
 	}
 
 	:global(.search-icon) {
@@ -552,14 +538,6 @@
 		grid-template-columns: minmax(0, 1fr);
 		align-items: start;
 		gap: 1rem;
-	}
-
-	.workspace.has-editor {
-		grid-template-columns: minmax(0, 1fr);
-	}
-
-	:global(.editor-card) {
-		min-width: 0;
 	}
 
 	:global(.catalog-card) {
@@ -784,40 +762,71 @@
 		:global(.record-edit) { width: 100%; }
 	}
 
-	@media (min-width: 72rem) {
-		.workspace.has-editor {
-			grid-template-columns: minmax(18rem, 0.78fr) minmax(0, 1.42fr);
-		}
-	}
-
 	@media (max-width: 42rem) {
+		:global(.catalog-dialog[data-slot='dialog-content']) {
+			width: calc(var(--app-visual-viewport-width, 100vw) - 1rem);
+			max-width: calc(var(--app-visual-viewport-width, 100vw) - 1rem);
+			max-height: calc(var(--app-visual-viewport-height, 100dvh) - 1rem);
+			gap: 0.9rem;
+			padding: 1rem;
+		}
+
+		:global(.admin-content > .app-page-heading) {
+			flex-direction: row;
+			align-items: center;
+			gap: 0.5rem;
+		}
+
+		:global(.admin-content .app-page-heading-copy) {
+			min-width: 0;
+		}
+
+		:global(.admin-content .app-page-heading-action) {
+			width: auto;
+			flex: 0 0 auto;
+		}
+
 		:global(.admin-content .app-page-title) {
-			font-size: clamp(1.4rem, 6vw, 1.7rem);
+			font-size: clamp(1.35rem, 5.6vw, 1.65rem);
 			line-height: 1.15;
 		}
 
 		.catalog-header-actions {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
 			width: 100%;
-			justify-content: flex-start;
+			align-items: center;
 		}
 
-		:global(.create-button) {
-			flex: 1 0 100%;
-			width: 100%;
+		:global(.admin-content .create-button) {
+			min-height: 2.65rem;
+			width: auto;
+			padding-inline: 0.7rem;
+			font-size: var(--type-xs);
+			white-space: nowrap;
+		}
+
+		.create-button-label {
+			display: none;
+		}
+
+		.create-button-label-compact {
+			display: inline;
 		}
 
 		.catalog-search-control {
-			width: auto;
+			width: 100%;
 			max-width: none;
-			flex: 1 1 12rem;
+			flex: none;
+		}
+
+		.catalog-division-filter {
+			width: 100%;
+			flex: none;
 		}
 	}
 
 	@media (max-width: 42rem) {
-		.filter-field {
-			width: 100%;
-		}
-
 		:global(.catalog-header) {
 			align-items: flex-start;
 		}
@@ -825,16 +834,6 @@
 	}
 
 	@media (max-width: 24rem) {
-		.catalog-header-actions {
-			display: grid;
-			grid-template-columns: auto minmax(0, 1fr) auto;
-			width: 100%;
-		}
-
-		:global(.create-button) {
-			grid-column: 1 / -1;
-		}
-
 		.catalog-search-control {
 			width: 100%;
 			min-width: 0;

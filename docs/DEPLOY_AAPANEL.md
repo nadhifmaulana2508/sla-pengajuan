@@ -211,7 +211,7 @@ Pastikan command build dan migrasi dilakukan sebelum restart project. aaPanel/PM
 - Nama proses PM2: `sla-pengajuan-frontend`
 - User: user aplikasi `www` atau user non-root yang sesuai
 
-Jika aaPanel meminta command, gunakan `npm run start`. Pastikan environment `PORT=4173` tersedia untuk proses frontend; adapter-node juga menerima `HOST` dan `PORT` dari environment.
+Jika aaPanel meminta command, gunakan `npm run start`. Adapter Node memakai `PORT` dari environment; proses frontend harus mendengarkan di `4173` agar cocok dengan reverse proxy dan health check. Script deploy mengirim `PORT=4173` saat restart PM2 (`FRONTEND_PORT` dapat dipakai untuk port lain). Saat restart manual dari aaPanel, pastikan variabel `PORT` proses frontend juga bernilai `4173`.
 
 ## 6. Reverse proxy dan SSL
 

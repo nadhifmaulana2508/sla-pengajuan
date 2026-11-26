@@ -303,7 +303,7 @@
 	.recap-create-title { display:flex; min-width:0; align-items:center; gap:.15rem; }
 	:global(.recap-help-trigger) { padding:0; color:var(--muted-foreground); box-shadow:none; }
 	:global(.recap-help-trigger:hover) { color:var(--foreground); }
-	:global(.recap-help-dialog[data-slot='dialog-content']) { width:min(30rem,calc(100vw - 1.5rem)); }
+	:global(.recap-help-dialog[data-slot='dialog-content']) { width:min(30rem,calc(var(--app-visual-viewport-width, 100vw) - 1.5rem)); }
 	:global(.recap-builder[data-slot='card-content']) { display:grid; gap:.8rem; padding:.7rem 1rem 1rem; }
 	.recap-basics { display:grid; max-width:70rem; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
 	.form-field { display:grid; min-width:0; gap:.35rem; font-weight:560; }

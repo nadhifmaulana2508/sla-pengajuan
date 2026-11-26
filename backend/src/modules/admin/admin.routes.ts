@@ -63,7 +63,8 @@ const userAssignmentSchema = z.object({
 
 const userAccessSchema = z.object({
 	is_active: z.boolean(),
-	assignments: z.array(userAssignmentSchema).max(20)
+	assignments: z.array(userAssignmentSchema).max(20),
+	can_manage_forms: z.boolean().default(false)
 }).strict();
 const ssoEmployeeSearchSchema = z.object({ q: z.string().trim().min(1).max(120) }).strict();
 const ssoEmployeeImportSchema = z.object({ employee_id: z.string().trim().min(1).max(80) }).strict();

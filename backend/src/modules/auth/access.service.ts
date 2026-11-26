@@ -1,4 +1,4 @@
-import type { RowDataPacket } from 'mysql2';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import type { SsoProfile } from './auth.service.js';
 import { mysqlPool } from '../../db/client.js';
 import { inferKorwilFromSsoText, normalizeSsoUnitName } from '../organization/sso-scope.js';
@@ -81,6 +81,13 @@ export async function syncSsoProfile(profile: SsoProfile): Promise<void> {
 		);
 		if (divisions.length === 1) divisiId = divisions[0]?.id ?? null;
 	}
+	const derivedAssignment = kodeKantor && kodeKantor !== '000'
+		? { roleCode: 'branch_user', scopeType: 'office', kodeKantor, korwil: null, divisiId: null }
+		: officeCode === '000' && divisiId !== null
+			? { roleCode: 'division_staff', scopeType: 'division', kodeKantor: null, korwil: null, divisiId }
+			: officeCode === '000' && profileKorwil
+				? { roleCode: 'korwil_staff', scopeType: 'korwil', kodeKantor: null, korwil: profileKorwil, divisiId: null }
+				: null;
 
 	const connection = await mysqlPool.getConnection();
 	try {
@@ -125,71 +132,114 @@ export async function syncSsoProfile(profile: SsoProfile): Promise<void> {
 		if (!userId) throw new Error('Profil SSO tidak tersimpan.');
 
 		const [automaticAssignments] = await connection.execute<Array<RowDataPacket & {
-				id: number;
-				role_code: string;
-				scope_type: string;
-				kode_kantor: string | null;
-				korwil: string | null;
-				divisi_id: number | null;
-			}>>(
-				`SELECT scope.id, role.kode AS role_code, scope.scope_type,
-					scope.kode_kantor, scope.korwil, scope.divisi_id
-				FROM user_role_scopes scope
-				INNER JOIN roles role ON role.id = scope.role_id
-					AND role.kode IN ('branch_user', 'korwil_staff', 'division_staff')
-				WHERE scope.user_id = ? AND scope.is_active = 1
-				FOR UPDATE`,
-				[userId]
-			);
-		const changedAssignments: Array<{
 			id: number;
 			role_code: string;
-			column: 'kode_kantor' | 'korwil' | 'divisi_id';
-			before: string | number | null;
-			after: string | number;
-		}> = [];
-		for (const assignment of automaticAssignments) {
-			let column: 'kode_kantor' | 'korwil' | 'divisi_id' | null = null;
-			let before: string | number | null = null;
-			let after: string | number | null = null;
-			if (assignment.role_code === 'branch_user' && assignment.scope_type === 'office' && kodeKantor) {
-				column = 'kode_kantor';
-				before = assignment.kode_kantor;
-				after = kodeKantor;
-			} else if (
-				assignment.role_code === 'korwil_staff' &&
-				assignment.scope_type === 'korwil' && profileKorwil
-			) {
-				column = 'korwil';
-				before = assignment.korwil;
-				after = profileKorwil;
-			} else if (
-				assignment.role_code === 'division_staff' &&
-				assignment.scope_type === 'division' &&
-				divisiId !== null
-			) {
-				column = 'divisi_id';
-				before = assignment.divisi_id;
-				after = divisiId;
+			scope_type: string;
+			kode_kantor: string | null;
+			korwil: string | null;
+			divisi_id: number | null;
+		}>>(
+			`SELECT scope.id, role.kode AS role_code, scope.scope_type,
+				scope.kode_kantor, scope.korwil, scope.divisi_id
+			FROM user_role_scopes scope
+			INNER JOIN roles role ON role.id = scope.role_id
+				AND role.kode IN ('branch_user', 'korwil_staff', 'division_staff')
+			WHERE scope.user_id = ? AND scope.is_active = 1
+			FOR UPDATE`,
+			[userId]
+		);
+		const currentAssignment = derivedAssignment && automaticAssignments.find((assignment) =>
+			assignment.role_code === derivedAssignment.roleCode &&
+			assignment.scope_type === derivedAssignment.scopeType &&
+			assignment.kode_kantor === derivedAssignment.kodeKantor &&
+			assignment.korwil === derivedAssignment.korwil &&
+			Number(assignment.divisi_id ?? 0) === (derivedAssignment.divisiId ?? 0)
+		);
+		const staleAssignments = automaticAssignments.filter((assignment) => assignment.id !== currentAssignment?.id);
+		const needsNewAssignment = Boolean(derivedAssignment && !currentAssignment);
+		if (staleAssignments.length > 0 || needsNewAssignment) {
+			if (staleAssignments.length > 0) {
+				await connection.execute(
+					`UPDATE user_role_scopes SET is_active = 0 WHERE id IN (${staleAssignments.map(() => '?').join(',')})`,
+					staleAssignments.map((assignment) => assignment.id)
+				);
+				const [ownedRequests] = await connection.execute<Array<RowDataPacket & {
+					id: number;
+					status: string;
+					current_unit_type: 'korwil' | 'central';
+					current_unit_code: string;
+					central_division_id: number | null;
+				}>>(
+					`SELECT id, status, current_unit_type, current_unit_code, central_division_id
+					FROM service_requests
+					WHERE current_owner_user_id = ?
+						AND status IN ('in_progress_korwil', 'in_progress_central')
+					FOR UPDATE`,
+					[userId]
+				);
+				const requestsFromStaleScopes = ownedRequests.filter((request) => staleAssignments.some((assignment) =>
+					(request.current_unit_type === 'korwil' && assignment.role_code === 'korwil_staff' &&
+						assignment.scope_type === 'korwil' && assignment.korwil === request.current_unit_code) ||
+					(request.current_unit_type === 'central' && assignment.role_code === 'division_staff' &&
+						assignment.scope_type === 'division' && Number(assignment.divisi_id) === Number(request.central_division_id))
+				));
+				if (requestsFromStaleScopes.length > 0) {
+					const { notifyUnitMembers } = await import('../notifications/notifications.service.js');
+					for (const request of requestsFromStaleScopes) {
+						const nextStatus = request.current_unit_type === 'korwil' ? 'waiting_korwil' : 'waiting_central';
+						const reason = 'Akses pegawai berubah mengikuti profil SSO; pengajuan dikembalikan ke antrean unit.';
+						await connection.execute(
+							`UPDATE service_requests SET status = ?, current_owner_user_id = NULL WHERE id = ?`,
+							[nextStatus, request.id]
+						);
+						await connection.execute(
+							`UPDATE request_assignments SET released_at = CURRENT_TIMESTAMP(3)
+							WHERE request_id = ? AND assigned_user_id = ? AND released_at IS NULL`,
+							[request.id, userId]
+						);
+						const [history] = await connection.execute<ResultSetHeader>(
+							`INSERT INTO request_status_histories
+								(request_id, actor_user_id, action_name, status_from, status_to,
+								unit_from_type, unit_from_code, unit_to_type, unit_to_code, reason)
+							VALUES (?, ?, 'owner_released_scope_change', ?, ?, ?, ?, ?, ?, ?)`,
+							[
+								request.id, userId, request.status, nextStatus,
+								request.current_unit_type, request.current_unit_code,
+								request.current_unit_type, request.current_unit_code, reason
+							]
+						);
+						await notifyUnitMembers(connection, {
+							requestId: Number(request.id),
+							historyId: Number(history.insertId),
+							unitType: request.current_unit_type,
+							unitCode: request.current_unit_code,
+							eventType: 'request_released_after_scope_change',
+							title: 'Pengajuan kembali ke antrean',
+							body: 'Pengajuan kembali ke antrean unit karena akses pegawai berubah mengikuti profil SSO.'
+						});
+					}
+				}
 			}
-			if (column && before !== after && after !== null) {
-				changedAssignments.push({
-					id: assignment.id,
-					role_code: assignment.role_code,
-					column,
-					before,
-					after
-				});
+			if (derivedAssignment && needsNewAssignment) {
+				const [roleRows] = await connection.execute<Array<RowDataPacket & { id: number }>>(
+					'SELECT id FROM roles WHERE kode = ? AND is_active = 1 LIMIT 1',
+					[derivedAssignment.roleCode]
+				);
+				if (!roleRows[0]) throw new Error('Peran hasil pemetaan SSO tidak tersedia.');
+				await connection.execute(
+					`INSERT INTO user_role_scopes
+						(user_id, role_id, scope_type, kode_kantor, korwil, divisi_id, can_manage_forms, is_active)
+					VALUES (?, ?, ?, ?, ?, ?, 0, 1)`,
+					[
+						userId,
+						roleRows[0].id,
+						derivedAssignment.scopeType,
+						derivedAssignment.kodeKantor,
+						derivedAssignment.korwil,
+						derivedAssignment.divisiId
+					]
+				);
 			}
-		}
-
-		for (const assignment of changedAssignments) {
-			await connection.execute(
-				`UPDATE user_role_scopes SET ${assignment.column} = ? WHERE id = ?`,
-				[assignment.after, assignment.id]
-			);
-		}
-		if (changedAssignments.length > 0) {
 			await connection.execute(
 				`INSERT INTO user_access_audit_logs
 					(actor_user_id, target_user_id, action, before_data, after_data)
@@ -197,24 +247,8 @@ export async function syncSsoProfile(profile: SsoProfile): Promise<void> {
 				[
 					userId,
 					userId,
-					JSON.stringify({
-						source: 'sso_profile_sync',
-						assignments: changedAssignments.map(({ id, role_code, column, before }) => ({
-							assignment_id: id,
-							role: role_code,
-							field: column,
-							value: before
-						}))
-					}),
-					JSON.stringify({
-						source: 'sso_profile_sync',
-						assignments: changedAssignments.map(({ id, role_code, column, after }) => ({
-							assignment_id: id,
-							role: role_code,
-							field: column,
-							value: after
-						}))
-					})
+					JSON.stringify({ source: 'sso_profile_sync', assignments: automaticAssignments }),
+					JSON.stringify({ source: 'sso_profile_sync', assignments: derivedAssignment ? [derivedAssignment] : [] })
 				]
 			);
 		}

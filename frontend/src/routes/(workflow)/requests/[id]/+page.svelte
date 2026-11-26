@@ -535,7 +535,7 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 		<Alert.Root variant="destructive"><Alert.Title>Detail belum dapat dimuat</Alert.Title><Alert.Description>{errorMessage}</Alert.Description><Alert.Action><Button variant="outline" class="min-h-11" onclick={() => void load()}>Coba lagi</Button></Alert.Action></Alert.Root>
 	{:else if detail}
 		{@const item = detail.request}
-		<AppPageHeading id="page-title" meta={`${item.request_number} · ${formatDate(item.submitted_at)}`} title={item.subject} titleCharacterLimit={50} description={`${item.nama_kantor} · Korwil ${item.korwil}`} actionsBelowTitle flush>
+		<AppPageHeading id="page-title" meta={`${item.request_number} · ${formatDate(item.submitted_at)}`} title={item.nama_pekerjaan ?? 'Pengajuan'} titleCharacterLimit={50} description={`${item.nama_kantor} · Korwil ${item.korwil}`} actionsBelowTitle flush>
 			{#snippet actions()}
 				<div class="heading-badges">
 					<Badge variant={item.status === 'rejected' ? 'destructive' : item.status.startsWith('in_progress') ? 'default' : 'secondary'} class={item.status === 'rejected' ? 'status-badge status-badge--risk' : ''}>{statusLabels[item.status] ?? item.status}</Badge>
@@ -557,7 +557,7 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 		{/if}
 		<div class="detail-grid" class:detail-grid--with-aside={detail.decisions.length > 0}>
 			<div class="main-column">
-				<Card.Root size="sm"><Card.Header><Card.Title><FileText class="mr-2 inline size-4" aria-hidden="true" />Uraian pengajuan</Card.Title><Card.Description>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : item.nama_pekerjaan ? `Kewenangan Korwil · Form ${item.nama_pekerjaan}` : 'Kewenangan Korwil'}</Card.Description></Card.Header><Card.Content><p class="description">{item.description}</p></Card.Content></Card.Root>
+				<Card.Root size="sm"><Card.Header><Card.Title><FileText class="mr-2 inline size-4" aria-hidden="true" />Uraian pengajuan</Card.Title><Card.Description>{item.authority_type === 'central' ? `${item.nama_divisi ?? 'Pusat'} · ${item.nama_pekerjaan ?? 'Jenis pekerjaan'}` : item.nama_pekerjaan ? `Kewenangan Korwil · Form ${item.nama_pekerjaan}` : 'Kewenangan Korwil'}</Card.Description></Card.Header><Card.Content class="request-description-content"><div class="request-subject"><span>Perihal</span><p>{item.subject}</p></div><p class="description">{item.description}</p></Card.Content></Card.Root>
 				{#if detail.form_answers.length > 0 || detail.form_answer_groups.length > 0}
 					<Card.Root size="sm"><Card.Header><Card.Title>Data tambahan</Card.Title><Card.Description>Jawaban disimpan sesuai versi form saat tiket dibuat.</Card.Description></Card.Header><Card.Content>
 						{#if detail.form_answer_groups.length > 1}
@@ -792,7 +792,7 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 	.action-copy { min-width:0; flex:1 1 16rem; }
 	:global(.action-list) { display:flex; min-width:0; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:.5rem; }
 	:global(.action-list > button) { min-width:0; }
-	:global(.activity-drawer[data-slot='dialog-content']) { position:fixed; inset:0 0 0 auto; left:auto; width:min(32rem,100vw); max-width:none; height:100dvh; max-height:100dvh; grid-template-rows:auto auto minmax(0,1fr); gap:0; overflow:hidden; padding:0 0 env(safe-area-inset-bottom); border-radius:var(--radius) 0 0 var(--radius); transform:none; translate:none; }
+	:global(.activity-drawer[data-slot='dialog-content']) { position:fixed; inset:var(--app-visual-viewport-top, 0px) 0 auto auto; left:auto; width:min(32rem,var(--app-visual-viewport-width, 100vw)); max-width:none; height:var(--app-visual-viewport-height, 100dvh); max-height:var(--app-visual-viewport-height, 100dvh); grid-template-rows:auto auto minmax(0,1fr); gap:0; overflow:hidden; padding:0 0 env(safe-area-inset-bottom); border-radius:var(--radius) 0 0 var(--radius); transform:none; translate:none; }
 	:global(.activity-drawer-header[data-slot='dialog-header']) { gap:.35rem; padding:1.25rem 3.5rem 1rem 1.25rem; border-bottom:1px solid var(--border); }
 	.activity-latest { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); }
 	.activity-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); padding-inline:.65rem; border-bottom:1px solid var(--border); background:var(--card); }
@@ -827,7 +827,7 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 	.process-totals > div { display:grid; gap:.2rem; padding:.7rem .8rem; border:1px solid var(--border); border-radius:var(--radius); }
 	.process-totals span { color:var(--muted-foreground); font-size:var(--type-xs); }
 	.process-totals strong,.session-duration { font-size:var(--type-sm); font-variant-numeric:tabular-nums; }
-	:global(.action-dialog) { width:min(100% - 2rem, 34rem); max-height:calc(100dvh - 2rem); overflow-y:auto; }
+	:global(.action-dialog) { width:min(calc(var(--app-visual-viewport-width, 100vw) - 2rem), 34rem); max-height:calc(var(--app-visual-viewport-height, 100dvh) - 2rem); overflow-y:auto; }
 	.action-label { margin-top:.2rem; font-size:var(--type-sm); font-weight:600; }
 	.action-field, .revision-input { display:grid; min-width:0; gap:.45rem; }
 	.revision-pending-details { display:grid; gap:.55rem; }
@@ -862,6 +862,10 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 	.decision-item blockquote { margin:0; padding:.6rem .7rem; border-left:2px solid var(--primary); background:var(--muted); font-size:var(--type-sm); white-space:pre-wrap; overflow-wrap:anywhere; }
 	.dialog-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.55rem; }
 	.description { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; }
+	:global(.request-description-content) { display:grid; gap:.85rem; }
+	.request-subject { display:grid; gap:.2rem; }
+	.request-subject span { color:var(--muted-foreground); font-size:var(--type-xs); font-weight:600; }
+	.request-subject p { margin:0; overflow-wrap:anywhere; font-weight:600; line-height:1.45; }
 	:global(.letter-detail) { gap:.75rem; }
 	.attachment-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.7rem; padding:.75rem; border:1px solid var(--border); border-radius:var(--radius); }
 	.attachment-row > div { min-width:0; }
@@ -887,7 +891,7 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 	.answer-list dt { color:var(--muted-foreground); font-size:var(--type-sm); }
 	.answer-list dd { min-width:0; margin:0; overflow-wrap:anywhere; font-size:var(--type-sm); white-space:pre-wrap; }
 	.muted-copy { margin:0; color:var(--muted-foreground); font-size:var(--type-xs); line-height:1.5; }
-	:global(.pdf-preview-dialog) { width:min(92vw,68rem); height:min(90dvh,56rem); max-width:none; max-height:none; grid-template-rows:auto minmax(0,1fr) auto; gap:.75rem; overflow:hidden; padding:1rem; }
+	:global(.pdf-preview-dialog) { width:min(92vw,68rem); height:min(calc(var(--app-visual-viewport-height, 100dvh) - 2rem),56rem); max-width:none; max-height:none; grid-template-rows:auto minmax(0,1fr) auto; gap:.75rem; overflow:hidden; padding:1rem; }
 	:global(.pdf-preview-header[data-slot='dialog-header']) { padding-right:2.25rem; }
 	:global(.pdf-preview-header [data-slot='dialog-title']) { overflow-wrap:anywhere; }
 	.pdf-preview-frame { width:100%; height:100%; min-height:0; border:1px solid var(--border); border-radius:calc(var(--radius) - 2px); background:var(--muted); }
@@ -923,7 +927,7 @@ import type { FormUploadSelection, RequestRejectionReason, RevisionDocumentCateg
 		.answer-pagination :global(button) { flex:1; min-width:0; }
 		:global(.attachment-actions) { width:100%; }
 		:global(.attachment-actions button) { flex:1; }
-		:global(.pdf-preview-dialog) { width:calc(100vw - 1rem); height:calc(100dvh - 1rem); padding:.75rem; }
+		:global(.pdf-preview-dialog) { width:calc(var(--app-visual-viewport-width, 100vw) - 1rem); height:calc(var(--app-visual-viewport-height, 100dvh) - 1rem); padding:.75rem; }
 		.pdf-preview-actions :global(button) { flex:1; }
 	}
 	@media(max-width:72rem) {

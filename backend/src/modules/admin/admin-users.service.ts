@@ -18,6 +18,7 @@ export type UserAssignmentInput = {
 export type UserAccessInput = {
 	is_active: boolean;
 	assignments: UserAssignmentInput[];
+	can_manage_forms: boolean;
 };
 
 export class AdminUserAccessError extends Error {
@@ -260,7 +261,14 @@ export async function importSsoEmployee(employeeId: string, actorEmployeeId: str
 		let roleCode: 'branch_user' | 'korwil_staff' | 'division_staff' | null = null;
 		let scopeType: ScopeType | null = null;
 		let autoScopeLabel: string | null = null;
-		if (kodeKantor === '000' && divisiId !== null) {
+		if (kodeKantor && kodeKantor !== '000') {
+			roleCode = 'branch_user';
+			scopeType = 'office';
+			const [officeRows] = await connection.execute<Array<RowDataPacket & { nama_kantor: string }>>(
+				'SELECT nama_kantor FROM master_kantor WHERE kode_kantor = ? LIMIT 1', [kodeKantor]
+			);
+			autoScopeLabel = officeRows[0]?.nama_kantor ?? kodeKantor;
+		} else if (kodeKantor === '000' && divisiId !== null) {
 			roleCode = 'division_staff';
 			scopeType = 'division';
 			const [divisionRows] = await connection.execute<Array<RowDataPacket & { nama_divisi: string }>>(
@@ -303,7 +311,7 @@ export async function importSsoEmployee(employeeId: string, actorEmployeeId: str
 					userId,
 					roleRows[0].id,
 					scopeType,
-					null,
+					scopeType === 'office' ? kodeKantor : null,
 					scopeType === 'korwil' ? korwil : null,
 					scopeType === 'division' ? divisiId : null
 				]
@@ -375,10 +383,6 @@ export async function updateAdminUserAccess(
 		if (targetRows[0].employee_id === actorEmployeeId) {
 			throw new AdminUserAccessError(409, 'Akses akun admin yang sedang digunakan tidak dapat diubah dari halaman ini.');
 		}
-		if (input.is_active && input.assignments.length === 0) {
-			throw new AdminUserAccessError(400, 'Akun aktif harus memiliki setidaknya satu peran dan cakupan.');
-		}
-
 		await connection.execute('SELECT id FROM roles WHERE kode = ? FOR UPDATE', ['admin']);
 		const [actorAdminRows] = await connection.execute<IdRow[]>(
 			`SELECT s.id FROM user_role_scopes s
@@ -424,6 +428,9 @@ export async function updateAdminUserAccess(
 		for (const assignment of input.assignments) {
 			const role = rolesById.get(assignment.role_id);
 			if (!role) throw new AdminUserAccessError(400, 'Peran yang dipilih tidak tersedia.');
+			if (['branch_user', 'korwil_staff', 'division_staff'].includes(role.kode)) {
+				throw new AdminUserAccessError(400, 'Akses Cabang, Korwil, dan Divisi mengikuti profil SSO dan tidak dapat dipilih manual.');
+			}
 
 			const requiredScope: Record<string, ScopeType> = {
 				admin: 'global',
@@ -527,9 +534,32 @@ export async function updateAdminUserAccess(
 		await connection.execute('UPDATE users SET divisi_id = ? WHERE id = ?', [profileDivisionId, userId]);
 		await connection.execute('UPDATE users SET is_active = ? WHERE id = ?', [input.is_active ? 1 : 0, userId]);
 		await connection.execute(
-			'UPDATE user_role_scopes SET is_active = 0 WHERE user_id = ? AND is_active = 1',
+			`UPDATE user_role_scopes scope
+			INNER JOIN roles role ON role.id = scope.role_id
+			SET scope.is_active = 0
+			WHERE scope.user_id = ? AND scope.is_active = 1
+				AND role.kode NOT IN ('branch_user', 'korwil_staff', 'division_staff')`,
 			[userId]
 		);
+		if (input.can_manage_forms && profileDivisionId === null) {
+			throw new AdminUserAccessError(400, 'Izin kelola form hanya berlaku jika unit kerja SSO terpetakan ke Divisi aktif.');
+		}
+		const [divisionAssignments] = await connection.execute<IdRow[]>(
+			`SELECT scope.id FROM user_role_scopes scope
+			INNER JOIN roles role ON role.id = scope.role_id AND role.kode = 'division_staff'
+			WHERE scope.user_id = ? AND scope.is_active = 1 AND scope.scope_type = 'division'
+				AND scope.divisi_id = ? FOR UPDATE`,
+			[userId, profileDivisionId]
+		);
+		if (input.can_manage_forms && divisionAssignments.length === 0) {
+			throw new AdminUserAccessError(400, 'Akses Divisi belum tersedia dari profil SSO terbaru. Sinkronkan profil lalu coba lagi.');
+		}
+		if (divisionAssignments.length > 0) {
+			await connection.execute(
+				`UPDATE user_role_scopes SET can_manage_forms = ? WHERE id IN (${divisionAssignments.map(() => '?').join(',')})`,
+				[input.can_manage_forms ? 1 : 0, ...divisionAssignments.map((assignment) => assignment.id)]
+			);
+		}
 		for (const { assignment, kode_kantor, korwil, divisi_id, can_manage_forms } of resolvedAssignments) {
 			await connection.execute(
 				`INSERT INTO user_role_scopes

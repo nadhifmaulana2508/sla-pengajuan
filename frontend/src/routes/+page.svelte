@@ -33,6 +33,7 @@
 	let accessPending = $state(false);
 	let loginMode = $state<'sso' | 'sso-dummy' | 'demo'>('sso');
 	let dummyUsers = $state<DummyUserOption[] | null>(null);
+	let dummyUsersUnavailable = $state(false);
 	let ssoDummyLoginEnabled = $state(false);
 	let selectedDummyId = $state('');
 	let dummyUserOptions = $derived((dummyUsers ?? []).map((user) => ({
@@ -51,7 +52,7 @@
 			dummyUsers = users;
 			selectedDummyId = users[0]?.employee_id ?? '';
 		}).catch(() => {
-			// Dummy access stays hidden when the local-only API route is unavailable.
+			dummyUsersUnavailable = true;
 		});
 		void fetchSsoDummyLoginStatus().then((enabled) => {
 			ssoDummyLoginEnabled = enabled;
@@ -212,6 +213,9 @@
 					{/if}
 				</div>
 			{/if}
+			{#if import.meta.env.DEV && dummyUsersUnavailable && !ssoDummyLoginEnabled && !dummyUsers?.length}
+				<p class="demo-unavailable" role="status">Akun demo belum bisa dimuat. Pastikan backend lokal aktif dan <code>DUMMY_AUTH_ENABLED=true</code>.</p>
+			{/if}
 
 			{#if errorMessage}
 				<Alert.Root class="mb-4" variant="destructive">
@@ -280,23 +284,25 @@
 				{/if}
 			{:else if dummyUsers && dummyUsers.length > 0}
 				<section class="dummy-login" aria-labelledby="dummy-login-title">
-					<h3 id="dummy-login-title">Akun demo</h3>
+					<div class="dummy-login-heading">
+						<h3 id="dummy-login-title">Pilih akun demo</h3>
+						<p>Pilih profil uji sesuai peran dan cakupan yang ingin dicoba.</p>
+					</div>
 					<div class="field-group">
-						<Label for="dummy-user">Akun dan role</Label>
+						<Label for="dummy-user">Profil akun</Label>
 						<SearchableSelect
 							id="dummy-user"
-							label="Akun dan role"
+							label="Profil akun"
 							options={dummyUserOptions}
 							value={selectedDummyId}
 							onValueChange={(value) => (selectedDummyId = value)}
 							placeholder="Pilih akun demo"
-							searchPlaceholder="Cari role, cakupan, atau ID..."
+							searchPlaceholder="Cari nama, peran, atau cakupan..."
 							disabled={isSubmitting}
 						/>
 					</div>
 					<Button
 						class="submit-button min-h-11 w-full"
-						variant="outline"
 						size="lg"
 						type="button"
 						disabled={isSubmitting || !selectedDummyId}
@@ -304,7 +310,7 @@
 					>
 						{isSubmitting ? 'Membuka akun demo...' : 'Masuk sebagai akun demo'}
 					</Button>
-					<p class="form-note">Akun demo hanya muncul saat fiturnya diaktifkan pada backend development atau UAT.</p>
+					<p class="form-note">Akun uji memakai data sintetis dan tidak memerlukan password SSO.</p>
 				</section>
 			{/if}
 		</div>
@@ -543,10 +549,10 @@
 	}
 
 	.login-mode-option.active {
-		border-color: var(--border);
-		background: var(--card);
-		color: var(--foreground);
-		box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+		border-color: transparent;
+		background: var(--primary);
+		color: var(--primary-foreground);
+		box-shadow: none;
 	}
 
 	.login-mode-option:focus-visible {
@@ -566,14 +572,22 @@
 
 	.dummy-login {
 		display: grid;
-		gap: 0.9rem;
+		gap: 0.85rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--border);
 	}
+
+	.dummy-login-heading { display: grid; gap: 0.2rem; }
+	.dummy-login-heading p { margin: 0; color: var(--muted-foreground); font-size: var(--type-xs); line-height: 1.5; }
 
 	.dummy-login h3 {
 		margin: 0;
-		font-size: var(--type-base);
+		font-size: var(--type-sm);
 		font-weight: 600;
 	}
+
+	.demo-unavailable { margin: -0.35rem 0 1rem; padding: 0.65rem 0.75rem; border-left: 2px solid var(--ring); background: var(--muted); color: var(--muted-foreground); font-size: var(--type-xs); line-height: 1.5; }
+	.demo-unavailable code { color: var(--foreground); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
 	.password-field {
 		position: relative;
@@ -628,6 +642,7 @@
 		.form-panel { padding: 1.5rem 1rem 2rem; }
 		.login-theme-toggle { top: 0.65rem; right: 0.75rem; }
 		.login-heading { padding-top: 2.5rem; }
+		.login-form-wrap { padding: 1.1rem; }
 	}
 
 	@media (min-width: 901px) {

@@ -133,6 +133,7 @@ export type AdminUserAssignmentInput = {
 export type AdminUserAccessInput = {
 	is_active: boolean;
 	assignments: AdminUserAssignmentInput[];
+	can_manage_forms: boolean;
 };
 
 type AdminMasterResponse = {

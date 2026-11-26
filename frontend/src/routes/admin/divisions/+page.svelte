@@ -297,7 +297,7 @@ import { Building2, LoaderCircle, Pencil, Search, X } from '@lucide/svelte';
 	.row-heading h2 { margin: 0; font-size: var(--type-base); font-weight: 600; overflow-wrap: anywhere; }
 	.row-heading p, .alias-block p { margin: .2rem 0 0; color: var(--muted-foreground); font-size: var(--type-sm); overflow-wrap: anywhere; }
 	.alias-block span { color: var(--muted-foreground); font-size: var(--type-xs); }
-	:global(.division-dialog) { width: min(36rem, calc(100vw - 2rem)); max-height: min(90svh, 48rem); overflow-y: auto; }
+	:global(.division-dialog) { width: min(36rem, calc(var(--app-visual-viewport-width, 100vw) - 2rem)); max-height: min(calc(var(--app-visual-viewport-height, 100dvh) - 1.5rem), 48rem); overflow-y: auto; }
 	:global(.dialog-heading) { display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: .75rem; }
 	.division-form { display: grid; gap: 1rem; }
 	.field-group { display: grid; min-width: 0; gap: .45rem; }
