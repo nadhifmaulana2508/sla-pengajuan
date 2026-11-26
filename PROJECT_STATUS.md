@@ -2,6 +2,8 @@
 
 Terakhir diperbarui: 26 November 2026
 
+**CI GitHub Actions (26 November 2026):** workflow `.github/workflows/ci.yml` menjalankan instalasi lockfile backend/frontend, type-check backend, pemeriksaan Svelte, dan build produksi pada pull request ke `main` serta push ke `main`. Workflow belum dijalankan di GitHub; belum ada deploy otomatis atau akses ke database production.
+
 **Header detail pengajuan mobile (26 November 2026):** gutter tombol kembali dan judul kini diselaraskan lebih dekat dengan isi kartu, sementara nomor/tanggal dibuat lebih terbaca dengan angka tabular. Svelte check lulus 0 error/0 warning dan production build berhasil; verifikasi visual browser belum tersedia pada sesi ini.
 
 **Dialog mobile terpotong (26 November 2026):** utility Tailwind `-translate-x-1/2` dan `-translate-y-1/2` bawaan `Dialog.Content` tetap menggeser menu dan drawer aktivitas karena Tailwind memakai variabel translasi terpisah dari `transform`. `layout.css` kini menolkan variabel tersebut pada seluruh dialog; tiap dialog tetap memakai posisi dan ukurannya sendiri. Svelte check lulus dan production build berhasil; CSS production memuat reset variabel bersama. Pemeriksaan visual pada perangkat/server masih perlu diulang.
