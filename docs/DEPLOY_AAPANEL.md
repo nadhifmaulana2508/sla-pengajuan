@@ -340,7 +340,7 @@ Jika nama PM2 di server dioverride, ganti nama pada command log sesuai nilainya.
 
 ### CD otomatis ke UAT melalui GitHub Actions
 
-Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan untuk pull request dan push ke `main`. Setelah CI pada push `main` lulus, job `deploy-uat` otomatis menghubungi aaPanel melalui SSH dan menjalankan `npm run deploy:production`. Deploy hanya aktif setelah environment variable `AAPANEL_CD_ENABLED=true` dipasang pada GitHub Environment `uat`; sebelum itu CI tetap berjalan tetapi job deploy dilewati. `workflow_dispatch` pada branch `main` juga tersedia untuk memulai CI dan deploy secara manual.
+Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan untuk pull request dan push ke `main`. Setelah CI pada push `main` lulus, job `deploy-uat` otomatis menghubungi aaPanel melalui SSH dan menjalankan `npm run deploy:production`. Deploy hanya aktif setelah repository variable `AAPANEL_CD_ENABLED=true` dibuat; sebelum itu CI tetap berjalan tetapi job deploy dilewati. `workflow_dispatch` pada branch `main` juga tersedia untuk memulai CI dan deploy secara manual.
 
 Workflow mengirim `EXPECTED_DEPLOY_COMMIT` ke server. Jika `main` di server sudah bergeser dari commit yang lulus CI, deploy berhenti sebelum install, migration, build, atau restart. Health check dipatok ke backend `http://127.0.0.1:3100/api/v1/health/database` dan frontend `http://127.0.0.1:4173/`, dengan proses PM2 `sla-backend` dan `sla-frontend`. Pastikan health backend lulus dari aaPanel sebelum mengaktifkan CD; status PM2 `online` saja tidak cukup.
 
