@@ -2,6 +2,8 @@
 
 Terakhir diperbarui: 27 November 2026
 
+**CD UAT satu klik (27 November 2026):** workflow manual `.github/workflows/deploy-uat.yml` menjalankan check/build lalu SSH ke aaPanel hanya dari `main`; konfigurasi koneksi disiapkan melalui GitHub Environment `uat`, dan workflow meneruskan health check eksplisit ke backend port `3100` serta frontend `4173`. Belum dapat dipakai sampai SSH variables/secrets dibuat dan health check manual backend berhasil. Percobaan aaPanel terakhir menampilkan koneksi ditolak di port `3100`, sehingga port listener perlu diselaraskan lebih dulu.
+
 **Login dummy SSO untuk UAT (27 November 2026):** pemilik proyek menetapkan aaPanel sebagai UAT/testing dengan data sintetis dan akses terbatas. Backend kini mendukung remote SSO dummy pada production-mode hanya jika opt-in `SSO_DUMMY_LOGIN_UAT_ENABLED=true`, `SSO_DUMMY_LOGIN_ENABLED=true`, database allowlist (`sla_pengajuan` atau `_staging`), dan token SSO tersedia. Login akun dummy lokal tetap memakai `DUMMY_AUTH_ENABLED`. Runbook dan PRD menjelaskan endpoint SSO UAT, pembatasan VPN/IP, serta kewajiban menonaktifkan semua dummy login sebelum go-live. Belum diterapkan ke server; URL/token SSO UAT dan keberadaan akun dummy pada database perlu dipastikan pemilik proyek.
 
 **Deploy aaPanel tertahan oleh konfigurasi dummy SSO (26 November 2026):** output terminal menunjukkan validasi `SSO_DUMMY_LOGIN_ENABLED` menolak konfigurasi production sebelum migration berjalan. Perintah sudah melewati pull dan instalasi dependency, tetapi gagal saat `db:migrate`; `db:seed-reference`, build, dan restart PM2 belum tercapai. Kebijakan awal hanya mengizinkan login SSO dummy di development; entry UAT 27 November menambahkan opt-in terpisah untuk server UAT yang dibatasi.
