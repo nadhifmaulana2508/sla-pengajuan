@@ -7,6 +7,7 @@ BACKEND_PM2_NAME="${BACKEND_PM2_NAME-sla-pengajuan-backend}"
 FRONTEND_PM2_NAME="${FRONTEND_PM2_NAME-sla-pengajuan-frontend}"
 FRONTEND_PORT="${FRONTEND_PORT-4173}"
 DEPLOY_TARGET="${1:-full}"
+EXPECTED_DEPLOY_COMMIT="${EXPECTED_DEPLOY_COMMIT:-}"
 BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL-http://127.0.0.1:3000/api/v1/health/database}"
 FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL-http://127.0.0.1:$FRONTEND_PORT/}"
 
@@ -55,6 +56,10 @@ fi
 
 printf 'Pull perubahan terbaru pada main...\n'
 git pull --ff-only origin main
+if [[ -n "$EXPECTED_DEPLOY_COMMIT" ]]; then
+	ACTUAL_COMMIT="$(git rev-parse HEAD)"
+	[[ "$ACTUAL_COMMIT" == "$EXPECTED_DEPLOY_COMMIT" ]] || fail "commit main di server ($ACTUAL_COMMIT) tidak cocok dengan commit CI ($EXPECTED_DEPLOY_COMMIT). Jalankan ulang workflow untuk commit terbaru."
+fi
 
 printf 'Install dependency frontend...\n'
 npm ci --prefix frontend

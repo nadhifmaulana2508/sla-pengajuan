@@ -2,7 +2,9 @@
 
 Terakhir diperbarui: 27 November 2026
 
-**CD UAT satu klik (27 November 2026):** workflow manual `.github/workflows/deploy-uat.yml` menjalankan check/build lalu SSH ke aaPanel hanya dari `main`; konfigurasi koneksi disiapkan melalui GitHub Environment `uat`, dan workflow meneruskan health check eksplisit ke backend port `3100` serta frontend `4173`. Belum dapat dipakai sampai SSH variables/secrets dibuat dan health check manual backend berhasil. Percobaan aaPanel terakhir menampilkan koneksi ditolak di port `3100`, sehingga port listener perlu diselaraskan lebih dulu.
+**Perbaikan simpan Master pekerjaan (27 November 2026):** Svelte mengikat input angka Target SLA sebagai `number` atau `undefined`, tetapi handler simpan sebelumnya memanggil `.trim()` pada nilai itu. Handler kini menormalkan nilai angka/kosong sebelum validasi dan mengirim request. `frontend npm.cmd run check` lulus tanpa error atau warning dan build produksi berhasil.
+
+**CD otomatis UAT setelah CI (27 November 2026):** push ke `main` menjalankan verify; setelah lulus, job deploy SSH otomatis berjalan jika repository variable `AAPANEL_CD_ENABLED=true`. Deploy membawa SHA yang diuji agar server berhenti jika `main` sudah bergeser. Health check eksplisit memakai backend `3100` dan frontend `4173`; pemeriksaan terbaru dari aaPanel menunjukkan backend dan database terhubung. Belum diaktifkan karena GitHub SSH variables/secrets belum disiapkan.
 
 **Login dummy SSO untuk UAT (27 November 2026):** pemilik proyek menetapkan aaPanel sebagai UAT/testing dengan data sintetis dan akses terbatas. Backend kini mendukung remote SSO dummy pada production-mode hanya jika opt-in `SSO_DUMMY_LOGIN_UAT_ENABLED=true`, `SSO_DUMMY_LOGIN_ENABLED=true`, database allowlist (`sla_pengajuan` atau `_staging`), dan token SSO tersedia. Login akun dummy lokal tetap memakai `DUMMY_AUTH_ENABLED`. Runbook dan PRD menjelaskan endpoint SSO UAT, pembatasan VPN/IP, serta kewajiban menonaktifkan semua dummy login sebelum go-live. Belum diterapkan ke server; URL/token SSO UAT dan keberadaan akun dummy pada database perlu dipastikan pemilik proyek.
 

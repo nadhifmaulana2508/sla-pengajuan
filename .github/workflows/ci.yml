@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,3 +27,49 @@ jobs:
       - run: npm run check --prefix backend
       - run: npm run check --prefix frontend
       - run: npm run prod
+
+  deploy-uat:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      vars.AAPANEL_CD_ENABLED == 'true'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: uat
+    concurrency:
+      group: sla-pengajuan-uat-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.AAPANEL_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.AAPANEL_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          : "${SSH_PRIVATE_KEY:?Add AAPANEL_SSH_PRIVATE_KEY to the uat environment secrets}"
+          : "${SSH_KNOWN_HOSTS:?Add verified AAPANEL_KNOWN_HOSTS to the uat environment secrets}"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: Deploy on aaPanel
+        env:
+          AAPANEL_HOST: ${{ vars.AAPANEL_HOST }}
+          AAPANEL_PORT: ${{ vars.AAPANEL_PORT }}
+          AAPANEL_USER: ${{ vars.AAPANEL_USER }}
+          EXPECTED_DEPLOY_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          : "${AAPANEL_HOST:?Add AAPANEL_HOST to the uat environment variables}"
+          : "${AAPANEL_PORT:?Add AAPANEL_PORT to the uat environment variables}"
+          : "${AAPANEL_USER:?Add AAPANEL_USER to the uat environment variables}"
+          ssh \
+            -i "$HOME/.ssh/id_ed25519" \
+            -p "$AAPANEL_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "$AAPANEL_USER@$AAPANEL_HOST" \
+            "bash -lc 'cd /www/wwwroot/sla-pengajuan && EXPECTED_DEPLOY_COMMIT=$EXPECTED_DEPLOY_COMMIT BACKEND_PM2_NAME=sla-backend FRONTEND_PM2_NAME=sla-frontend FRONTEND_PORT=4173 BACKEND_HEALTH_URL=http://127.0.0.1:3100/api/v1/health/database FRONTEND_HEALTH_URL=http://127.0.0.1:4173/ npm run deploy:production'"

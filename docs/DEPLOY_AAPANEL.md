@@ -338,20 +338,20 @@ pm2 logs sla-pengajuan-frontend --lines 100
 
 Jika nama PM2 di server dioverride, ganti nama pada command log sesuai nilainya. Setelah health check backend dan frontend berhasil, script menampilkan short commit yang dirilis.
 
-### CD UAT melalui GitHub Actions
+### CD otomatis ke UAT melalui GitHub Actions
 
-Workflow `.github/workflows/deploy-uat.yml` menyediakan rilis satu klik dari **Actions → Deploy UAT → Run workflow** pada branch `main`. Workflow mengulang pemeriksaan dependency, type-check, dan build; hanya jika semuanya lulus, job deploy memakai SSH untuk menjalankan `npm run deploy:production` di aaPanel. Workflow tidak terpicu pada setiap push. GitHub tidak menerima atau membaca `.env`; konfigurasi SSO, database, dan flag UAT tetap berada di server.
+Workflow `.github/workflows/ci.yml` menjalankan pemeriksaan untuk pull request dan push ke `main`. Setelah CI pada push `main` lulus, job `deploy-uat` otomatis menghubungi aaPanel melalui SSH dan menjalankan `npm run deploy:production`. Deploy hanya aktif setelah environment variable `AAPANEL_CD_ENABLED=true` dipasang pada GitHub Environment `uat`; sebelum itu CI tetap berjalan tetapi job deploy dilewati. `workflow_dispatch` pada branch `main` juga tersedia untuk memulai CI dan deploy secara manual.
 
-Sebelum mengaktifkannya, pastikan release manual sudah sehat di server. Proses PM2 `online` saja belum cukup: backend harus menjawab health check yang sama dengan workflow pada `http://127.0.0.1:3100/api/v1/health/database`. Screenshot deploy terakhir menunjukkan koneksi port `3100` ditolak; selaraskan `API_PORT` backend, PM2, dan URL health check terlebih dahulu. Workflow memakai port backend `3100`, frontend `4173`, serta nama PM2 `sla-backend` dan `sla-frontend`; jika konfigurasi server berubah, ubah nilainya pada workflow.
+Workflow mengirim `EXPECTED_DEPLOY_COMMIT` ke server. Jika `main` di server sudah bergeser dari commit yang lulus CI, deploy berhenti sebelum install, migration, build, atau restart. Health check dipatok ke backend `http://127.0.0.1:3100/api/v1/health/database` dan frontend `http://127.0.0.1:4173/`, dengan proses PM2 `sla-backend` dan `sla-frontend`. Pastikan health backend lulus dari aaPanel sebelum mengaktifkan CD; status PM2 `online` saja tidak cukup.
 
 Siapkan akses GitHub Environment bernama `uat`:
 
-1. Buat SSH key khusus deploy dari komputer tepercaya, lalu pasang public key pada `authorized_keys` user Linux yang memiliki proses PM2 aaPanel. Saat ini screenshot menunjukkan proses dimiliki `root`, jadi workflow harus memakai user tersebut sampai proses dipindahkan ke user deploy khusus.
-2. Verifikasi fingerprint SSH server lewat aaPanel/kanal admin, lalu simpan baris `known_hosts` yang sudah diverifikasi sebagai environment secret `AAPANEL_KNOWN_HOSTS`. Jangan mengambil host key secara otomatis saat workflow berjalan.
-3. Di **Settings → Environments**, buat environment `uat`. Simpan private key sebagai secret `AAPANEL_SSH_PRIVATE_KEY`; tambahkan `AAPANEL_HOST`, `AAPANEL_PORT`, dan `AAPANEL_USER` sebagai environment variables. Batasi deployment branch ke `main`; tambahkan required reviewer jika ingin persetujuan sebelum SSH dijalankan.
-4. Jalankan **Actions → Deploy UAT → Run workflow**, pilih `main`, lalu mulai. Workflow menjalankan pemeriksaan lagi sebelum menyentuh server. Deploy berhenti jika CI/build gagal, SSH tidak valid, migration gagal, atau health check backend/frontend gagal.
+1. Buat SSH key deploy di komputer tepercaya. Pasang **public key** pada `/root/.ssh/authorized_keys` aaPanel; private key tetap di komputer sampai dimasukkan ke GitHub Secret. Jangan simpan private key dalam folder project.
+2. Verifikasi fingerprint SSH server lewat aaPanel, lalu simpan baris `known_hosts` yang cocok sebagai secret `AAPANEL_KNOWN_HOSTS`. Workflow menolak host key yang tidak cocok.
+3. Di **Settings → Environments**, buat environment `uat`. Tambahkan environment variables `AAPANEL_HOST`, `AAPANEL_PORT`, dan `AAPANEL_USER`; tambahkan secrets `AAPANEL_SSH_PRIVATE_KEY` dan `AAPANEL_KNOWN_HOSTS`. Batasi deployment branch ke `main`.
+4. Di **Settings → Secrets and variables → Actions → Variables**, buat repository variable `AAPANEL_CD_ENABLED=false` atau biarkan belum ada selama setup awal. Uji login SSH dari komputer, pastikan health backend/frontend lulus, lalu ubah variable itu menjadi `true`. Push berikutnya ke `main` akan menjalankan deploy setelah CI berhasil. Untuk menjalankan segera setelah aktivasi, pilih **Actions → CI → Run workflow** pada branch `main`.
 
-Server tetap harus dapat menjalankan `git pull --ff-only origin main` dari GitHub. Akun SSH yang dipakai harus memiliki akses repository tersebut dan environment Node/npm aaPanel melalui login shell. Jangan menaruh token Git, SSO, atau kredensial database di workflow.
+Saat ini proses PM2 dimiliki `root`, jadi `AAPANEL_USER` harus `root` agar workflow dapat me-restart proses. Key yang dipasang pada akun root memiliki akses server luas; pisahkan user deploy dan pindahkan PM2 bila ingin isolasi per project. Server tetap harus dapat menjalankan `git pull --ff-only origin main` dari GitHub dan menyediakan Node/npm pada login shell. GitHub tidak menerima `.env`; konfigurasi SSO dan database tetap di server.
 
 
 ## 9. Backup dan keamanan minimum
